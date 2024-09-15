@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画像モザイク処理</title>
+    <style>
+        #canvas {
+            border: 1px solid #000;
+            max-width: 100%; /* 画面幅に合わせてサイズ調整 */
+            max-height: 90vh; /* 画面高さの90%に制限 */
+        }
+        #dropZone {
+            width: 100%;
+            height: 300px;
+            border: 2px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #666;
+        }
+        #dropZone.dragover {
+            border-color: #000;
+            background-color: #eee;
+        }
+        #downloadBtn {
+            font-size: 18px;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #downloadBtn:hover {
+            background-color: #45a049;
+        }
+        #pixelSizeControl {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        #pixelSizeControl button {
+            font-size: 24px; /* フォントサイズを大きくする */
+            padding: 10px 20px; /* パディングを広げる */
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #pixelSizeControl button:hover {
+            background-color: #e0e0e0;
+        }
+        #pixelSizeControl input {
+            width: 60px;
+            text-align: center;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>画像モザイク処理</h1>
+    <br>
+    <label for="pixelSize">ピクセルサイズ:</label>
+    <div id="pixelSizeControl">
+        <input type="number" id="pixelSize" value="4" min="1" step="1">
+        <button id="decreasePixelSize">-</button>
+        <button id="increasePixelSize">+</button>
+    </div>
+
+    <div id="dropZone">ここに画像をドラッグ＆ドロップしてください</div>
+    <input type="file" id="fileInput" multiple style="display:none;">
+    
+    <br>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const fileInput = document.getElementById('fileInput');
+        const pixelSizeInput = document.getElementById('pixelSize');
+        const increasePixelSizeBtn = document.getElementById('increasePixelSize');
+        const decreasePixelSizeBtn = document.getElementById('decreasePixelSize');
+
+        let images = [];
+        let currentFileIndex = 0;
+
+        dropZone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(event.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', () => {
+            handleFiles(fileInput.files);
+        });
+
+        function handleFiles(files) {
+            images = [];
+            currentFileIndex = 0;
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        images.push({
+                            image: img,
+                            name: file.name
+                        });
+                        if (images.length === files.length) {
+                            processNextImage();
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function processNextImage() {
+            if (currentFileIndex < images.length) {
+                const imgData = images[currentFileIndex];
+                // Resize canvas to fit within the viewport while maintaining aspect ratio
+                const maxWidth = window.innerWidth * 0.9;
+                const maxHeight = window.innerHeight * 0.8;
+                const imgAspect = imgData.image.width / imgData.image.height;
+                const canvasAspect = maxWidth / maxHeight;
+
+                if (imgAspect > canvasAspect) {
+                    canvas.width = maxWidth;
+                    canvas.height = maxWidth / imgAspect;
+                } else {
+                    canvas.height = maxHeight;
+                    canvas.width = maxHeight * imgAspect;
+                }
+
+                ctx.drawImage(imgData.image, 0, 0, canvas.width, canvas.height);
+                applyMosaic(() => {
+                    downloadImage(imgData.name);
+                    currentFileIndex++;
+                    processNextImage();
+                });
+            }
+        }
+
+        function applyMosaic(callback) {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixelSize = parseInt(pixelSizeInput.value, 10) || 8;
+
+            for (let y = 0; y < canvas.height; y += pixelSize) {
+                for (let x = 0; x < canvas.width; x += pixelSize) {
+                    const pixelIndex = (y * canvas.width + x) * 4;
+                    const red = imageData.data[pixelIndex];
+                    const green = imageData.data[pixelIndex + 1];
+                    const blue = imageData.data[pixelIndex + 2];
+
+                    for (let dy = 0; dy < pixelSize; dy++) {
+                        for (let dx = 0; dx < pixelSize; dx++) {
+                            const index = ((y + dy) * canvas.width + (x + dx)) * 4;
+                            imageData.data[index] = red;
+                            imageData.data[index + 1] = green;
+                            imageData.data[index + 2] = blue;
+                        }
+                    }
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+            if (callback) callback();
+        }
+
+        function downloadImage(originalName) {
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            const baseName = originalName.substring(0, originalName.lastIndexOf('.')) || originalName;
+            link.download = `ぼかし_${baseName}.png`;
+            link.click();
+        }
+
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        increasePixelSizeBtn.addEventListener('click', () => {
+            let pixelSize = parseInt(pixelSizeInput.value, 10);
+            pixelSize += 1;
+            pixelSizeInput.value = pixelSize;
+        });
+
+        decreasePixelSizeBtn.addEventListener('click', () => {
+            let pixelSize = parseInt(pixelSizeInput.value, 10);
+            if (pixelSize > 1) {
+                pixelSize -= 1;
+                pixelSizeInput.value = pixelSize;
+            }
+        });
+    </script>
+</body>
+</html>
