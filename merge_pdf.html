@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PDFファイル結合アプリ</title>
+  <style>
+    #drop-area {
+      border: 2px dashed #007bff;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      margin: 20px;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #drop-area.highlight {
+      border-color: #0056b3;
+      background-color: #e7f0ff;
+    }
+  </style>
+</head>
+<body>
+  <h2>PDFをファイル名順に結合します</h2>
+  <!-- ドラッグアンドドロップ領域 -->
+  <div id="drop-area">
+    <p>ここにPDFファイルをドラッグアンドドロップしてください</p>
+  </div>
+  <!-- PDF-libの読み込み -->
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script>
+    const { PDFDocument } = PDFLib;
+    const dropArea = document.getElementById('drop-area');
+
+    function handleFiles(files) {
+      const fileArray = Array.from(files);
+
+      // PDFファイルのフィルタリングとファイル名でのソート
+      const pdfFiles = fileArray.filter(file => file.type === 'application/pdf');
+      pdfFiles.sort((a, b) => a.name.localeCompare(b.name));
+
+      if (pdfFiles.length === 0) {
+        alert("PDFファイルが選択されていません");
+        return;
+      }
+
+      PDFDocument.create().then(async (mergedPdf) => {
+        for (const file of pdfFiles) {
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await PDFDocument.load(arrayBuffer);
+            const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+            copiedPages.forEach(page => mergedPdf.addPage(page));
+          } catch (error) {
+            console.error('PDFの読み込みまたは結合中にエラーが発生しました:', error);
+          }
+        }
+
+        try {
+          const mergedArrayBuffer = await mergedPdf.save();
+          const blob = new Blob([mergedArrayBuffer], { type: "application/pdf" });
+          const url = URL.createObjectURL(blob);
+
+          // 自動的にダウンロードを開始
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'merged.pdf';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          // Blob URLを解放
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error('PDFの保存中にエラーが発生しました:', error);
+        }
+      });
+    }
+
+    dropArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropArea.classList.add('highlight');
+    });
+
+    dropArea.addEventListener('dragleave', () => {
+      dropArea.classList.remove('highlight');
+    });
+
+    dropArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropArea.classList.remove('highlight');
+      handleFiles(e.dataTransfer.files);
+    });
+
+  </script>
+</body>
+</html>
