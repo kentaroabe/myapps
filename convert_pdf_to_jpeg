@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>PDF to JPEG Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #drop-zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #output img {
+            max-width: 100%;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>PDFをJPEGに変換</h1>
+    <div id="drop-zone">ここにPDFファイルをドラッグ&ドロップしてください</div>
+    <input type="file" id="pdf-upload" accept="application/pdf" multiple style="display: none;" />
+    <div id="output"></div>
+
+    <!-- PDF.js ライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+    <script>
+        const pdfUpload = document.getElementById('pdf-upload');
+        const output = document.getElementById('output');
+        const dropZone = document.getElementById('drop-zone');
+
+        function handleFiles(files) {
+            if (!files.length) {
+                alert('PDFファイルを選択してください。');
+                return;
+            }
+
+            for (const file of files) {
+                if (file.type !== 'application/pdf') {
+                    alert(`${file.name} はPDFファイルではありません。スキップします。`);
+                    continue;
+                }
+
+                const fileReader = new FileReader();
+                fileReader.onload = async function() {
+                    try {
+                        const typedarray = new Uint8Array(this.result);
+                        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                        const numPages = pdf.numPages;
+
+                        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+                            const page = await pdf.getPage(pageNum);
+                            const viewport = page.getViewport({ scale: 2 });
+                            const canvas = document.createElement('canvas');
+                            const context = canvas.getContext('2d');
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+
+                            await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+                            const imgDataUrl = canvas.toDataURL('image/jpeg');
+
+                            // 画像をページに表示（オプション）
+                            const img = document.createElement('img');
+                            img.src = imgDataUrl;
+                            img.alt = `${file.name} - ページ ${pageNum}`;
+                            output.appendChild(img);
+
+                            // ダウンロード用リンクを作成して自動クリック
+                            const link = document.createElement('a');
+                            link.href = imgDataUrl;
+                            // 元のファイル名から拡張子を除去
+                            const baseName = file.name.replace(/\.pdf$/i, '');
+                            link.download = `画像_${baseName}_${pageNum}.jpeg`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        }
+                    } catch (error) {
+                        console.error(`Error processing ${file.name}:`, error);
+                        alert(`${file.name} の処理中にエラーが発生しました。`);
+                    }
+                };
+
+                fileReader.readAsArrayBuffer(file);
+            }
+
+            // 入力をリセット（同じファイルを再度選択可能にするため）
+            pdfUpload.value = '';
+        }
+
+        // ファイルがドロップされたとき
+        dropZone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const files = event.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        // ドラッグ中のスタイル変更
+        dropZone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            dropZone.style.backgroundColor = '#f0f0f0';
+        });
+
+        dropZone.addEventListener('dragleave', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            dropZone.style.backgroundColor = '';
+        });
+
+        // ファイルが選択されたとき
+        pdfUpload.addEventListener('change', async (event) => {
+            const files = event.target.files;
+            handleFiles(files);
+        });
+    </script>
+</body>
+</html>
