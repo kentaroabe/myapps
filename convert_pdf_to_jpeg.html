@@ -74,7 +74,7 @@
                                 link.href = imgDataUrl;
                                 // 元のファイル名から拡張子を除去
                                 const baseName = file.name.replace(/\.pdf$/i, '');
-                                link.download = `画像_${baseName}_ページ${pageNum}.jpeg`;
+                                link.download = `${baseName}_${pageNum}.jpeg`;
                                 document.body.appendChild(link);
                                 link.click();
                                 document.body.removeChild(link);
