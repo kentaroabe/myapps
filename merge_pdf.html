@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>PDFファイル結合アプリ</title>
+  <title>ファイル結合アプリ</title>
   <style>
     #drop-area {
       border: 2px dashed #007bff;
@@ -54,10 +54,10 @@
 <a href="../" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
 
 <body>
-  <h2>PDFを順番を並べ替えて結合します</h2>
+  <h2>PDFや画像を順番を並べ替えて結合して、PDFで出力します</h2>
   <!-- ドラッグアンドドロップ領域 -->
   <div id="drop-area">
-    <p>ここにPDFファイルをドラッグアンドドロップしてください</p>
+    <p>ここにPDFまたは画像ファイルをドラッグアンドドロップしてください</p>
   </div>
   <!-- ファイルリスト -->
   <ul id="file-list"></ul>
@@ -77,18 +77,18 @@
     const outputButton = document.getElementById('output-button');
     const sortButton = document.getElementById('sort-button');
     const filenameInput = document.getElementById('filename-input');
-    let pdfFiles = [];
+    let files = [];
 
     // ファイルリストの並べ替えを可能にする
     new Sortable(fileList, {
       animation: 150,
     });
 
-    function handleFiles(files) {
-      pdfFiles = Array.from(files).filter(file => file.type === 'application/pdf');
+    function handleFiles(inputFiles) {
+      files = Array.from(inputFiles).filter(file => file.type === 'application/pdf' || file.type.startsWith('image/'));
 
-      if (pdfFiles.length === 0) {
-        alert("PDFファイルが選択されていません");
+      if (files.length === 0) {
+        alert("PDFまたは画像ファイルが選択されていません");
         return;
       }
 
@@ -97,7 +97,7 @@
 
     function renderFileList() {
       fileList.innerHTML = '';
-      pdfFiles.forEach((file, index) => {
+      files.forEach((file, index) => {
         const li = document.createElement('li');
         li.textContent = file.name;
         li.setAttribute('data-index', index);
@@ -106,17 +106,41 @@
     }
 
     async function mergePDFs() {
-      const sortedFiles = Array.from(fileList.children).map(li => pdfFiles[li.getAttribute('data-index')]);
+      const sortedFiles = Array.from(fileList.children).map(li => files[li.getAttribute('data-index')]);
       const mergedPdf = await PDFDocument.create();
 
       for (const file of sortedFiles) {
         try {
-          const arrayBuffer = await file.arrayBuffer();
-          const pdf = await PDFDocument.load(arrayBuffer);
-          const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-          copiedPages.forEach(page => mergedPdf.addPage(page));
+          if (file.type === 'application/pdf') {
+            // PDFファイルの処理
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await PDFDocument.load(arrayBuffer);
+            const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+            copiedPages.forEach(page => mergedPdf.addPage(page));
+          } else if (file.type.startsWith('image/')) {
+            // 画像ファイルの処理
+            const arrayBuffer = await file.arrayBuffer();
+            const imageBytes = new Uint8Array(arrayBuffer);
+            const img = new Image();
+            img.src = URL.createObjectURL(new Blob([imageBytes]));
+
+            await new Promise((resolve) => {
+              img.onload = async () => {
+                const page = mergedPdf.addPage([img.width, img.height]);
+                const imageType = file.type === 'image/jpeg' || file.type === 'image/jfif' ? 'jpeg' : 'png';
+                const pdfImage = imageType === 'jpeg' ? await mergedPdf.embedJpg(imageBytes) : await mergedPdf.embedPng(imageBytes);
+                page.drawImage(pdfImage, {
+                  x: 0,
+                  y: 0,
+                  width: img.width,
+                  height: img.height
+                });
+                resolve();
+              };
+            });
+          }
         } catch (error) {
-          console.error('PDFの読み込みまたは結合中にエラーが発生しました:', error);
+          console.error('ファイルの読み込みまたは結合中にエラーが発生しました:', error);
         }
       }
 
@@ -141,7 +165,7 @@
     }
 
     function sortFilesByName() {
-      pdfFiles.sort((a, b) => a.name.localeCompare(b.name));
+      files.sort((a, b) => a.name.localeCompare(b.name));
       renderFileList();
     }
 
