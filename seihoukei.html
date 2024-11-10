@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画像を正方形にするツール</title>
+    <style>
+        #drop-area {
+            width: 100%;
+            height: 300px;
+            border: 2px dashed #ccc;
+            text-align: center;
+            line-height: 300px;
+            transition: background-color 0.3s ease;
+        }
+        #drop-area.dragover {
+            background-color: #f0f8ff;
+            border-color: #00aaff;
+        }
+        #file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>画像を正方形にするツール</h1>
+    <div id="drop-area">
+        ここに画像をドラッグ＆ドロップするか、クリックして選択してください
+        <input type="file" id="file-input" accept="image/*">
+    </div>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <script>
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('file-input');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        dropArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        dropArea.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropArea.classList.add('dragover');
+        });
+
+        dropArea.addEventListener('dragleave', (event) => {
+            dropArea.classList.remove('dragover');
+        });
+
+        dropArea.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropArea.classList.remove('dragover');
+            const file = event.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                processFile(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                processFile(file);
+            }
+        });
+
+        function processFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const size = Math.max(img.width, img.height);
+                    canvas.width = size;
+                    canvas.height = size;
+
+                    if (img.width > img.height) {
+                        // 横長の場合：空白を下に追加
+                        ctx.fillStyle = "white";
+                        ctx.fillRect(0, 0, size, size);
+                        ctx.drawImage(img, 0, (size - img.height) / 2);
+                    } else {
+                        // 縦長の場合：下側をトリミングし、上側を残す
+                        const offsetY = 0;
+                        ctx.drawImage(img, 0, offsetY, img.width, img.width, 0, 0, size, size);
+                    }
+
+                    const link = document.createElement('a');
+                    link.download = `正方形_${file.name}`;
+                    link.href = canvas.toDataURL();
+                    link.click();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    </script>
+</body>
+</html>
