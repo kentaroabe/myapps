@@ -20,11 +20,11 @@
         }
     </style>
 </head>
-          <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
+<a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
 
 <body>
-    <h1>JPEGをPDFに変換</h1>
-    <div id="drop-zone">ここにJPEGファイルをドラッグ&ドロップしてください</div>
+    <h1>画像をPDFに変換</h1>
+    <div id="drop-zone">ここに画像ファイルをドラッグ&ドロップしてください</div>
     <input type="file" id="file-upload" accept=".jpeg,.jpg,.jfif,.png" multiple style="display: none;" />
     <div id="output"></div>
 
@@ -42,8 +42,10 @@
                 return;
             }
 
-            const pdf = new jsPDF();
             let imageAdded = false;
+
+            // 初期PDFの向きを設定しないでおく
+            let pdf;
 
             for (const file of files) {
                 const fileType = file.type;
@@ -54,12 +56,26 @@
                     fileReader.onload = function() {
                         const img = new Image();
                         img.onload = function() {
-                            // 画像をPDFに追加
-                            const imgWidth = 210; // A4用紙の幅（mm単位）
-                            const imgHeight = (img.height * imgWidth) / img.width;
-                            if (imageAdded) {
-                                pdf.addPage();
+                            // 画像の向きを決定する
+                            let imgWidth, imgHeight;
+                            let orientation = 'p'; // 縦長デフォルト
+
+                            if (img.width > img.height) {
+                                orientation = 'l'; // 横長の場合ランドスケープに変更
+                                imgWidth = 297; // A4横幅（mm単位）
+                                imgHeight = (img.height * imgWidth) / img.width;
+                            } else {
+                                imgWidth = 210; // A4縦幅（mm単位）
+                                imgHeight = (img.height * imgWidth) / img.width;
                             }
+
+                            // PDFの初期化（最初のページを作成するときに行う）
+                            if (!imageAdded) {
+                                pdf = new jsPDF({ orientation });
+                            } else {
+                                pdf.addPage(orientation);
+                            }
+
                             const format = fileType === 'image/png' ? 'PNG' : 'JPEG';
                             pdf.addImage(img, format, 0, 0, imgWidth, imgHeight);
                             imageAdded = true;
