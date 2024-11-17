@@ -86,8 +86,12 @@
                         ctx.drawImage(img, 0, offsetY, img.width, img.width, 0, 0, size, size);
                     }
 
+                    // ファイル名に「_正方形.png」を追加して保存
+                    const baseFileName = file.name.replace(/\.[^/.]+$/, "");
+                    const newFileName = `${baseFileName}_正方形.png`;
+
                     const link = document.createElement('a');
-                    link.download = `${file.name}_正方形`;
+                    link.download = newFileName;
                     link.href = canvas.toDataURL();
                     link.click();
                 };
