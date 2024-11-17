@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>JPEGをPDFに変換</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #drop-zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #output img {
+            max-width: 100%;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>JPEGをPDFに変換</h1>
+    <div id="drop-zone">ここにJPEGファイルをドラッグ&ドロップしてください</div>
+    <input type="file" id="file-upload" accept=".jpeg,.jpg,.jfif,.png" multiple style="display: none;" />
+    <div id="output"></div>
+
+    <!-- jsPDF ライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        const { jsPDF } = window.jspdf;
+        const fileUpload = document.getElementById('file-upload');
+        const output = document.getElementById('output');
+        const dropZone = document.getElementById('drop-zone');
+
+        function handleFiles(files) {
+            if (!files.length) {
+                alert('JPEGまたはPNGファイルを選択してください。');
+                return;
+            }
+
+            const pdf = new jsPDF();
+            let imageAdded = false;
+
+            for (const file of files) {
+                const fileType = file.type;
+
+                if (fileType === 'image/jpeg' || fileType === 'image/jpg' || fileType === 'image/jfif' || fileType === 'image/png' || file.name.toLowerCase().endsWith('.jfif') || file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg') || file.name.toLowerCase().endsWith('.png')) {
+                    // JPEGファイルの処理
+                    const fileReader = new FileReader();
+                    fileReader.onload = function() {
+                        const img = new Image();
+                        img.onload = function() {
+                            // 画像をPDFに追加
+                            const imgWidth = 210; // A4用紙の幅（mm単位）
+                            const imgHeight = (img.height * imgWidth) / img.width;
+                            if (imageAdded) {
+                                pdf.addPage();
+                            }
+                            const format = fileType === 'image/png' ? 'PNG' : 'JPEG';
+                            pdf.addImage(img, format, 0, 0, imgWidth, imgHeight);
+                            imageAdded = true;
+                        };
+                        img.onerror = function() {
+                            alert(`${file.name} の読み込み中にエラーが発生しました。`);
+                        };
+                        img.src = fileReader.result;
+                    };
+                    fileReader.readAsDataURL(file);
+                } else {
+                    alert(`${file.name} はサポートされていないファイル形式です。スキップします。`);
+                    continue;
+                }
+            }
+
+            // 入力をリセット（同じファイルを再度選択可能にするため）
+            fileUpload.value = '';
+
+            // 全ての画像が追加された後にPDFをダウンロード
+            setTimeout(() => {
+                if (imageAdded) {
+                    const baseName = files[0].name.replace(/\.[^.]+$/, '');
+                    pdf.save(`${baseName}.pdf`);
+                } else {
+                    alert('PDFに変換できる画像がありませんでした。');
+                }
+            }, 1000);
+        }
+
+        // ファイルがドロップされたとき
+        dropZone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const files = event.dataTransfer.files;
+            handleFiles(files);
+            dropZone.style.backgroundColor = ''; // 背景色をリセット
+        });
+
+        // ドラッグ中のスタイル変更
+        dropZone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            dropZone.style.backgroundColor = '#f0f0f0';
+        });
+
+        dropZone.addEventListener('dragleave', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            dropZone.style.backgroundColor = '';
+        });
+
+        // ファイルが選択されたとき
+        fileUpload.addEventListener('change', async (event) => {
+            const files = event.target.files;
+            handleFiles(files);
+        });
+
+        // ドロップゾーンをクリックしてファイル選択ダイアログを開く
+        dropZone.addEventListener('click', () => {
+            fileUpload.click();
+        });
+    </script>
+</body>
+</html>
