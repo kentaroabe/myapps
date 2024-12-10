@@ -31,17 +31,22 @@
       border: 1px solid #ddd;
       cursor: move;
     }
-    #output-button, #sort-button {
+    #output-button, #sort-button, #reverse-sort-button {
       margin-top: 20px;
       padding: 10px 20px;
-      background-color: #007bff;
       color: white;
       border: none;
       border-radius: 5px;
       cursor: pointer;
     }
+    #output-button {
+      background-color: #007bff;
+    }
     #sort-button {
       background-color: #28a745;
+    }
+    #reverse-sort-button {
+      background-color: #ffc107;
     }
     #filename-input {
       margin-top: 20px;
@@ -51,8 +56,6 @@
     }
   </style>
 </head>
-      <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-
 <body>
   <h2>PDFや画像を順番を並べ替えて結合して、PDFで出力します</h2>
   <!-- ドラッグアンドドロップ領域 -->
@@ -63,6 +66,7 @@
   <ul id="file-list"></ul>
   <!-- 並べ替えボタン -->
   <button id="sort-button">ファイル名順に並べ替え</button>
+  <button id="reverse-sort-button">ファイル名逆順に並べ替え</button>
   <!-- ファイル名入力ボックス -->
   <input type="text" id="filename-input" value="PDFまとめ" placeholder="出力ファイル名">
   <!-- 出力ボタン -->
@@ -76,6 +80,7 @@
     const fileList = document.getElementById('file-list');
     const outputButton = document.getElementById('output-button');
     const sortButton = document.getElementById('sort-button');
+    const reverseSortButton = document.getElementById('reverse-sort-button');
     const filenameInput = document.getElementById('filename-input');
     let files = [];
 
@@ -169,6 +174,11 @@
       renderFileList();
     }
 
+    function sortFilesByNameReverse() {
+      files.sort((a, b) => b.name.localeCompare(a.name));
+      renderFileList();
+    }
+
     dropArea.addEventListener('dragover', (e) => {
       e.preventDefault();
       dropArea.classList.add('highlight');
@@ -186,6 +196,7 @@
 
     outputButton.addEventListener('click', mergePDFs);
     sortButton.addEventListener('click', sortFilesByName);
+    reverseSortButton.addEventListener('click', sortFilesByNameReverse);
   </script>
 </body>
 </html>
