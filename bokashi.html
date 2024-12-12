@@ -3,12 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ぼかし処理</title>
+    <title>画像ぼかし処理</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        #canvas {
-            border: 1px solid #000;
-            max-width: 100%; /* 画面幅に合わせてサイズ調整 */
-            max-height: 90vh; /* 画面高さの90%に制限 */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
         }
         #dropZone {
             width: 100%;
@@ -19,76 +35,85 @@
             justify-content: center;
             text-align: center;
             color: #666;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            background-color: #f1f1f1;
+            cursor: pointer;
         }
         #dropZone.dragover {
-            border-color: #000;
-            background-color: #eee;
+            border-color: #007bff;
+            background-color: #e6f7ff;
         }
-        #downloadBtn {
-            font-size: 18px;
-            padding: 15px 30px;
-            border: none;
-            border-radius: 5px;
-            background-color: #4CAF50;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        #downloadBtn:hover {
-            background-color: #45a049;
-        }
-        #pixelSizeControl {
+        #controlPanel {
+            margin-bottom: 30px;
             display: flex;
             align-items: center;
-            margin-bottom: 10px;
+            gap: 15px;
+            justify-content: center;
         }
-        #pixelSizeControl button {
-            font-size: 24px; /* フォントサイズを大きくする */
-            padding: 10px 20px; /* パディングを広げる */
-            border: 1px solid #ccc;
-            background-color: #f9f9f9;
-            cursor: pointer;
-            transition: background-color 0.3s;
+        #controlPanel label {
+            font-size: 1.2rem;
+            font-weight: 600;
         }
-        #pixelSizeControl button:hover {
-            background-color: #e0e0e0;
-        }
-        #pixelSizeControl input {
+        #controlPanel input {
             width: 60px;
             text-align: center;
-            margin: 0 10px;
+            padding: 5px;
+            font-size: 1rem;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        #controlPanel button {
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #controlPanel button:hover {
+            background-color: #0056b3;
+        }
+        #output img {
+            max-width: 100%;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        .input-group-prepend, .input-group-append {
+            display: none;
+        }
+        .input-group {
+            display: flex;
+            justify-content: center;
         }
     </style>
 </head>
-      <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-
 <body>
-    <h1>画像モザイク処理</h1>
-    <br>
-    <label for="pixelSize">ピクセルサイズ:</label>
-    <div id="pixelSizeControl">
-        <input type="number" id="pixelSize" value="2" min="1" step="1">
-        <button id="decreasePixelSize">-</button>
-        <button id="increasePixelSize">+</button>
-    </div>
+    <div class="container">
+        <h1>画像ぼかし処理</h1>
 
-    <div id="dropZone">ここに画像をドラッグ＆ドロップしてください</div>
-    <input type="file" id="fileInput" multiple style="display:none;">
-    
-    <br>
-    <canvas id="canvas"></canvas>
+        <div id="controlPanel" class="mb-4 d-flex align-items-center justify-content-center">
+            <label for="pixelSize" class="mr-2">ぼかし濃度 (ピクセルサイズ):</label>
+            <input type="number" id="pixelSize" value="10" min="1" step="1" class="form-control text-center">
+            <button id="decreasePixelSize" class="btn btn-outline-secondary">-</button>
+            <button id="increasePixelSize" class="btn btn-outline-secondary">+</button>
+        </div>
+
+        <div id="dropZone">ここに画像をドラッグ＆ドロップしてください</div>
+        <input type="file" id="fileInput" multiple style="display:none;">
+
+        <div id="output"></div>
+    </div>
 
     <script>
         const dropZone = document.getElementById('dropZone');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
         const fileInput = document.getElementById('fileInput');
+        const output = document.getElementById('output');
         const pixelSizeInput = document.getElementById('pixelSize');
         const increasePixelSizeBtn = document.getElementById('increasePixelSize');
         const decreasePixelSizeBtn = document.getElementById('decreasePixelSize');
-
-        let images = [];
-        let currentFileIndex = 0;
 
         dropZone.addEventListener('dragover', (event) => {
             event.preventDefault();
@@ -109,88 +134,6 @@
             handleFiles(fileInput.files);
         });
 
-        function handleFiles(files) {
-            images = [];
-            currentFileIndex = 0;
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = new Image();
-                    img.onload = function() {
-                        images.push({
-                            image: img,
-                            name: file.name
-                        });
-                        if (images.length === files.length) {
-                            processNextImage();
-                        }
-                    };
-                    img.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            });
-        }
-
-        function processNextImage() {
-            if (currentFileIndex < images.length) {
-                const imgData = images[currentFileIndex];
-                // Resize canvas to fit within the viewport while maintaining aspect ratio
-                const maxWidth = window.innerWidth * 0.9;
-                const maxHeight = window.innerHeight * 0.8;
-                const imgAspect = imgData.image.width / imgData.image.height;
-                const canvasAspect = maxWidth / maxHeight;
-
-                if (imgAspect > canvasAspect) {
-                    canvas.width = maxWidth;
-                    canvas.height = maxWidth / imgAspect;
-                } else {
-                    canvas.height = maxHeight;
-                    canvas.width = maxHeight * imgAspect;
-                }
-
-                ctx.drawImage(imgData.image, 0, 0, canvas.width, canvas.height);
-                applyMosaic(() => {
-                    downloadImage(imgData.name);
-                    currentFileIndex++;
-                    processNextImage();
-                });
-            }
-        }
-
-        function applyMosaic(callback) {
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const pixelSize = parseInt(pixelSizeInput.value, 10) || 8;
-
-            for (let y = 0; y < canvas.height; y += pixelSize) {
-                for (let x = 0; x < canvas.width; x += pixelSize) {
-                    const pixelIndex = (y * canvas.width + x) * 4;
-                    const red = imageData.data[pixelIndex];
-                    const green = imageData.data[pixelIndex + 1];
-                    const blue = imageData.data[pixelIndex + 2];
-
-                    for (let dy = 0; dy < pixelSize; dy++) {
-                        for (let dx = 0; dx < pixelSize; dx++) {
-                            const index = ((y + dy) * canvas.width + (x + dx)) * 4;
-                            imageData.data[index] = red;
-                            imageData.data[index + 1] = green;
-                            imageData.data[index + 2] = blue;
-                        }
-                    }
-                }
-            }
-
-            ctx.putImageData(imageData, 0, 0);
-            if (callback) callback();
-        }
-
-        function downloadImage(originalName) {
-            const link = document.createElement('a');
-            link.href = canvas.toDataURL('image/png');
-            const baseName = originalName.substring(0, originalName.lastIndexOf('.')) || originalName;
-            link.download = `ぼかし_${baseName}.png`;
-            link.click();
-        }
-
         dropZone.addEventListener('click', () => {
             fileInput.click();
         });
@@ -208,6 +151,67 @@
                 pixelSizeInput.value = pixelSize;
             }
         });
+
+        function handleFiles(files) {
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+
+                        applyMosaic(ctx, canvas.width, canvas.height);
+
+                        const imgElement = document.createElement('img');
+                        imgElement.src = canvas.toDataURL('image/png');
+                        imgElement.alt = file.name;
+                        output.appendChild(imgElement);
+
+                        downloadImage(canvas, `ぼかし_${file.name}`);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function applyMosaic(ctx, width, height) {
+            const pixelSize = parseInt(pixelSizeInput.value, 10) || 2;
+            const imageData = ctx.getImageData(0, 0, width, height);
+
+            for (let y = 0; y < height; y += pixelSize) {
+                for (let x = 0; x < width; x += pixelSize) {
+                    const pixelIndex = (y * width + x) * 4;
+                    const red = imageData.data[pixelIndex];
+                    const green = imageData.data[pixelIndex + 1];
+                    const blue = imageData.data[pixelIndex + 2];
+
+                    for (let dy = 0; dy < pixelSize; dy++) {
+                        for (let dx = 0; dx < pixelSize; dx++) {
+                            const index = ((y + dy) * width + (x + dx)) * 4;
+                            if (index < imageData.data.length) {
+                                imageData.data[index] = red;
+                                imageData.data[index + 1] = green;
+                                imageData.data[index + 2] = blue;
+                            }
+                        }
+                    }
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function downloadImage(canvas, filename) {
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = filename;
+            link.click();
+        }
     </script>
 </body>
 </html>
