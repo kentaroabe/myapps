@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDFマルチ処理＆自動ダウンロード</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #drop-zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #drop-zone.dragover {
+            background-color: #f0f8ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>PDFマルチ処理＆自動ダウンロード</h1>
+    <div id="drop-zone">
+        ここにPDFファイルをドラッグ＆ドロップするか、クリックして選択してください
+        <input type="file" id="file-input" accept=".pdf" style="display: none;">
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length > 0) {
+                processFile(files[0]);
+            }
+        });
+
+        async function processFile(file) {
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                alert('PDFファイルを選択してください。');
+                return;
+            }
+
+            const fileReader = new FileReader();
+            fileReader.onload = async function () {
+                const typedarray = new Uint8Array(this.result);
+                const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                const page = await pdf.getPage(1); // 1ページ目を取得
+                const viewport = page.getViewport({ scale: 2 });
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+
+                await page.render({ canvasContext: ctx, viewport }).promise;
+                const imgDataUrl = canvas.toDataURL('image/png');
+                const baseName = file.name.replace(/\.pdf$/, '');
+
+                // PDFを画像に変換
+                downloadFile(imgDataUrl, `${baseName}.png`);
+
+                // 画像に「SAMPLE」を追加
+                processSampleImage(canvas, baseName, false);
+            };
+            fileReader.readAsArrayBuffer(file);
+        }
+
+        function processSampleImage(imgCanvas, baseName, isSquare) {
+            const sampleCanvas = document.createElement('canvas');
+            const sampleCtx = sampleCanvas.getContext('2d');
+            sampleCanvas.width = imgCanvas.width;
+            sampleCanvas.height = imgCanvas.height;
+            sampleCtx.drawImage(imgCanvas, 0, 0);
+            sampleCtx.font = 'bold 150px Arial';
+            sampleCtx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+            sampleCtx.textAlign = 'center';
+            sampleCtx.translate(sampleCanvas.width / 2, sampleCanvas.height / 2);
+            sampleCtx.rotate(-Math.PI / 8);
+            sampleCtx.fillText('SAMPLE', 0, 0);
+
+            const suffix = isSquare ? '_square_sample' : '_sample';
+            const sampleDataUrl = sampleCanvas.toDataURL('image/png');
+            downloadFile(sampleDataUrl, `${baseName}${suffix}.png`);
+
+            // SAMPLE画像にファイル名の透かしを追加
+            processWatermarkImage(sampleCanvas, baseName, isSquare);
+        }
+
+        function processWatermarkImage(imgCanvas, baseName, isSquare) {
+            const watermarkCanvas = document.createElement('canvas');
+            const watermarkCtx = watermarkCanvas.getContext('2d');
+            watermarkCanvas.width = imgCanvas.width;
+            watermarkCanvas.height = imgCanvas.height;
+            watermarkCtx.drawImage(imgCanvas, 0, 0);
+
+            // ファイル名の透かしは "】" 以降を利用
+            const cleanBaseName = baseName.includes('】')
+                ? baseName.split('】').pop()
+                : baseName;
+
+            // ファイル名の透かしを上部から1行下げた位置に追加
+            watermarkCtx.font = 'bold 50px Arial';
+            watermarkCtx.fillStyle = 'rgba(255, 0, 0, 1)';
+            watermarkCtx.textAlign = 'center';
+            watermarkCtx.textBaseline = 'top';
+            watermarkCtx.fillText(cleanBaseName, watermarkCanvas.width / 2, 50);
+
+            const suffix = isSquare ? '_square_sample_watermark' : '_sample_watermark';
+            const watermarkDataUrl = watermarkCanvas.toDataURL('image/png');
+            downloadFile(watermarkDataUrl, `${baseName}${suffix}.png`);
+
+            // 次の処理に移行（正方形版作成の場合のみ続行）
+            if (!isSquare) {
+                processSquareImage(imgCanvas, baseName);
+            }
+        }
+
+        function processSquareImage(imgCanvas, baseName) {
+            const squareCanvas = document.createElement('canvas');
+            const squareCtx = squareCanvas.getContext('2d');
+            const size = Math.max(imgCanvas.width, imgCanvas.height);
+            squareCanvas.width = size;
+            squareCanvas.height = size;
+            squareCtx.fillStyle = 'white';
+            squareCtx.fillRect(0, 0, size, size);
+            squareCtx.drawImage(imgCanvas, (size - imgCanvas.width) / 2, (size - imgCanvas.height) / 2);
+
+            const squareDataUrl = squareCanvas.toDataURL('image/png');
+            downloadFile(squareDataUrl, `${baseName}_square.png`);
+
+            // 正方形画像に「SAMPLE」を追加
+            processSampleImage(squareCanvas, baseName, true);
+        }
+
+        function downloadFile(dataUrl, fileName) {
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = fileName;
+            link.click();
+        }
+    </script>
+</body>
+</html>
