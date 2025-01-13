@@ -45,6 +45,12 @@
             border: 1px solid #ddd;
             border-radius: 4px;
         }
+        .radio-group {
+            margin-bottom: 15px;
+        }
+        .radio-group label {
+            margin-right: 20px;
+        }
         .button-group {
             margin-top: 20px;
             text-align: center;
@@ -77,6 +83,20 @@
 
 <body>
     <h1>PDFマルチ処理＆ダウンロード</h1>
+    
+    <div class="control-panel">
+        <div class="radio-group">
+            <label>
+                <input type="radio" name="colorMode" value="normal" checked>
+                そのまま
+            </label>
+            <label>
+                <input type="radio" name="colorMode" value="gray">
+                グレー
+            </label>
+        </div>
+    </div>
+
     <div id="drop-zone">
         ここにPDFファイルをドラッグ＆ドロップするか、クリックして選択してください
         <input type="file" id="file-input" accept=".pdf" style="display: none;">
@@ -104,6 +124,7 @@
         const watermarkText = document.getElementById('watermark-text');
         const downloadAllButton = document.getElementById('download-all');
         const preview = document.getElementById('preview');
+        const colorModeRadios = document.getElementsByName('colorMode');
 
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => {
@@ -121,6 +142,18 @@
             const files = e.target.files;
             if (files.length > 0) processFile(files[0]);
         });
+
+        function applyGrayBackground(canvas) {
+            const ctx = canvas.getContext('2d');
+            // 現在の画像内容を保存
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // 背景を灰色で塗りつぶし
+            ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';  // 半透明のグレー
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            return canvas;
+        }
 
         async function processFile(file) {
             if (!file.name.toLowerCase().endsWith('.pdf')) {
@@ -147,6 +180,12 @@
 
                 await page.render({ canvasContext: ctx, viewport }).promise;
 
+                // Apply gray background if selected
+                const isGray = document.querySelector('input[name="colorMode"]:checked').value === 'gray';
+                if (isGray) {
+                    applyGrayBackground(currentCanvas);
+                }
+
                 // プレビューを表示
                 preview.innerHTML = '';
                 const previewCanvas = document.createElement('canvas');
@@ -160,6 +199,26 @@
             };
             fileReader.readAsArrayBuffer(file);
         }
+
+        // 色モード変更時にプレビューを更新
+        colorModeRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (currentCanvas) {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = currentCanvas.width;
+                    tempCanvas.height = currentCanvas.height;
+                    const ctx = tempCanvas.getContext('2d');
+                    ctx.drawImage(currentCanvas, 0, 0);
+
+                    if (radio.value === 'gray') {
+                        applyGrayBackground(tempCanvas);
+                    }
+
+                    preview.innerHTML = '';
+                    preview.appendChild(tempCanvas);
+                }
+            });
+        });
 
         function addSampleWatermark(ctx, width, height) {
             ctx.font = 'bold 150px Arial';
@@ -179,26 +238,37 @@
         downloadAllButton.addEventListener('click', async () => {
             if (!currentCanvas) return;
 
+            const isGray = document.querySelector('input[name="colorMode"]:checked').value === 'gray';
+
+            // Base canvas with gray background if selected
+            const baseCanvas = document.createElement('canvas');
+            baseCanvas.width = currentCanvas.width;
+            baseCanvas.height = currentCanvas.height;
+            baseCanvas.getContext('2d').drawImage(currentCanvas, 0, 0);
+            if (isGray) {
+                applyGrayBackground(baseCanvas);
+            }
+
             // オリジナル画像
-            downloadFile(currentCanvas.toDataURL('image/png'), `${currentFileName}.png`);
+            downloadFile(baseCanvas.toDataURL('image/png'), `${currentFileName}.png`);
             await delay(500);
 
             // SAMPLE画像
             const sampleCanvas = document.createElement('canvas');
-            sampleCanvas.width = currentCanvas.width;
-            sampleCanvas.height = currentCanvas.height;
+            sampleCanvas.width = baseCanvas.width;
+            sampleCanvas.height = baseCanvas.height;
             const sampleCtx = sampleCanvas.getContext('2d');
-            sampleCtx.drawImage(currentCanvas, 0, 0);
+            sampleCtx.drawImage(baseCanvas, 0, 0);
             addSampleWatermark(sampleCtx, sampleCanvas.width, sampleCanvas.height);
             downloadFile(sampleCanvas.toDataURL('image/png'), `${currentFileName}_SAMPLE.png`);
             await delay(500);
 
             // 透かし付き画像
             const watermarkCanvas = document.createElement('canvas');
-            watermarkCanvas.width = currentCanvas.width;
-            watermarkCanvas.height = currentCanvas.height;
+            watermarkCanvas.width = baseCanvas.width;
+            watermarkCanvas.height = baseCanvas.height;
             const watermarkCtx = watermarkCanvas.getContext('2d');
-            watermarkCtx.drawImage(currentCanvas, 0, 0);
+            watermarkCtx.drawImage(baseCanvas, 0, 0);
             
             const text = watermarkText.value || currentFileName;
             watermarkCtx.font = 'bold 50px Arial';
@@ -212,7 +282,7 @@
 
             // 正方形画像
             const squareCanvas = document.createElement('canvas');
-            const size = Math.max(currentCanvas.width, currentCanvas.height);
+            const size = Math.max(baseCanvas.width, baseCanvas.height);
             squareCanvas.width = size;
             squareCanvas.height = size;
             const squareCtx = squareCanvas.getContext('2d');
@@ -220,20 +290,20 @@
             squareCtx.fillStyle = 'white';
             squareCtx.fillRect(0, 0, size, size);
 
-            if (currentCanvas.height > currentCanvas.width) {
+            if (baseCanvas.height > baseCanvas.width) {
                 squareCtx.drawImage(
-                    currentCanvas,
-                    0, 0, currentCanvas.width, currentCanvas.width,
+                    baseCanvas,
+                    0, 0, baseCanvas.width, baseCanvas.width,
                     0, 0, size, size
                 );
             } else {
                 squareCtx.drawImage(
-                    currentCanvas,
-                    0, 0, currentCanvas.width, currentCanvas.height,
-                    (size - currentCanvas.width) / 2,
-                    (size - currentCanvas.height) / 2,
-                    currentCanvas.width,
-                    currentCanvas.height
+                    baseCanvas,
+                    0, 0, baseCanvas.width, baseCanvas.height,
+                    (size - baseCanvas.width) / 2,
+                    (size - baseCanvas.height) / 2,
+                    baseCanvas.width,
+                    baseCanvas.height
                 );
             }
 
