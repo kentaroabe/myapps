@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画像テキスト処理</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #drop-zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            height: 200px;
+        }
+        #drop-zone.dragover {
+            background-color: #f0f8ff;
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        .controls input[type="text"] {
+            padding: 5px;
+            margin-right: 10px;
+        }
+        .radio-group {
+            margin: 10px 0;
+        }
+        .radio-group label {
+            margin-right: 20px;
+        }
+        #result-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #result-image {
+            max-width: 100%;
+            max-height: 600px;
+            border: 1px solid #ccc;
+            display: none;
+        }
+        .download-button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: none;
+        }
+        .download-button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>画像テキスト処理</h1>
+    
+    <div class="controls">
+        <input type="text" id="watermark-text" placeholder="透かしテキストを入力">
+        <div class="radio-group">
+            <label>
+                <input type="radio" name="position" value="left" checked>
+                左上
+            </label>
+            <label>
+                <input type="radio" name="position" value="right">
+                右上
+            </label>
+        </div>
+    </div>
+
+    <div id="drop-zone">
+        ここに画像をドラッグ＆ドロップするか、クリックして選択してください
+        <input type="file" id="file-input" accept="image/*" style="display: none;">
+    </div>
+
+    <div id="result-container">
+        <img id="result-image" alt="処理結果">
+        <button id="download-button" class="download-button">画像を再ダウンロード</button>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const watermarkInput = document.getElementById('watermark-text');
+        const resultImage = document.getElementById('result-image');
+        const downloadButton = document.getElementById('download-button');
+        let lastProcessedDataUrl = null;
+        let currentFileName = '';
+
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                processImage(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length > 0) {
+                processImage(files[0]);
+            }
+        });
+
+        downloadButton.addEventListener('click', () => {
+            if (lastProcessedDataUrl) {
+                const watermarkText = watermarkInput.value || '透かし';
+                const fileName = getProcessedFileName(currentFileName, watermarkText);
+                downloadImage(lastProcessedDataUrl, fileName);
+            }
+        });
+
+        function getProcessedFileName(originalFileName, watermarkText) {
+            const nameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
+            const extension = originalFileName.substring(originalFileName.lastIndexOf('.'));
+            return `${nameWithoutExt}_${watermarkText}${extension}`;
+        }
+
+        function downloadImage(dataUrl, fileName) {
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = fileName;
+            link.click();
+        }
+
+        function processImage(file) {
+            if (!file.type.startsWith('image/')) {
+                alert('画像ファイルを選択してください。');
+                return;
+            }
+
+            currentFileName = file.name;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // キャンバスを正方形に設定
+                    const size = Math.max(img.width, img.height);
+                    canvas.width = size;
+                    canvas.height = size;
+
+                    // 白背景を描画
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, size, size);
+
+                    // 画像を中央に描画
+                    const x = (size - img.width) / 2;
+                    const y = (size - img.height) / 2;
+                    ctx.drawImage(img, x, y);
+
+                    // テキストを追加
+                    const text = watermarkInput.value || '透かし';
+                    const position = document.querySelector('input[name="position"]:checked').value;
+                    
+                    // フォントサイズを設定
+                    const fontSize = 50;
+                    ctx.font = `bold ${fontSize}px Arial`;
+                    ctx.fillStyle = 'rgba(255, 0, 0, 1)';
+                    ctx.textBaseline = 'top';
+
+                    // マージンを1行分（フォントサイズ分）設定
+                    const topMargin = fontSize;
+                    const sideMargin = fontSize;
+
+                    if (position === 'left') {
+                        ctx.textAlign = 'left';
+                        ctx.fillText(text, sideMargin, topMargin);
+                    } else {
+                        ctx.textAlign = 'right';
+                        ctx.fillText(text, size - sideMargin, topMargin);
+                    }
+
+                    // 処理結果を保存して表示
+                    const dataUrl = canvas.toDataURL('image/png');
+                    lastProcessedDataUrl = dataUrl;
+                    resultImage.src = dataUrl;
+                    resultImage.style.display = 'block';
+                    downloadButton.style.display = 'inline-block';
+
+                    // 自動ダウンロード
+                    const fileName = getProcessedFileName(currentFileName, text);
+                    downloadImage(dataUrl, fileName);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    </script>
+</body>
+</html>s
