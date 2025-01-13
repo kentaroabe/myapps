@@ -3,66 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDFマルチ処理＆自動ダウンロード</title>
+    <title>PDFマルチ処理＆ダウンロード</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
         }
         #drop-zone {
             border: 2px dashed #ccc;
             padding: 20px;
             text-align: center;
             margin-bottom: 20px;
-                    height: 300px; /* 高さを指定 */
-
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
         }
         #drop-zone.dragover {
             background-color: #f0f8ff;
         }
+        .control-panel {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .button-group {
+            margin-top: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 5px;
+            font-size: 16px;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #preview {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #preview canvas {
+            max-width: 100%;
+            height: auto;
+        }
     </style>
 </head>
-        <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-
 <body>
-    <h1>PDFマルチ処理＆自動ダウンロード</h1>
+    <h1>PDFマルチ処理＆ダウンロード</h1>
     <div id="drop-zone">
         ここにPDFファイルをドラッグ＆ドロップするか、クリックして選択してください
         <input type="file" id="file-input" accept=".pdf" style="display: none;">
     </div>
 
+    <div class="control-panel">
+        <div class="input-group">
+            <label for="watermark-text">透かし文字:</label>
+            <input type="text" id="watermark-text" placeholder="透かし文字を入力してください">
+        </div>
+        <div class="button-group">
+            <button id="download-all" disabled>すべての画像をダウンロード</button>
+        </div>
+    </div>
+
+    <div id="preview"></div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
     <script>
+        let currentCanvas = null;
+        let currentFileName = '';
+        
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
+        const watermarkText = document.getElementById('watermark-text');
+        const downloadAllButton = document.getElementById('download-all');
+        const preview = document.getElementById('preview');
 
-        dropZone.addEventListener('click', () => {
-            fileInput.click();
-        });
-
+        dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropZone.classList.add('dragover');
         });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('dragover');
-        });
-
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('dragover');
             const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                processFile(files[0]);
-            }
+            if (files.length > 0) processFile(files[0]);
         });
-
         fileInput.addEventListener('change', (e) => {
             const files = e.target.files;
-            if (files.length > 0) {
-                processFile(files[0]);
-            }
+            if (files.length > 0) processFile(files[0]);
         });
 
         async function processFile(file) {
@@ -71,96 +126,134 @@
                 return;
             }
 
+            currentFileName = file.name.replace(/\.pdf$/, '');
+            watermarkText.value = currentFileName.includes('】') 
+                ? currentFileName.split('】').pop() 
+                : currentFileName;
+
             const fileReader = new FileReader();
-            fileReader.onload = async function () {
+            fileReader.onload = async function() {
                 const typedarray = new Uint8Array(this.result);
                 const pdf = await pdfjsLib.getDocument(typedarray).promise;
-                const page = await pdf.getPage(1); // 1ページ目を取得
+                const page = await pdf.getPage(1);
                 const viewport = page.getViewport({ scale: 2 });
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
+                
+                currentCanvas = document.createElement('canvas');
+                const ctx = currentCanvas.getContext('2d');
+                currentCanvas.width = viewport.width;
+                currentCanvas.height = viewport.height;
 
                 await page.render({ canvasContext: ctx, viewport }).promise;
-                const imgDataUrl = canvas.toDataURL('image/png');
-                const baseName = file.name.replace(/\.pdf$/, '');
 
-                // PDFを画像に変換
-                downloadFile(imgDataUrl, `${baseName}.png`);
+                // プレビューを表示
+                preview.innerHTML = '';
+                const previewCanvas = document.createElement('canvas');
+                previewCanvas.width = viewport.width;
+                previewCanvas.height = viewport.height;
+                previewCanvas.getContext('2d').drawImage(currentCanvas, 0, 0);
+                preview.appendChild(previewCanvas);
 
-                // 画像に「SAMPLE」を追加
-                processSampleImage(canvas, baseName, false);
+                // ダウンロードボタンを有効化
+                downloadAllButton.disabled = false;
             };
             fileReader.readAsArrayBuffer(file);
         }
 
-        function processSampleImage(imgCanvas, baseName, isSquare) {
-            const sampleCanvas = document.createElement('canvas');
-            const sampleCtx = sampleCanvas.getContext('2d');
-            sampleCanvas.width = imgCanvas.width;
-            sampleCanvas.height = imgCanvas.height;
-            sampleCtx.drawImage(imgCanvas, 0, 0);
-            sampleCtx.font = 'bold 150px Arial';
-            sampleCtx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-            sampleCtx.textAlign = 'center';
-            sampleCtx.translate(sampleCanvas.width / 2, sampleCanvas.height / 2);
-            sampleCtx.rotate(-Math.PI / 8);
-            sampleCtx.fillText('SAMPLE', 0, 0);
-
-            const suffix = isSquare ? '_square_sample' : '_sample';
-            const sampleDataUrl = sampleCanvas.toDataURL('image/png');
-            downloadFile(sampleDataUrl, `${baseName}${suffix}.png`);
-
-            // SAMPLE画像にファイル名の透かしを追加
-            processWatermarkImage(sampleCanvas, baseName, isSquare);
+        function addSampleWatermark(ctx, width, height) {
+            ctx.font = 'bold 150px Arial';
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+            ctx.textAlign = 'center';
+            ctx.translate(width / 2, height / 2);
+            ctx.rotate(-Math.PI / 8);
+            ctx.fillText('SAMPLE', 0, 0);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
         }
 
-        function processWatermarkImage(imgCanvas, baseName, isSquare) {
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // 一括ダウンロードの処理
+        downloadAllButton.addEventListener('click', async () => {
+            if (!currentCanvas) return;
+
+            // オリジナル画像
+            downloadFile(currentCanvas.toDataURL('image/png'), `${currentFileName}.png`);
+            await delay(500);
+
+            // SAMPLE画像
+            const sampleCanvas = document.createElement('canvas');
+            sampleCanvas.width = currentCanvas.width;
+            sampleCanvas.height = currentCanvas.height;
+            const sampleCtx = sampleCanvas.getContext('2d');
+            sampleCtx.drawImage(currentCanvas, 0, 0);
+            addSampleWatermark(sampleCtx, sampleCanvas.width, sampleCanvas.height);
+            downloadFile(sampleCanvas.toDataURL('image/png'), `${currentFileName}_sample.png`);
+            await delay(500);
+
+            // 透かし付き画像
             const watermarkCanvas = document.createElement('canvas');
+            watermarkCanvas.width = currentCanvas.width;
+            watermarkCanvas.height = currentCanvas.height;
             const watermarkCtx = watermarkCanvas.getContext('2d');
-            watermarkCanvas.width = imgCanvas.width;
-            watermarkCanvas.height = imgCanvas.height;
-            watermarkCtx.drawImage(imgCanvas, 0, 0);
-
-            // ファイル名の透かしは "】" 以降を利用
-            const cleanBaseName = baseName.includes('】')
-                ? baseName.split('】').pop()
-                : baseName;
-
-            // ファイル名の透かしを上部から1行下げた位置に追加
+            watermarkCtx.drawImage(currentCanvas, 0, 0);
+            
+            const text = watermarkText.value || currentFileName;
             watermarkCtx.font = 'bold 50px Arial';
             watermarkCtx.fillStyle = 'rgba(255, 0, 0, 1)';
             watermarkCtx.textAlign = 'center';
             watermarkCtx.textBaseline = 'top';
-            watermarkCtx.fillText(cleanBaseName, watermarkCanvas.width / 2, 50);
+            watermarkCtx.fillText(text, watermarkCanvas.width / 2, 50);
+            
+            downloadFile(watermarkCanvas.toDataURL('image/png'), `${currentFileName}_watermark.png`);
+            await delay(500);
 
-            const suffix = isSquare ? '_square_sample_watermark' : '_sample_watermark';
-            const watermarkDataUrl = watermarkCanvas.toDataURL('image/png');
-            downloadFile(watermarkDataUrl, `${baseName}${suffix}.png`);
-
-            // 次の処理に移行（正方形版作成の場合のみ続行）
-            if (!isSquare) {
-                processSquareImage(imgCanvas, baseName);
-            }
-        }
-
-        function processSquareImage(imgCanvas, baseName) {
+            // 正方形画像
             const squareCanvas = document.createElement('canvas');
-            const squareCtx = squareCanvas.getContext('2d');
-            const size = Math.max(imgCanvas.width, imgCanvas.height);
+            const size = Math.max(currentCanvas.width, currentCanvas.height);
             squareCanvas.width = size;
             squareCanvas.height = size;
+            const squareCtx = squareCanvas.getContext('2d');
+            
             squareCtx.fillStyle = 'white';
             squareCtx.fillRect(0, 0, size, size);
-            squareCtx.drawImage(imgCanvas, (size - imgCanvas.width) / 2, (size - imgCanvas.height) / 2);
 
-            const squareDataUrl = squareCanvas.toDataURL('image/png');
-            downloadFile(squareDataUrl, `${baseName}_square.png`);
+            if (currentCanvas.height > currentCanvas.width) {
+                squareCtx.drawImage(
+                    currentCanvas,
+                    0, 0, currentCanvas.width, currentCanvas.width,
+                    0, 0, size, size
+                );
+            } else {
+                squareCtx.drawImage(
+                    currentCanvas,
+                    0, 0, currentCanvas.width, currentCanvas.height,
+                    (size - currentCanvas.width) / 2,
+                    (size - currentCanvas.height) / 2,
+                    currentCanvas.width,
+                    currentCanvas.height
+                );
+            }
 
-            // 正方形画像に「SAMPLE」を追加
-            processSampleImage(squareCanvas, baseName, true);
-        }
+            squareCtx.font = 'bold 50px Arial';
+            squareCtx.fillStyle = 'rgba(255, 0, 0, 1)';
+            squareCtx.textAlign = 'center';
+            squareCtx.textBaseline = 'top';
+            squareCtx.fillText(text, size / 2, 50);
+            
+            downloadFile(squareCanvas.toDataURL('image/png'), `${currentFileName}_square.png`);
+            await delay(500);
+
+            // 正方形SAMPLE画像
+            const squareSampleCanvas = document.createElement('canvas');
+            squareSampleCanvas.width = size;
+            squareSampleCanvas.height = size;
+            const squareSampleCtx = squareSampleCanvas.getContext('2d');
+            squareSampleCtx.drawImage(squareCanvas, 0, 0);
+            addSampleWatermark(squareSampleCtx, size, size);
+            
+            downloadFile(squareSampleCanvas.toDataURL('image/png'), `${currentFileName}_square_sample.png`);
+        });
 
         function downloadFile(dataUrl, fileName) {
             const link = document.createElement('a');
