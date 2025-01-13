@@ -190,7 +190,7 @@
             const sampleCtx = sampleCanvas.getContext('2d');
             sampleCtx.drawImage(currentCanvas, 0, 0);
             addSampleWatermark(sampleCtx, sampleCanvas.width, sampleCanvas.height);
-            downloadFile(sampleCanvas.toDataURL('image/png'), `${currentFileName}_sample.png`);
+            downloadFile(sampleCanvas.toDataURL('image/png'), `${currentFileName}_SAMPLE.png`);
             await delay(500);
 
             // 透かし付き画像
@@ -207,7 +207,7 @@
             watermarkCtx.textBaseline = 'top';
             watermarkCtx.fillText(text, watermarkCanvas.width / 2, 50);
             
-            downloadFile(watermarkCanvas.toDataURL('image/png'), `${currentFileName}_watermark.png`);
+            downloadFile(watermarkCanvas.toDataURL('image/png'), `${currentFileName}_書類名.png`);
             await delay(500);
 
             // 正方形画像
@@ -243,7 +243,7 @@
             squareCtx.textBaseline = 'top';
             squareCtx.fillText(text, size / 2, 50);
             
-            downloadFile(squareCanvas.toDataURL('image/png'), `${currentFileName}_square.png`);
+            downloadFile(squareCanvas.toDataURL('image/png'), `${currentFileName}_正方形.png`);
             await delay(500);
 
             // 正方形SAMPLE画像
@@ -254,7 +254,7 @@
             squareSampleCtx.drawImage(squareCanvas, 0, 0);
             addSampleWatermark(squareSampleCtx, size, size);
             
-            downloadFile(squareSampleCanvas.toDataURL('image/png'), `${currentFileName}_square_sample.png`);
+            downloadFile(squareSampleCanvas.toDataURL('image/png'), `${currentFileName}_正方形_SAMPLE.png`);
         });
 
         function downloadFile(dataUrl, fileName) {
