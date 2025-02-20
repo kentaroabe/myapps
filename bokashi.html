@@ -1,219 +1,328 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>画像ぼかし処理</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f7f7f7;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            max-width: 900px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            font-size: 2.5rem;
-            text-align: center;
-            margin-bottom: 20px;
-            color: #333;
-        }
-        #dropZone {
-            width: 100%;
-            height: 300px;
-            border: 2px dashed #ccc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            border-radius: 8px;
-            background-color: #f1f1f1;
-            cursor: pointer;
-        }
-        #dropZone.dragover {
-            border-color: #007bff;
-            background-color: #e6f7ff;
-        }
-        #controlPanel {
-            margin-bottom: 30px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            justify-content: center;
-        }
-        #controlPanel label {
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-        #controlPanel input {
-            width: 60px;
-            text-align: center;
-            padding: 5px;
-            font-size: 1rem;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-        }
-        #controlPanel button {
-            padding: 10px 20px;
-            font-size: 1.1rem;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-        #controlPanel button:hover {
-            background-color: #0056b3;
-        }
-        #output img {
-            max-width: 100%;
-            margin-bottom: 20px;
-            border-radius: 8px;
-        }
-        .input-group-prepend, .input-group-append {
-            display: none;
-        }
-        .input-group {
-            display: flex;
-            justify-content: center;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>画像ぼかし処理</title>
+  <!-- Bootstrap -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <!-- PDF.js ライブラリ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f7f7f7;
+      font-family: Arial, sans-serif;
+    }
+    /* 上部コントロールバー */
+    .top-bar {
+      background-color: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      padding: 10px 20px;
+    }
+    .top-bar .container {
+      max-width: 100%;
+    }
+    /* ドラッグ＆ドロップ領域：高さ150px */
+    #dropZone {
+      width: 100%;
+      height: 150px;
+      border: 2px dashed #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #666;
+      margin: 10px 0;
+      border-radius: 8px;
+      background-color: #f1f1f1;
+      cursor: pointer;
+    }
+    /* 出力領域：画面全幅、横並びに表示 */
+    #output {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 10px;
+      justify-content: center;
+      width: 100vw;
+      box-sizing: border-box;
+      padding: 10px;
+      overflow-x: hidden;
+    }
+  </style>
 </head>
-    <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-
 <body>
+  <!-- 上部コントロールバー -->
+  <div class="top-bar">
     <div class="container">
-        <h1>画像ぼかし処理</h1>
-
-        <div id="controlPanel" class="mb-4 d-flex align-items-center justify-content-center">
-            <label for="pixelSize" class="mr-2">ぼかし濃度 (ピクセルサイズ):</label>
-            <input type="number" id="pixelSize" value="10" min="1" step="1" class="form-control text-center">
-            <button id="decreasePixelSize" class="btn btn-outline-secondary">-</button>
-            <button id="increasePixelSize" class="btn btn-outline-secondary">+</button>
+      <div class="row align-items-center">
+        <!-- 左：アプリリストに戻るボタン -->
+        <div class="col-auto">
+          <a href="https://kentaroabe.github.io/myapps/" class="btn btn-secondary">アプリリストに戻る</a>
         </div>
-
-        <div id="dropZone">ここに画像をドラッグ＆ドロップしてください</div>
-        <input type="file" id="fileInput" multiple style="display:none;">
-
-        <div id="output"></div>
+        <!-- 中央：ぼかし濃度コントロール -->
+        <div class="col text-center">
+          <div class="d-inline-flex align-items-center">
+            <label for="pixelSize" class="mr-2 mb-0">ぼかし濃度 (ピクセルサイズ):</label>
+            <!-- ぼかし濃度のデフォルトを5に変更 -->
+            <input type="number" id="pixelSize" value="5" min="1" step="1" class="form-control mr-2" style="width:80px;">
+            <button id="decreasePixelSize" class="btn btn-primary btn-lg mr-1">-</button>
+            <button id="increasePixelSize" class="btn btn-primary btn-lg">+</button>
+            <!-- ここにダウンロードボタンを追加 -->
+            <button id="downloadButton" class="btn btn-success btn-lg ml-2">ダウンロード</button>
+          </div>
+        </div>
+        <!-- 右側は空白 -->
+        <div class="col-auto"></div>
+      </div>
     </div>
+  </div>
 
-    <script>
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('fileInput');
-        const output = document.getElementById('output');
-        const pixelSizeInput = document.getElementById('pixelSize');
-        const increasePixelSizeBtn = document.getElementById('increasePixelSize');
-        const decreasePixelSizeBtn = document.getElementById('decreasePixelSize');
+  <!-- ドラッグ＆ドロップ領域 -->
+  <div id="dropZone">ここに画像またはPDFをドラッグ＆ドロップまたはCtrl+Vしてください</div>
+  <input type="file" id="fileInput" multiple style="display: none;">
+  <!-- 出力領域（画面全幅） -->
+  <div id="output"></div>
 
-        dropZone.addEventListener('dragover', (event) => {
-            event.preventDefault();
-            dropZone.classList.add('dragover');
-        });
+  <script>
+    // PDF.js のワーカー設定
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
 
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('dragover');
-        });
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const output = document.getElementById('output');
+    const pixelSizeInput = document.getElementById('pixelSize');
+    const increasePixelSizeBtn = document.getElementById('increasePixelSize');
+    const decreasePixelSizeBtn = document.getElementById('decreasePixelSize');
+    const downloadButton = document.getElementById('downloadButton');
 
-        dropZone.addEventListener('drop', (event) => {
-            event.preventDefault();
-            dropZone.classList.remove('dragover');
-            handleFiles(event.dataTransfer.files);
-        });
+    // 複数画像（およびPDFページ）のオリジナル情報を保持する配列
+    let originalImages = [];
 
-        fileInput.addEventListener('change', () => {
-            handleFiles(fileInput.files);
-        });
+    dropZone.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      dropZone.classList.add('dragover');
+    });
 
-        dropZone.addEventListener('click', () => {
-            fileInput.click();
-        });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
 
-        increasePixelSizeBtn.addEventListener('click', () => {
-            let pixelSize = parseInt(pixelSizeInput.value, 10);
-            pixelSize += 1;
-            pixelSizeInput.value = pixelSize;
-        });
+    dropZone.addEventListener('drop', (event) => {
+      event.preventDefault();
+      dropZone.classList.remove('dragover');
+      handleFiles(event.dataTransfer.files);
+    });
 
-        decreasePixelSizeBtn.addEventListener('click', () => {
-            let pixelSize = parseInt(pixelSizeInput.value, 10);
-            if (pixelSize > 1) {
-                pixelSize -= 1;
-                pixelSizeInput.value = pixelSize;
-            }
-        });
+    fileInput.addEventListener('change', () => {
+      handleFiles(fileInput.files);
+    });
 
-        function handleFiles(files) {
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const img = new Image();
-                    img.onload = function() {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        ctx.drawImage(img, 0, 0);
+    dropZone.addEventListener('click', () => {
+      fileInput.click();
+    });
 
-                        applyMosaic(ctx, canvas.width, canvas.height);
+    // ＋／－ボタン押下でピクセルサイズ変更後、すべての画像を再処理
+    increasePixelSizeBtn.addEventListener('click', () => {
+      let pixelSize = parseInt(pixelSizeInput.value, 10);
+      pixelSizeInput.value = ++pixelSize;
+      if (originalImages.length > 0) {
+        processOriginalImages();
+      }
+    });
 
-                        const imgElement = document.createElement('img');
-                        imgElement.src = canvas.toDataURL('image/png');
-                        imgElement.alt = file.name;
-                        output.appendChild(imgElement);
+    decreasePixelSizeBtn.addEventListener('click', () => {
+      let pixelSize = parseInt(pixelSizeInput.value, 10);
+      if (pixelSize > 1) {
+        pixelSizeInput.value = --pixelSize;
+        if (originalImages.length > 0) {
+          processOriginalImages();
+        }
+      }
+    });
 
-                        downloadImage(canvas, `ぼかし_${file.name}`);
-                    };
-                    img.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
+    // ダウンロードボタン押下で、出力領域内の各画像をダウンロード
+    downloadButton.addEventListener('click', () => {
+      const imgs = output.querySelectorAll("img");
+      imgs.forEach(img => {
+        const dataUrl = img.dataset.downloadUrl;
+        const filename = img.dataset.filename;
+        if(dataUrl && filename) {
+          downloadDataUrl(dataUrl, filename);
+        }
+      });
+    });
+
+    // クリップボードからの貼り付け（Ctrl+V）対応
+    document.addEventListener('paste', (event) => {
+      const items = event.clipboardData.items;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1 || items[i].type === "application/pdf") {
+          const file = items[i].getAsFile();
+          handleFiles([file]);
+        }
+      }
+    });
+
+    // アップロードされたファイル（画像またはPDF）を処理する
+    function handleFiles(files) {
+      output.innerHTML = '';
+      originalImages = [];
+      Array.from(files).forEach(file => {
+        // PDF ファイルの場合
+        if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+          processPdfFile(file);
+        } else {
+          // 画像の場合
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const dataUrl = e.target.result;
+            const fileName = file.name;
+            originalImages.push({ dataUrl, fileName });
+            processAndOutputImage(dataUrl, fileName);
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+
+    // PDFファイルを処理する関数
+    function processPdfFile(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const arrayBuffer = e.target.result;
+        processPdf(arrayBuffer, file.name);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // PDF 内の各ページをレンダリングして画像として処理する
+    function processPdf(arrayBuffer, fileName) {
+      const baseName = fileName.replace(/\.[^/.]+$/, "");
+      pdfjsLib.getDocument({ data: arrayBuffer }).promise.then(function(pdf) {
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+          pdf.getPage(pageNumber).then(function(page) {
+            const scale = 1;
+            const viewport = page.getViewport({ scale: scale });
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const renderContext = { canvasContext: ctx, viewport: viewport };
+            page.render(renderContext).promise.then(function() {
+              const dataUrl = canvas.toDataURL('image/png');
+              const newFileName = `${baseName}_page${pageNumber}`;
+              originalImages.push({ dataUrl, fileName: newFileName });
+              processAndOutputImage(dataUrl, newFileName);
             });
+          });
         }
+      }).catch(function(error) {
+        console.error("PDF処理エラー:", error);
+      });
+    }
 
-        function applyMosaic(ctx, width, height) {
-            const pixelSize = parseInt(pixelSizeInput.value, 10) || 2;
-            const imageData = ctx.getImageData(0, 0, width, height);
+    // 1枚の画像を処理して出力する関数
+    function processAndOutputImage(dataUrl, fileName) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        applyMosaic(ctx, canvas.width, canvas.height);
+        // 取得した処理済みデータURLを変数に保存
+        const processedDataUrl = canvas.toDataURL('image/png');
+        const imgElement = document.createElement('img');
+        imgElement.src = processedDataUrl;
+        imgElement.alt = fileName;
+        // 拡張子を除去して指定形式に整形
+        const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
+        const outputFileName = `ぼかし_${nameWithoutExt}_ぼかし濃度${pixelSizeInput.value}.png`;
+        // data属性に処理済みデータURLと出力ファイル名を保存
+        imgElement.dataset.downloadUrl = processedDataUrl;
+        imgElement.dataset.filename = outputFileName;
+        output.appendChild(imgElement);
+        // クリップボードへのコピーはそのまま実行
+        copyImageToClipboard(canvas);
+        adjustImageSizes();
+      };
+      img.src = dataUrl;
+    }
 
-            for (let y = 0; y < height; y += pixelSize) {
-                for (let x = 0; x < width; x += pixelSize) {
-                    const pixelIndex = (y * width + x) * 4;
-                    const red = imageData.data[pixelIndex];
-                    const green = imageData.data[pixelIndex + 1];
-                    const blue = imageData.data[pixelIndex + 2];
+    // オリジナル画像すべてに対して再処理を行う関数
+    function processOriginalImages() {
+      output.innerHTML = '';
+      originalImages.forEach(({ dataUrl, fileName }) => {
+        processAndOutputImage(dataUrl, fileName);
+      });
+    }
 
-                    for (let dy = 0; dy < pixelSize; dy++) {
-                        for (let dx = 0; dx < pixelSize; dx++) {
-                            const index = ((y + dy) * width + (x + dx)) * 4;
-                            if (index < imageData.data.length) {
-                                imageData.data[index] = red;
-                                imageData.data[index + 1] = green;
-                                imageData.data[index + 2] = blue;
-                            }
-                        }
-                    }
-                }
+    // 画像ぼかし処理
+    function applyMosaic(ctx, width, height) {
+      const pixelSize = parseInt(pixelSizeInput.value, 10) || 2;
+      const imageData = ctx.getImageData(0, 0, width, height);
+      for (let y = 0; y < height; y += pixelSize) {
+        for (let x = 0; x < width; x += pixelSize) {
+          const pixelIndex = (y * width + x) * 4;
+          const red = imageData.data[pixelIndex];
+          const green = imageData.data[pixelIndex + 1];
+          const blue = imageData.data[pixelIndex + 2];
+          for (let dy = 0; dy < pixelSize; dy++) {
+            for (let dx = 0; dx < pixelSize; dx++) {
+              const index = ((y + dy) * width + (x + dx)) * 4;
+              if (index < imageData.data.length) {
+                imageData.data[index] = red;
+                imageData.data[index + 1] = green;
+                imageData.data[index + 2] = blue;
+              }
             }
-
-            ctx.putImageData(imageData, 0, 0);
+          }
         }
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
 
-        function downloadImage(canvas, filename) {
-            const link = document.createElement('a');
-            link.href = canvas.toDataURL('image/png');
-            link.download = filename;
-            link.click();
+    // クリップボードへ画像をコピーする関数
+    function copyImageToClipboard(canvas) {
+      if (!navigator.clipboard || !window.ClipboardItem) {
+        console.warn('Clipboard API がサポートされていません。');
+        return;
+      }
+      canvas.toBlob(function(blob) {
+        const item = new ClipboardItem({ 'image/png': blob });
+        navigator.clipboard.write([item]).then(() => {
+          console.log('画像データをクリップボードにコピーしました。');
+        }).catch(err => {
+          console.error('クリップボードへのコピーに失敗しました:', err);
+        });
+      }, 'image/png');
+    }
+
+    // dataURL からファイルをダウンロードする関数
+    function downloadDataUrl(dataUrl, filename) {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      link.click();
+    }
+
+    // 出力領域内の画像枚数に応じて各画像の幅を調整する関数
+    function adjustImageSizes() {
+      const imgs = output.querySelectorAll("img");
+      const count = imgs.length;
+      imgs.forEach(img => {
+        // 1枚の場合は横幅を画面の半分に、それ以外は (100 / count)vw に設定
+        if (count === 1) {
+          img.style.width = "50vw";
+        } else {
+          img.style.width = (100 / count) + "vw";
         }
-    </script>
+        img.style.height = "auto";
+      });
+    }
+  </script>
 </body>
 </html>
