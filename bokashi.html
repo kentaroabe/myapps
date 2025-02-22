@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -44,7 +45,7 @@
     /* ドラッグ＆ドロップ領域 */
     #dropZone {
       width: 100%;
-      height: 150px;
+      height: 20px;
       border: 2px dashed #ccc;
       display: flex;
       align-items: center;
@@ -106,7 +107,7 @@
             <!-- 局所ぼかし濃度 -->
             <div class="d-flex align-items-center mr-3">
               <label for="localPixelSize" class="mr-2 mb-0">局所ぼかし濃度 (ピクセルサイズ):</label>
-              <input type="number" id="localPixelSize" value="2" min="1" step="1" class="form-control mr-1" style="width:80px;">
+              <input type="number" id="localPixelSize" value="4" min="1" step="1" class="form-control mr-1" style="width:80px;">
               <button id="localDecreasePixelSize" class="btn btn-primary btn-lg mr-1">-</button>
               <button id="localIncreasePixelSize" class="btn btn-primary btn-lg">+</button>
             </div>
@@ -287,19 +288,35 @@
       });
     }
 
-    // 画像読み込み時の処理：canvas に画像を描画し、全体モザイク（グローバル）と局所モザイク用マウスイベントを設定
+    // 画像読み込み時の処理
+    // ※ここで「正規化」を行い、アップロード画像のサイズにかかわらず、
+    //    画面の表示領域に合わせたサイズでモザイク処理を実施する
     function processAndOutputImage(dataUrl, fileName) {
       const img = new Image();
       img.onload = function() {
-        // canvas 作成と画像描画
+        // 利用可能な表示領域（トップバーを除く）を計算
+        const topBar = document.querySelector('.top-bar');
+        const topBarHeight = topBar ? topBar.offsetHeight : 0;
+        const availableWidth = window.innerWidth;
+        const availableHeight = window.innerHeight - topBarHeight;
+        // 画像全体が表示領域に収まるような倍率を算出（アスペクト比を維持）
+        const scaleFactor = Math.min(availableWidth / img.width, availableHeight / img.height);
+        // 正規化後の画像サイズで canvas を作成
         const canvas = document.createElement('canvas');
+        canvas.width = img.width * scaleFactor;
+        canvas.height = img.height * scaleFactor;
         const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        // 全体モザイク処理（全体ぼかし濃度で適用）
+        // 正規化されたサイズで画像を描画
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // 全体モザイク処理（ユーザーが指定したピクセルサイズで適用）
         const globalPixelSize = parseInt(pixelSizeInput.value, 10) || 2;
         applyMosaic(ctx, 0, 0, canvas.width, canvas.height, globalPixelSize);
+        
+        // ※ここでは canvas の実サイズと同じサイズで表示するので、
+        //     表示用の CSS の指定は不要（必要に応じて変更可能）
+        canvas.style.width = canvas.width + 'px';
+        canvas.style.height = canvas.height + 'px';
+
         // canvas をラップするコンテナ作成（赤い枠用オーバーレイ含む）
         const container = document.createElement('div');
         container.className = "canvas-wrapper";
@@ -310,7 +327,7 @@
         canvas.mosaicIndicator = indicator;
 
         let isDrawing = false;
-        // マウスが canvas 内にある限り、常に赤い枠を更新（局所モザイク領域のプレビュー）
+        // マウスイベント：局所モザイク処理用の赤い枠更新
         canvas.addEventListener('mousemove', (e) => {
           updateIndicator(e, canvas);
           if (isDrawing) {
@@ -331,7 +348,7 @@
       img.src = dataUrl;
     }
 
-    // 全体再処理：アップロード済み画像すべてに対して再処理
+    // アップロード済み画像全体の再処理
     function processOriginalImages() {
       output.innerHTML = '';
       originalImages.forEach(({ dataUrl, fileName }) => {
@@ -339,7 +356,7 @@
       });
     }
 
-    // マウスイベントからの座標補正と、局所モザイク処理（局所ぼかし濃度を利用）および赤い枠更新
+    // マウス座標の補正と局所モザイク処理、赤い枠の更新
     function updateIndicator(e, canvas) {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
@@ -375,7 +392,7 @@
       const localPixelSize = parseInt(localPixelSizeInput.value, 10) || 2;
       applyMosaic(ctx, startX, startY, width, height, localPixelSize);
     }
-    // 指定領域にモザイク処理を適用する関数（mosaicPixelSize を利用）
+    // 指定領域にモザイク処理を適用する関数
     function applyMosaic(ctx, startX, startY, width, height, mosaicPixelSize) {
       const imageData = ctx.getImageData(startX, startY, width, height);
       for (let y = 0; y < height; y += mosaicPixelSize) {
