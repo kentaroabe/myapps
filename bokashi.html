@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -342,7 +343,7 @@
         });
 
         const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
-        canvas.dataset.filename = `モザイク_${nameWithoutExt}_全体ぼかし${pixelSizeInput.value}_局所ぼかし${localPixelSizeInput.value}.png`;
+        canvas.dataset.filename = `ぼかし_${nameWithoutExt}.png`;
         output.appendChild(container);
       };
       img.src = dataUrl;
