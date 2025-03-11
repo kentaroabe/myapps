@@ -1,6 +1,3 @@
-
-
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -17,11 +14,15 @@
       padding: 0;
       background-color: #f7f7f7;
       font-family: Arial, sans-serif;
+      overflow-x: hidden; /* 横スクロールを防止 */
     }
     .top-bar {
       background-color: white;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
       padding: 10px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
     .top-bar .container {
       max-width: 100%;
@@ -47,7 +48,7 @@
     /* ドラッグ＆ドロップ領域 */
     #dropZone {
       width: 100%;
-      height: 20px;
+      min-height: 80px;
       border: 2px dashed #ccc;
       display: flex;
       align-items: center;
@@ -62,10 +63,10 @@
     /* 出力領域 */
     #output {
       display: flex;
-      flex-wrap: nowrap;
-      gap: 10px;
+      flex-direction: column;
+      align-items: center;
       justify-content: center;
-      width: 100vw;
+      width: 100%;
       box-sizing: border-box;
       padding: 10px;
       overflow-x: hidden;
@@ -74,6 +75,8 @@
     .canvas-wrapper {
       position: relative;
       display: inline-block;
+      margin-bottom: 20px;
+      max-width: 100%;
     }
     /* 赤い枠（インジケータ）のスタイル */
     .mosaic-indicator {
@@ -84,6 +87,8 @@
     }
     canvas {
       border: 1px solid #ccc;
+      max-width: 100%;
+      height: auto;
     }
   </style>
 </head>
@@ -100,23 +105,23 @@
         <div class="col text-center">
           <div class="d-inline-flex align-items-center flex-wrap">
             <!-- 全体ぼかし濃度 -->
-            <div class="d-flex align-items-center mr-3">
-              <label for="pixelSize" class="mr-2 mb-0">全体ぼかし濃度 (ピクセルサイズ):</label>
-              <input type="number" id="pixelSize" value="1" min="1" step="1" class="form-control mr-1" style="width:80px;">
-              <button id="decreasePixelSize" class="btn btn-primary btn-lg mr-1">-</button>
-              <button id="increasePixelSize" class="btn btn-primary btn-lg">+</button>
+            <div class="d-flex align-items-center mr-3 mb-2">
+              <label for="pixelSize" class="mr-2 mb-0">全体ぼかし濃度:</label>
+              <input type="number" id="pixelSize" value="1" min="1" step="1" class="form-control mr-1" style="width:60px;">
+              <button id="decreasePixelSize" class="btn btn-primary mr-1">-</button>
+              <button id="increasePixelSize" class="btn btn-primary">+</button>
             </div>
             <!-- 局所ぼかし濃度 -->
-            <div class="d-flex align-items-center mr-3">
-              <label for="localPixelSize" class="mr-2 mb-0">局所ぼかし濃度 (ピクセルサイズ):</label>
-              <input type="number" id="localPixelSize" value="6" min="1" step="1" class="form-control mr-1" style="width:80px;">
-              <button id="localDecreasePixelSize" class="btn btn-primary btn-lg mr-1">-</button>
-              <button id="localIncreasePixelSize" class="btn btn-primary btn-lg">+</button>
+            <div class="d-flex align-items-center mr-3 mb-2">
+              <label for="localPixelSize" class="mr-2 mb-0">局所ぼかし濃度:</label>
+              <input type="number" id="localPixelSize" value="4" min="1" step="1" class="form-control mr-1" style="width:60px;">
+              <button id="localDecreasePixelSize" class="btn btn-primary mr-1">-</button>
+              <button id="localIncreasePixelSize" class="btn btn-primary">+</button>
             </div>
             <!-- ダウンロードボタン -->
-            <button id="downloadButton" class="btn btn-success btn-lg mr-3">ダウンロード</button>
+            <button id="downloadButton" class="btn btn-success mr-3 mb-2">ダウンロード</button>
             <!-- モザイクサイズ選択用の丸 -->
-            <div class="mosaic-size-selector">
+            <div class="mosaic-size-selector mb-2">
               <span style="width:20px;height:20px;" class="mosaic-size-option" data-size="20"></span>
               <span style="width:40px;height:40px;" class="mosaic-size-option" data-size="40"></span>
               <span style="width:60px;height:60px;" class="mosaic-size-option selected" data-size="60"></span>
@@ -124,7 +129,6 @@
             </div>
           </div>
         </div>
-        <div class="col-auto"></div>
       </div>
     </div>
   </div>
@@ -150,8 +154,15 @@
     const localDecreasePixelSizeBtn = document.getElementById('localDecreasePixelSize');
     const downloadButton = document.getElementById('downloadButton');
 
-    // グローバル変数：モザイク適用領域サイズ（丸で選択、デフォルトは 40px）
-    let mosaicRegionSize = 40;
+    // グローバル変数：モザイク適用領域サイズ（丸で選択、デフォルトは 60px）
+    let mosaicRegionSize = 60; // デフォルト値を selected クラスの値と合わせる
+
+    // ウィンドウのリサイズイベントを監視して画像サイズを調整
+    window.addEventListener('resize', () => {
+      if (originalImages.length > 0) {
+        processOriginalImages();
+      }
+    });
 
     // モザイクサイズ選択用丸のクリックイベント
     const mosaicOptions = document.querySelectorAll('.mosaic-size-option');
@@ -270,7 +281,7 @@
       pdfjsLib.getDocument({ data: arrayBuffer }).promise.then(function(pdf) {
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
           pdf.getPage(pageNumber).then(function(page) {
-            const scale = 1;
+            const scale = 1.5; // PDF 初期スケール
             const viewport = page.getViewport({ scale: scale });
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -291,56 +302,75 @@
     }
 
     // 画像読み込み時の処理
-    // ※ここで「正規化」を行い、アップロード画像のサイズにかかわらず、
-    //    画面の表示領域に合わせたサイズでモザイク処理を実施する
     function processAndOutputImage(dataUrl, fileName) {
       const img = new Image();
       img.onload = function() {
-        // 利用可能な表示領域（トップバーを除く）を計算
+        // 利用可能な表示領域を計算
         const topBar = document.querySelector('.top-bar');
         const topBarHeight = topBar ? topBar.offsetHeight : 0;
-        const availableWidth = window.innerWidth;
-        const availableHeight = window.innerHeight - topBarHeight;
+        const dropZoneHeight = dropZone ? dropZone.offsetHeight : 0;
+        const padding = 40; // 余白
+        
+        const availableWidth = window.innerWidth - padding * 2;
+        const availableHeight = window.innerHeight - topBarHeight - dropZoneHeight - padding * 2;
+        
         // 画像全体が表示領域に収まるような倍率を算出（アスペクト比を維持）
-        const scaleFactor = Math.min(availableWidth / img.width, availableHeight / img.height);
+        const scaleFactor = Math.min(
+          availableWidth / img.width,
+          availableHeight / img.height,
+          1 // 元のサイズ以上に拡大しない
+        );
+        
         // 正規化後の画像サイズで canvas を作成
+        const scaledWidth = Math.floor(img.width * scaleFactor);
+        const scaledHeight = Math.floor(img.height * scaleFactor);
+        
         const canvas = document.createElement('canvas');
-        canvas.width = img.width * scaleFactor;
-        canvas.height = img.height * scaleFactor;
+        // 処理用の実際のキャンバスサイズは元の解像度を維持
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
         const ctx = canvas.getContext('2d');
-        // 正規化されたサイズで画像を描画
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // 元の解像度で画像を描画
+        ctx.drawImage(img, 0, 0, img.width, img.height);
+        
         // 全体モザイク処理（ユーザーが指定したピクセルサイズで適用）
-        const globalPixelSize = parseInt(pixelSizeInput.value, 10) || 2;
+        const globalPixelSize = parseInt(pixelSizeInput.value, 10) || 1;
         applyMosaic(ctx, 0, 0, canvas.width, canvas.height, globalPixelSize);
         
-        // ※ここでは canvas の実サイズと同じサイズで表示するので、
-        //     表示用の CSS の指定は不要（必要に応じて変更可能）
-        canvas.style.width = canvas.width + 'px';
-        canvas.style.height = canvas.height + 'px';
-
-        // canvas をラップするコンテナ作成（赤い枠用オーバーレイ含む）
+        // スタイルでキャンバスの表示サイズを設定
+        canvas.style.width = scaledWidth + 'px';
+        canvas.style.height = scaledHeight + 'px';
+        
+        // canvas をラップするコンテナ作成
         const container = document.createElement('div');
         container.className = "canvas-wrapper";
         container.appendChild(canvas);
+        
+        // 赤い枠のインジケーター
         const indicator = document.createElement('div');
         indicator.className = "mosaic-indicator";
         container.appendChild(indicator);
         canvas.mosaicIndicator = indicator;
 
         let isDrawing = false;
-        // マウスイベント：局所モザイク処理用の赤い枠更新
+        // マウスイベント
         canvas.addEventListener('mousemove', (e) => {
           updateIndicator(e, canvas);
           if (isDrawing) {
             applyMosaicRegionAtEvent(e, canvas, ctx);
           }
         });
-        canvas.addEventListener('mousedown', (e) => { isDrawing = true; applyMosaicRegionAtEvent(e, canvas, ctx); });
+        canvas.addEventListener('mousedown', (e) => { 
+          isDrawing = true; 
+          applyMosaicRegionAtEvent(e, canvas, ctx); 
+        });
         canvas.addEventListener('mouseup', () => { isDrawing = false; });
         canvas.addEventListener('mouseleave', () => {
           isDrawing = false;
-          if (canvas.mosaicIndicator) { canvas.mosaicIndicator.style.display = 'none'; }
+          if (canvas.mosaicIndicator) { 
+            canvas.mosaicIndicator.style.display = 'none'; 
+          }
         });
 
         const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
@@ -369,6 +399,7 @@
       const startY = Math.max(0, y - mosaicRegionSize / 2);
       const width = Math.min(mosaicRegionSize, canvas.width - startX);
       const height = Math.min(mosaicRegionSize, canvas.height - startY);
+      
       if (canvas.mosaicIndicator) {
         const dispScaleX = rect.width / canvas.width;
         const dispScaleY = rect.height / canvas.height;
@@ -379,7 +410,8 @@
         canvas.mosaicIndicator.style.display = 'block';
       }
     }
-    // クリック時に局所モザイク処理を実行（局所ぼかし濃度を反映）
+    
+    // クリック時に局所モザイク処理を実行
     function applyMosaicRegionAtEvent(e, canvas, ctx) {
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
@@ -390,19 +422,29 @@
       const startY = Math.max(0, y - mosaicRegionSize / 2);
       const width = Math.min(mosaicRegionSize, canvas.width - startX);
       const height = Math.min(mosaicRegionSize, canvas.height - startY);
+      
       updateIndicator(e, canvas);
-      const localPixelSize = parseInt(localPixelSizeInput.value, 10) || 2;
+      const localPixelSize = parseInt(localPixelSizeInput.value, 10) || 6;
       applyMosaic(ctx, startX, startY, width, height, localPixelSize);
     }
+    
     // 指定領域にモザイク処理を適用する関数
     function applyMosaic(ctx, startX, startY, width, height, mosaicPixelSize) {
+      startX = Math.floor(startX);
+      startY = Math.floor(startY);
+      width = Math.floor(width);
+      height = Math.floor(height);
+      
       const imageData = ctx.getImageData(startX, startY, width, height);
       for (let y = 0; y < height; y += mosaicPixelSize) {
         for (let x = 0; x < width; x += mosaicPixelSize) {
           const pixelIndex = (y * width + x) * 4;
+          if (pixelIndex >= imageData.data.length) continue;
+          
           const red = imageData.data[pixelIndex];
           const green = imageData.data[pixelIndex + 1];
           const blue = imageData.data[pixelIndex + 2];
+          
           for (let dy = 0; dy < mosaicPixelSize; dy++) {
             for (let dx = 0; dx < mosaicPixelSize; dx++) {
               const index = ((y + dy) * width + (x + dx)) * 4;
@@ -417,47 +459,13 @@
       }
       ctx.putImageData(imageData, startX, startY);
     }
+    
     // dataURL からファイルをダウンロードする関数
     function downloadDataUrl(dataUrl, filename) {
       const link = document.createElement('a');
       link.href = dataUrl;
       link.download = filename;
       link.click();
-    }
-  </script>
-  <!-- Live Server 用（任意） -->
-  <script>
-    if ('WebSocket' in window) {
-      (function () {
-        function refreshCSS() {
-          var sheets = [].slice.call(document.getElementsByTagName("link"));
-          var head = document.getElementsByTagName("head")[0];
-          for (var i = 0; i < sheets.length; ++i) {
-            var elem = sheets[i];
-            var parent = elem.parentElement || head;
-            parent.removeChild(elem);
-            var rel = elem.rel;
-            if (elem.href && (typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet")) {
-              var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
-              elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
-            }
-            parent.appendChild(elem);
-          }
-        }
-        var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
-        var address = protocol + window.location.host + window.location.pathname + '/ws';
-        var socket = new WebSocket(address);
-        socket.onmessage = function (msg) {
-          if (msg.data == 'reload') window.location.reload();
-          else if (msg.data == 'refreshcss') refreshCSS();
-        };
-        if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
-          console.log('Live reload enabled.');
-          sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
-        }
-      })();
-    } else {
-      console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
     }
   </script>
 </body>
