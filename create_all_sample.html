@@ -1,338 +1,369 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDFマルチ処理＆ダウンロード</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        #drop-zone {
-            border: 2px dashed #ccc;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 20px;
-            height: 200px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-        }
-        #drop-zone.dragover {
-            background-color: #f0f8ff;
-        }
-        .control-panel {
-            margin: 20px 0;
-            padding: 20px;
-            border: 1px solid #eee;
-            border-radius: 5px;
-        }
-        .input-group {
-            margin-bottom: 15px;
-        }
-        .input-group label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        .input-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .radio-group {
-            margin-bottom: 15px;
-        }
-        .radio-group label {
-            margin-right: 20px;
-        }
-        .button-group {
-            margin-top: 20px;
-            text-align: center;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 0 5px;
-            font-size: 16px;
-        }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        #preview {
-            margin-top: 20px;
-            text-align: center;
-        }
-        #preview canvas {
-            max-width: 100%;
-            height: auto;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDFマルチ処理＆ダウンロード</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    #drop-zone {
+      border: 2px dashed #ccc;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 20px;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    #drop-zone.dragover {
+      background-color: #f0f8ff;
+    }
+    .control-panel {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #eee;
+      border-radius: 5px;
+    }
+    .input-group {
+      margin-bottom: 15px;
+    }
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .radio-group {
+      margin-bottom: 15px;
+    }
+    .radio-group label {
+      margin-right: 20px;
+    }
+    .button-group {
+      margin-top: 20px;
+      text-align: center;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 0 5px;
+      font-size: 16px;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    #preview {
+      margin-top: 20px;
+      text-align: center;
+    }
+    #preview canvas {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
 </head>
-    <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-
 <body>
-    <h1>PDFマルチ処理＆ダウンロード</h1>
-    
-    <div class="control-panel">
-        <div class="radio-group">
-            <label>
-                <input type="radio" name="colorMode" value="normal" checked>
-                そのまま
-            </label>
-            <label>
-                <input type="radio" name="colorMode" value="gray">
-                グレー
-            </label>
-        </div>
+  <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
+  <h1>PDFマルチ処理＆ダウンロード</h1>
+  
+  <div class="control-panel">
+    <div class="radio-group">
+      <label>
+        <input type="radio" name="colorMode" value="normal" checked>
+        そのまま
+      </label>
+      <label>
+        <input type="radio" name="colorMode" value="gray">
+        グレー
+      </label>
     </div>
+  </div>
 
-    <div id="drop-zone">
-        ここにPDFファイルをドラッグ＆ドロップするか、クリックして選択してください
-        <input type="file" id="file-input" accept=".pdf" style="display: none;">
+  <div id="drop-zone">
+    ここにPDFファイルをドラッグ＆ドロップするか、クリックして選択してください
+    <input type="file" id="file-input" accept=".pdf" style="display: none;">
+  </div>
+
+  <div class="control-panel">
+    <div class="input-group">
+      <label for="watermark-text">透かし文字:</label>
+      <input type="text" id="watermark-text" placeholder="透かし文字を入力してください">
     </div>
-
-    <div class="control-panel">
-        <div class="input-group">
-            <label for="watermark-text">透かし文字:</label>
-            <input type="text" id="watermark-text" placeholder="透かし文字を入力してください">
-        </div>
-        <div class="button-group">
-            <button id="download-all" disabled>すべての画像をダウンロード</button>
-        </div>
+    <div class="button-group">
+      <button id="download-all" disabled>すべての画像をダウンロード</button>
     </div>
+  </div>
 
-    <div id="preview"></div>
+  <div id="preview"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-    <script>
-        let currentCanvas = null;
-        let currentFileName = '';
-        
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('file-input');
-        const watermarkText = document.getElementById('watermark-text');
-        const downloadAllButton = document.getElementById('download-all');
-        const preview = document.getElementById('preview');
-        const colorModeRadios = document.getElementsByName('colorMode');
+  <!-- PDF.js の読み込み -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <script>
+    // グローバル変数
+    let currentCanvas = null;
+    let currentFileName = '';
 
-        dropZone.addEventListener('click', () => fileInput.click());
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) processFile(files[0]);
-        });
-        fileInput.addEventListener('change', (e) => {
-            const files = e.target.files;
-            if (files.length > 0) processFile(files[0]);
-        });
+    // 各要素の取得
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const watermarkText = document.getElementById('watermark-text');
+    const downloadAllButton = document.getElementById('download-all');
+    const preview = document.getElementById('preview');
+    const colorModeRadios = document.getElementsByName('colorMode');
 
-        function applyGrayBackground(canvas) {
-            const ctx = canvas.getContext('2d');
-            // 現在の画像内容を保存
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            
-            // 背景を灰色で塗りつぶし
-            ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';  // 半透明のグレー
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            return canvas;
-        }
+    /* --- ユーティリティ関数 --- */
+    function getColorMode() {
+      return document.querySelector('input[name="colorMode"]:checked').value;
+    }
 
-        async function processFile(file) {
-            if (!file.name.toLowerCase().endsWith('.pdf')) {
-                alert('PDFファイルを選択してください。');
+    function applyGrayBackground(canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      return canvas;
+    }
+
+    function addSampleWatermark(ctx, width, height) {
+      ctx.font = 'bold 150px Arial';
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+      ctx.textAlign = 'center';
+      ctx.translate(width / 2, height / 2);
+      ctx.rotate(-Math.PI / 8);
+      ctx.fillText('SAMPLE', 0, 0);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function downloadFile(dataUrl, fileName) {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = fileName;
+      link.click();
+    }
+
+    function updatePreview(canvas) {
+      preview.innerHTML = '';
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.width = canvas.width;
+      previewCanvas.height = canvas.height;
+      previewCanvas.getContext('2d').drawImage(canvas, 0, 0);
+      preview.appendChild(previewCanvas);
+    }
+
+    function createBaseCanvas(sourceCanvas) {
+      const baseCanvas = document.createElement('canvas');
+      baseCanvas.width = sourceCanvas.width;
+      baseCanvas.height = sourceCanvas.height;
+      baseCanvas.getContext('2d').drawImage(sourceCanvas, 0, 0);
+      if (getColorMode() === 'gray') {
+        applyGrayBackground(baseCanvas);
+      }
+      return baseCanvas;
+    }
+
+    /* --- クリップボードからのアップロード対応 --- */
+    document.addEventListener('paste', (e) => {
+      if (e.clipboardData && e.clipboardData.items) {
+        for (let i = 0; i < e.clipboardData.items.length; i++) {
+          const item = e.clipboardData.items[i];
+          if (item.kind === 'file') {
+            const file = item.getAsFile();
+            if (file) {
+              if (file.type === 'application/pdf') {
+                processFile(file);
                 return;
+              } else if (file.type.startsWith('image/')) {
+                processImage(file);
+                return;
+              }
             }
-
-            currentFileName = file.name.replace(/\.pdf$/, '');
-            watermarkText.value = currentFileName.includes('】') 
-                ? currentFileName.split('】').pop() 
-                : currentFileName;
-
-            const fileReader = new FileReader();
-            fileReader.onload = async function() {
-                const typedarray = new Uint8Array(this.result);
-                const pdf = await pdfjsLib.getDocument(typedarray).promise;
-                const page = await pdf.getPage(1);
-                const viewport = page.getViewport({ scale: 2 });
-                
-                currentCanvas = document.createElement('canvas');
-                const ctx = currentCanvas.getContext('2d');
-                currentCanvas.width = viewport.width;
-                currentCanvas.height = viewport.height;
-
-                await page.render({ canvasContext: ctx, viewport }).promise;
-
-                // Apply gray background if selected
-                const isGray = document.querySelector('input[name="colorMode"]:checked').value === 'gray';
-                if (isGray) {
-                    applyGrayBackground(currentCanvas);
-                }
-
-                // プレビューを表示
-                preview.innerHTML = '';
-                const previewCanvas = document.createElement('canvas');
-                previewCanvas.width = viewport.width;
-                previewCanvas.height = viewport.height;
-                previewCanvas.getContext('2d').drawImage(currentCanvas, 0, 0);
-                preview.appendChild(previewCanvas);
-
-                // ダウンロードボタンを有効化
-                downloadAllButton.disabled = false;
-            };
-            fileReader.readAsArrayBuffer(file);
+          }
         }
+      }
+    });
 
-        // 色モード変更時にプレビューを更新
-        colorModeRadios.forEach(radio => {
-            radio.addEventListener('change', () => {
-                if (currentCanvas) {
-                    const tempCanvas = document.createElement('canvas');
-                    tempCanvas.width = currentCanvas.width;
-                    tempCanvas.height = currentCanvas.height;
-                    const ctx = tempCanvas.getContext('2d');
-                    ctx.drawImage(currentCanvas, 0, 0);
+    /* --- ドラッグ＆ドロップ、クリックでのファイル選択 --- */
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        processFile(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        processFile(e.target.files[0]);
+      }
+    });
 
-                    if (radio.value === 'gray') {
-                        applyGrayBackground(tempCanvas);
-                    }
+    /* --- PDF の読み込み・プレビュー --- */
+    async function processFile(file) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        alert('PDFファイルを選択してください。');
+        return;
+      }
 
-                    preview.innerHTML = '';
-                    preview.appendChild(tempCanvas);
-                }
-            });
-        });
+      currentFileName = file.name.replace(/\.pdf$/, '');
+      watermarkText.value = currentFileName.includes('】')
+        ? currentFileName.split('】').pop()
+        : currentFileName;
 
-        function addSampleWatermark(ctx, width, height) {
-            ctx.font = 'bold 150px Arial';
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-            ctx.textAlign = 'center';
-            ctx.translate(width / 2, height / 2);
-            ctx.rotate(-Math.PI / 8);
-            ctx.fillText('SAMPLE', 0, 0);
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const fileReader = new FileReader();
+      fileReader.onload = async function() {
+        const typedArray = new Uint8Array(this.result);
+        const pdf = await pdfjsLib.getDocument(typedArray).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2 });
+
+        currentCanvas = document.createElement('canvas');
+        currentCanvas.width = viewport.width;
+        currentCanvas.height = viewport.height;
+        await page.render({
+          canvasContext: currentCanvas.getContext('2d'),
+          viewport
+        }).promise;
+
+        if (getColorMode() === 'gray') {
+          applyGrayBackground(currentCanvas);
         }
+        updatePreview(currentCanvas);
+        downloadAllButton.disabled = false;
+      };
+      fileReader.readAsArrayBuffer(file);
+    }
 
-        function delay(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
+    /* --- 画像ファイルの読み込み・プレビュー --- */
+    function processImage(file) {
+      currentFileName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'pasted_image';
+      watermarkText.value = currentFileName;
+      
+      const img = new Image();
+      img.onload = function() {
+        currentCanvas = document.createElement('canvas');
+        currentCanvas.width = img.width;
+        currentCanvas.height = img.height;
+        const ctx = currentCanvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        if (getColorMode() === 'gray') {
+          applyGrayBackground(currentCanvas);
         }
+        updatePreview(currentCanvas);
+        downloadAllButton.disabled = false;
+        URL.revokeObjectURL(img.src);
+      };
+      img.src = URL.createObjectURL(file);
+    }
 
-        // 一括ダウンロードの処理
-        downloadAllButton.addEventListener('click', async () => {
-            if (!currentCanvas) return;
-
-            const isGray = document.querySelector('input[name="colorMode"]:checked').value === 'gray';
-
-            // Base canvas with gray background if selected
-            const baseCanvas = document.createElement('canvas');
-            baseCanvas.width = currentCanvas.width;
-            baseCanvas.height = currentCanvas.height;
-            baseCanvas.getContext('2d').drawImage(currentCanvas, 0, 0);
-            if (isGray) {
-                applyGrayBackground(baseCanvas);
-            }
-
-            // オリジナル画像
-            downloadFile(baseCanvas.toDataURL('image/png'), `${currentFileName}.png`);
-            await delay(500);
-
-            // SAMPLE画像
-            const sampleCanvas = document.createElement('canvas');
-            sampleCanvas.width = baseCanvas.width;
-            sampleCanvas.height = baseCanvas.height;
-            const sampleCtx = sampleCanvas.getContext('2d');
-            sampleCtx.drawImage(baseCanvas, 0, 0);
-            addSampleWatermark(sampleCtx, sampleCanvas.width, sampleCanvas.height);
-            downloadFile(sampleCanvas.toDataURL('image/png'), `${currentFileName}_SAMPLE.png`);
-            await delay(500);
-
-            // 透かし付き画像
-            const watermarkCanvas = document.createElement('canvas');
-            watermarkCanvas.width = baseCanvas.width;
-            watermarkCanvas.height = baseCanvas.height;
-            const watermarkCtx = watermarkCanvas.getContext('2d');
-            watermarkCtx.drawImage(baseCanvas, 0, 0);
-            
-            const text = watermarkText.value || currentFileName;
-            watermarkCtx.font = 'bold 50px Arial';
-            watermarkCtx.fillStyle = 'rgba(255, 0, 0, 1)';
-            watermarkCtx.textAlign = 'center';
-            watermarkCtx.textBaseline = 'top';
-            watermarkCtx.fillText(text, watermarkCanvas.width / 2, 50);
-            
-            downloadFile(watermarkCanvas.toDataURL('image/png'), `${currentFileName}_書類名.png`);
-            await delay(500);
-
-            // 正方形画像
-            const squareCanvas = document.createElement('canvas');
-            const size = Math.max(baseCanvas.width, baseCanvas.height);
-            squareCanvas.width = size;
-            squareCanvas.height = size;
-            const squareCtx = squareCanvas.getContext('2d');
-            
-            squareCtx.fillStyle = 'white';
-            squareCtx.fillRect(0, 0, size, size);
-
-            if (baseCanvas.height > baseCanvas.width) {
-                squareCtx.drawImage(
-                    baseCanvas,
-                    0, 0, baseCanvas.width, baseCanvas.width,
-                    0, 0, size, size
-                );
-            } else {
-                squareCtx.drawImage(
-                    baseCanvas,
-                    0, 0, baseCanvas.width, baseCanvas.height,
-                    (size - baseCanvas.width) / 2,
-                    (size - baseCanvas.height) / 2,
-                    baseCanvas.width,
-                    baseCanvas.height
-                );
-            }
-
-            squareCtx.font = 'bold 50px Arial';
-            squareCtx.fillStyle = 'rgba(255, 0, 0, 1)';
-            squareCtx.textAlign = 'center';
-            squareCtx.textBaseline = 'top';
-            squareCtx.fillText(text, size / 2, 50);
-            
-            downloadFile(squareCanvas.toDataURL('image/png'), `${currentFileName}_正方形.png`);
-            await delay(500);
-
-            // 正方形SAMPLE画像
-            const squareSampleCanvas = document.createElement('canvas');
-            squareSampleCanvas.width = size;
-            squareSampleCanvas.height = size;
-            const squareSampleCtx = squareSampleCanvas.getContext('2d');
-            squareSampleCtx.drawImage(squareCanvas, 0, 0);
-            addSampleWatermark(squareSampleCtx, size, size);
-            
-            downloadFile(squareSampleCanvas.toDataURL('image/png'), `${currentFileName}_正方形_SAMPLE.png`);
-        });
-
-        function downloadFile(dataUrl, fileName) {
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = fileName;
-            link.click();
+    /* --- カラーモード変更時のプレビュー更新 --- */
+    colorModeRadios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        if (currentCanvas) {
+          const tempCanvas = createBaseCanvas(currentCanvas);
+          updatePreview(tempCanvas);
         }
-    </script>
+      });
+    });
+
+    /* --- 画像生成・ダウンロード --- */
+    downloadAllButton.addEventListener('click', async () => {
+      if (!currentCanvas) return;
+
+      const baseCanvas = createBaseCanvas(currentCanvas);
+      const text = watermarkText.value || currentFileName;
+
+      // SAMPLE画像の生成
+      const sampleCanvas = document.createElement('canvas');
+      sampleCanvas.width = baseCanvas.width;
+      sampleCanvas.height = baseCanvas.height;
+      const sampleCtx = sampleCanvas.getContext('2d');
+      sampleCtx.drawImage(baseCanvas, 0, 0);
+      addSampleWatermark(sampleCtx, sampleCanvas.width, sampleCanvas.height);
+      await delay(500);
+      // downloadFile(baseCanvas.toDataURL('image/png'), `${currentFileName}.png`);
+
+      // 透かし付き画像の生成
+      const watermarkCanvas = document.createElement('canvas');
+      watermarkCanvas.width = baseCanvas.width;
+      watermarkCanvas.height = baseCanvas.height;
+      const watermarkCtx = watermarkCanvas.getContext('2d');
+      watermarkCtx.drawImage(baseCanvas, 0, 0);
+      watermarkCtx.font = 'bold 50px Arial';
+      watermarkCtx.fillStyle = 'rgba(255, 0, 0, 1)';
+      watermarkCtx.textAlign = 'center';
+      watermarkCtx.textBaseline = 'top';
+      watermarkCtx.fillText(text, watermarkCanvas.width / 2, 50);
+      await delay(500);
+      // downloadFile(watermarkCanvas.toDataURL('image/png'), `${currentFileName}_書類名.png`);
+
+      // 正方形画像の生成
+      const size = Math.max(baseCanvas.width, baseCanvas.height);
+      const squareCanvas = document.createElement('canvas');
+      squareCanvas.width = size;
+      squareCanvas.height = size;
+      const squareCtx = squareCanvas.getContext('2d');
+
+      squareCtx.fillStyle = 'white';
+      squareCtx.fillRect(0, 0, size, size);
+
+      if (baseCanvas.height > baseCanvas.width) {
+        squareCtx.drawImage(
+          baseCanvas,
+          0, 0, baseCanvas.width, baseCanvas.width,
+          0, 0, size, size
+        );
+      } else {
+        squareCtx.drawImage(
+          baseCanvas,
+          0, 0, baseCanvas.width, baseCanvas.height,
+          (size - baseCanvas.width) / 2,
+          (size - baseCanvas.height) / 2,
+          baseCanvas.width,
+          baseCanvas.height
+        );
+      }
+
+      squareCtx.font = 'bold 50px Arial';
+      squareCtx.fillStyle = 'rgba(255, 0, 0, 1)';
+      squareCtx.textAlign = 'center';
+      squareCtx.textBaseline = 'top';
+      squareCtx.fillText(text, size / 2, 50);
+      await delay(500);
+
+      // 正方形SAMPLE画像の生成とダウンロード
+      const squareSampleCanvas = document.createElement('canvas');
+      squareSampleCanvas.width = size;
+      squareSampleCanvas.height = size;
+      const squareSampleCtx = squareSampleCanvas.getContext('2d');
+      squareSampleCtx.drawImage(squareCanvas, 0, 0);
+      addSampleWatermark(squareSampleCtx, size, size);
+      downloadFile(squareSampleCanvas.toDataURL('image/png'), `${currentFileName}_正方形_SAMPLE.png`);
+    });
+  </script>
 </body>
 </html>
