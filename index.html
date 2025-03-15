@@ -1,81 +1,63 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>アプリ一覧</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: #ffffff;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            border-radius: 8px;
-        }
-        h1 {
-            text-align: center;
-            color: #333333;
-            margin-bottom: 30px;
-        }
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        li {
-            margin: 15px 0;
-        }
-        a {
-            display: block;
-            padding: 15px 20px;
-            background-color: #6c757d; /* ソフトなグレー系の色 */
-            color: #ffffff;
-            text-decoration: none;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
-        }
-        a:hover {
-            background-color: #5a6268; /* ホバー時に少し暗く */
-        }
-        @media (max-width: 600px) {
-            .container {
-                margin: 20px;
-                padding: 15px;
-            }
-            a {
-                padding: 12px 15px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>アプリ一覧</title>
+  <!-- Bootstrap の CSS を読み込み -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container-custom {
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #ffffff;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 30px;
+    }
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    li {
+      margin: 15px 0;
+    }
+    @media (max-width: 600px) {
+      .container-custom {
+        margin: 20px;
+        padding: 15px;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>アプリ一覧</h1>
-        <ul>
-                        <li><a href="convert_pdf_to_jpeg.html">PDFを画像に変換</a></li>
-                        <li><a href="bokashi.html">画像ぼかし</a></li>
-                        <li><a href="merge_pdf.html">PDF結合</a></li>
-
-            
-                        <li><a href="sample_png_from_pdf.html">PDFから、正方形のSAMPLE画像作成</a></li>
-                        <li><a href="add_text_at_top_right_left.html">右上か左上に文字柄</a></li>
-
-            <li><a href="convert_jpeg_to_pdf.html">画像をPDFに変換</a></li>
-           
-         <li><a href="seihoukei.html">画像を正方形にする</a></li>
-                        <li><a href="sample.html">Sample記載</a></li>
-                        <li><a href="add_name_of_document.html">名前記載</a></li>
-
-
-
-
-            <li><a href="oneforma_zaiko.html">OneForma在庫</a></li>
-        </ul>
-    </div>
+  <div class="container-custom">
+    <h1>アプリ一覧</h1>
+    <ul>
+      <!-- 最初の 4 つのボタンは Bootstrap の色付けクラスを使用 -->
+      <li><a href="convert_pdf_to_jpeg.html" class="btn btn-secondary btn-block">PDFを画像に変換</a></li>
+      <li><a href="bokashi.html" class="btn btn-secondary btn-block">画像ぼかし</a></li>
+      <li><a href="merge_pdf.html" class="btn btn-secondary btn-block">PDF結合</a></li>
+      <li><a href="sample_png_from_pdf.html" class="btn btn-secondary btn-block">PDFから、正方形のSAMPLE画像作成</a></li>
+      
+      <!-- その他のリンクはお好みで Bootstrap のクラスを追加 -->
+      <li><a href="add_text_at_top_right_left.html" class="btn btn-outline-dark btn-block">右上か左上に文字柄</a></li>
+      <li><a href="convert_jpeg_to_pdf.html" class="btn btn-outline-dark btn-block">画像をPDFに変換</a></li>
+      <li><a href="seihoukei.html" class="btn btn-outline-dark btn-block">画像を正方形にする</a></li>
+      <li><a href="sample.html" class="btn btn-outline-dark btn-block">Sample記載</a></li>
+      <li><a href="add_name_of_document.html" class="btn btn-outline-dark btn-block">名前記載</a></li>
+      <li><a href="oneforma_zaiko.html" class="btn btn-outline-dark btn-block">OneForma在庫</a></li>
+    </ul>
+  </div>
 </body>
 </html>
