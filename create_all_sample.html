@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -362,7 +363,7 @@
       const squareSampleCtx = squareSampleCanvas.getContext('2d');
       squareSampleCtx.drawImage(squareCanvas, 0, 0);
       addSampleWatermark(squareSampleCtx, size, size);
-      downloadFile(squareSampleCanvas.toDataURL('image/png'), `${currentFileName}_正方形_SAMPLE.png`);
+      downloadFile(squareSampleCanvas.toDataURL('image/png'), `${currentFileName}.png`);
     });
   </script>
 </body>
