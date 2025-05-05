@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>部分モザイク処理（全体/局所別設定）</title>
-  <!-- Bootstrap -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <!-- PDF.js ライブラリ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <style>
     body {
@@ -65,7 +63,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      /* justify-content: center; */ /* 中央揃えをやめて左揃えにする */
       width: 100%;
       box-sizing: border-box;
       padding: 10px;
@@ -74,9 +72,12 @@
     /* canvas と赤い枠を重ねるためのラッパー */
     .canvas-wrapper {
       position: relative;
-      display: inline-block;
+      display: inline-block; /* inline-blockに変更 */
       margin-bottom: 20px;
       max-width: 100%;
+      overflow: hidden; /* 拡大時にcanvasがはみ出ないように */
+      border: 1px solid #ccc; /* Wrapperに境界線をつける */
+      box-sizing: content-box; /* borderを含まないサイズ計算 */
     }
     /* 赤い枠（インジケータ）のスタイル */
     .mosaic-indicator {
@@ -84,43 +85,39 @@
       border: 2px solid red;
       pointer-events: none;
       display: none;
+      box-sizing: border-box; /* borderを含んだサイズ計算 */
     }
     canvas {
-      border: 1px solid #ccc;
-      max-width: 100%;
+      display: block; /* canvas自体はblock要素に */
+      /* border: 1px solid #ccc; */ /* borderはwrapperに移す */
+      max-width: none; /* wrapper内でサイズ制御するため制限解除 */
       height: auto;
+      cursor: crosshair; /* カーソル形状を変更 */
     }
   </style>
 </head>
 <body>
-  <!-- 上部コントロールバー -->
   <div class="top-bar">
     <div class="container">
       <div class="row align-items-center">
-        <!-- アプリリストに戻るボタン -->
         <div class="col-auto">
           <a href="https://kentaroabe.github.io/myapps/" class="btn btn-secondary">アプリリストに戻る</a>
         </div>
-        <!-- 全体ぼかし濃度・局所ぼかし濃度、モザイクサイズ選択 -->
         <div class="col text-center">
           <div class="d-inline-flex align-items-center flex-wrap">
-            <!-- 全体ぼかし濃度 -->
             <div class="d-flex align-items-center mr-3 mb-2">
               <label for="pixelSize" class="mr-2 mb-0">全体ぼかし濃度:</label>
               <input type="number" id="pixelSize" value="1" min="1" step="1" class="form-control mr-1" style="width:60px;">
               <button id="decreasePixelSize" class="btn btn-primary mr-1">-</button>
               <button id="increasePixelSize" class="btn btn-primary">+</button>
             </div>
-            <!-- 局所ぼかし濃度 -->
             <div class="d-flex align-items-center mr-3 mb-2">
               <label for="localPixelSize" class="mr-2 mb-0">局所ぼかし濃度:</label>
               <input type="number" id="localPixelSize" value="4" min="1" step="1" class="form-control mr-1" style="width:60px;">
               <button id="localDecreasePixelSize" class="btn btn-primary mr-1">-</button>
               <button id="localIncreasePixelSize" class="btn btn-primary">+</button>
             </div>
-            <!-- ダウンロードボタン -->
             <button id="downloadButton" class="btn btn-success mr-3 mb-2">ダウンロード</button>
-            <!-- モザイクサイズ選択用の丸 -->
             <div class="mosaic-size-selector mb-2">
               <span style="width:20px;height:20px;" class="mosaic-size-option" data-size="20"></span>
               <span style="width:40px;height:40px;" class="mosaic-size-option" data-size="40"></span>
@@ -133,10 +130,8 @@
     </div>
   </div>
 
-  <!-- ドラッグ＆ドロップ領域 -->
   <div id="dropZone">ここに画像またはPDFをドラッグ＆ドロップまたはCtrl+Vしてください</div>
   <input type="file" id="fileInput" multiple style="display: none;">
-  <!-- 出力領域 -->
   <div id="output"></div>
 
   <script>
@@ -154,13 +149,20 @@
     const localDecreasePixelSizeBtn = document.getElementById('localDecreasePixelSize');
     const downloadButton = document.getElementById('downloadButton');
 
-    // グローバル変数：モザイク適用領域サイズ（丸で選択、デフォルトは 60px）
+    // グローバル変数：モザイク適用領域サイズ（画面上のピクセルサイズ、デフォルトは 60px）
     let mosaicRegionSize = 60; // デフォルト値を selected クラスの値と合わせる
+
+    // アップロードした画像等の元データを保持（スケール情報も保持可能に）
+    let originalImages = [];
+    // 現在表示されている画像のスケール情報を保持するMap
+    const canvasScales = new Map();
 
     // ウィンドウのリサイズイベントを監視して画像サイズを調整
     window.addEventListener('resize', () => {
       if (originalImages.length > 0) {
-        processOriginalImages();
+        // リサイズ時は初期スケールに戻すか、現在のスケールを維持するか選択可能
+        // ここでは初期スケールに戻す実装とする
+        processOriginalImages(true); // trueを渡してスケールリセットを指示
       }
     });
 
@@ -171,301 +173,479 @@
         mosaicOptions.forEach(opt => opt.classList.remove('selected'));
         option.classList.add('selected');
         mosaicRegionSize = parseInt(option.getAttribute('data-size'), 10);
-        console.log("モザイク領域サイズを " + mosaicRegionSize + "px に設定");
+        console.log("画面上のモザイク領域サイズを " + mosaicRegionSize + "px に設定");
       });
     });
 
     // アップロードした画像等の元データを保持
-    let originalImages = [];
+    // let originalImages = []; // 上部で定義済み
 
     // ドラッグ＆ドロップ・クリック・Ctrl+V イベント設定
-    dropZone.addEventListener('dragover', (event) => {
-      event.preventDefault();
-      dropZone.classList.add('dragover');
-    });
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('dragover');
-    });
-    dropZone.addEventListener('drop', (event) => {
-      event.preventDefault();
-      dropZone.classList.remove('dragover');
-      handleFiles(event.dataTransfer.files);
-    });
-    fileInput.addEventListener('change', () => {
-      handleFiles(fileInput.files);
-    });
-    dropZone.addEventListener('click', () => {
-      fileInput.click();
-    });
+    dropZone.addEventListener('dragover', (event) => { event.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+    dropZone.addEventListener('drop', (event) => { event.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(event.dataTransfer.files); });
+    fileInput.addEventListener('change', () => { handleFiles(fileInput.files); });
+    dropZone.addEventListener('click', () => { fileInput.click(); });
     document.addEventListener('paste', (event) => {
       const items = event.clipboardData.items;
+      let filesToHandle = [];
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1 || items[i].type === "application/pdf") {
           const file = items[i].getAsFile();
-          handleFiles([file]);
+          if (file) {
+             filesToHandle.push(file);
+          }
         }
+      }
+      if (filesToHandle.length > 0) {
+          handleFiles(filesToHandle);
       }
     });
 
     // 全体ぼかし濃度変更ボタン
-    increasePixelSizeBtn.addEventListener('click', () => {
-      let pixelSize = parseInt(pixelSizeInput.value, 10);
-      pixelSizeInput.value = ++pixelSize;
-      if (originalImages.length > 0) {
-        processOriginalImages();
-      }
-    });
-    decreasePixelSizeBtn.addEventListener('click', () => {
-      let pixelSize = parseInt(pixelSizeInput.value, 10);
-      if (pixelSize > 1) {
-        pixelSizeInput.value = --pixelSize;
-        if (originalImages.length > 0) {
-          processOriginalImages();
-        }
-      }
-    });
+    increasePixelSizeBtn.addEventListener('click', () => { pixelSizeInput.value = parseInt(pixelSizeInput.value, 10) + 1; processOriginalImages(); });
+    decreasePixelSizeBtn.addEventListener('click', () => { let current = parseInt(pixelSizeInput.value, 10); if (current > 1) { pixelSizeInput.value = current - 1; processOriginalImages(); } });
 
     // 局所ぼかし濃度変更ボタン
-    localIncreasePixelSizeBtn.addEventListener('click', () => {
-      let localPixelSize = parseInt(localPixelSizeInput.value, 10);
-      localPixelSizeInput.value = ++localPixelSize;
-    });
-    localDecreasePixelSizeBtn.addEventListener('click', () => {
-      let localPixelSize = parseInt(localPixelSizeInput.value, 10);
-      if (localPixelSize > 1) {
-        localPixelSizeInput.value = --localPixelSize;
-      }
-    });
+    localIncreasePixelSizeBtn.addEventListener('click', () => { localPixelSizeInput.value = parseInt(localPixelSizeInput.value, 10) + 1; });
+    localDecreasePixelSizeBtn.addEventListener('click', () => { let current = parseInt(localPixelSizeInput.value, 10); if (current > 1) { localPixelSizeInput.value = current - 1; } });
 
-    // ダウンロードボタン（各canvasの状態を画像として保存）
+    // ダウンロードボタン
     downloadButton.addEventListener('click', () => {
       const canvases = output.querySelectorAll("canvas");
-      canvases.forEach(canvas => {
+      canvases.forEach((canvas, index) => {
+        // 元のファイル名またはページ番号付きのファイル名を使用
+        const originalFileName = originalImages[index]?.fileName || `image_${index+1}`;
+        const nameWithoutExt = originalFileName.replace(/\.[^/.]+$/, "");
+        const filename = `ぼかし_${nameWithoutExt}.png`;
+
+        // 一時的に最高解像度のCanvasを作成してダウンロード (オプション)
+        // const fullResCanvas = document.createElement('canvas');
+        // fullResCanvas.width = canvas.dataset.initialWidth;
+        // fullResCanvas.height = canvas.dataset.initialHeight;
+        // const fullResCtx = fullResCanvas.getContext('2d');
+        // // ここで元の画像データとモザイク情報を元に再描画が必要（複雑になるため今回は省略）
+        // // fullResCtx.drawImage(canvas, 0, 0, fullResCanvas.width, fullResCanvas.height); // これは低解像度になる
+
+        // 現在のCanvasの内容をそのままダウンロード
         const dataUrl = canvas.toDataURL('image/png');
-        const filename = canvas.dataset.filename;
         downloadDataUrl(dataUrl, filename);
       });
     });
 
     // ファイル（画像または PDF）の処理
     function handleFiles(files) {
-      output.innerHTML = '';
-      originalImages = [];
-      Array.from(files).forEach(file => {
-        if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-          processPdfFile(file);
-        } else {
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            const dataUrl = e.target.result;
-            const fileName = file.name;
-            originalImages.push({ dataUrl, fileName });
-            processAndOutputImage(dataUrl, fileName);
-          };
-          reader.readAsDataURL(file);
+      output.innerHTML = ''; // 出力領域をクリア
+      originalImages = []; // 元画像リストをクリア
+      canvasScales.clear(); // スケール情報もクリア
+      const fileList = Array.from(files);
+
+      // PDFと画像を分けて処理
+      const pdfFiles = fileList.filter(file => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+      const imageFiles = fileList.filter(file => file.type.startsWith("image/"));
+
+      let processedCount = 0;
+      const totalFilesToProcess = pdfFiles.length + imageFiles.length; // PDFはページごとにカウントしない
+
+      const checkCompletion = () => {
+        processedCount++;
+        // すべてのファイル（画像またはPDF全体）の初期処理が終わったら描画
+        if (processedCount === totalFilesToProcess) {
+             processOriginalImages();
         }
+      };
+
+      // 画像ファイルの処理
+      imageFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const dataUrl = e.target.result;
+          const fileName = file.name;
+          originalImages.push({ dataUrl, fileName, type: 'image' });
+          checkCompletion();
+        };
+        reader.onerror = () => {
+            console.error("画像ファイルの読み込みに失敗しました:", file.name);
+            checkCompletion(); // エラーでもカウントを進める
+        }
+        reader.readAsDataURL(file);
       });
+
+      // PDFファイルの処理
+      pdfFiles.forEach(file => {
+          processPdfFile(file, checkCompletion);
+      });
+
+       // ファイルが0件の場合
+       if (totalFilesToProcess === 0) {
+           console.log("処理する画像またはPDFファイルがありません。");
+       }
     }
 
-    // PDF ファイルの読み込みと処理
-    function processPdfFile(file) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const arrayBuffer = e.target.result;
-        processPdf(arrayBuffer, file.name);
-      };
-      reader.readAsArrayBuffer(file);
-    }
-    function processPdf(arrayBuffer, fileName) {
-      const baseName = fileName.replace(/\.[^/.]+$/, "");
-      pdfjsLib.getDocument({ data: arrayBuffer }).promise.then(function(pdf) {
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-          pdf.getPage(pageNumber).then(function(page) {
-            const scale = 1.5; // PDF 初期スケール
-            const viewport = page.getViewport({ scale: scale });
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            const renderContext = { canvasContext: ctx, viewport: viewport };
-            page.render(renderContext).promise.then(function() {
-              const dataUrl = canvas.toDataURL('image/png');
-              const newFileName = `${baseName}_page${pageNumber}`;
-              originalImages.push({ dataUrl, fileName: newFileName });
-              processAndOutputImage(dataUrl, newFileName);
+    // PDF ファイルの読み込みとページごとのデータURL生成
+    function processPdfFile(file, callback) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const arrayBuffer = e.target.result;
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            loadingTask.promise.then(function(pdf) {
+                const numPages = pdf.numPages;
+                let pagesProcessed = 0;
+                const baseName = file.name.replace(/\.[^/.]+$/, "");
+
+                for (let pageNumber = 1; pageNumber <= numPages; pageNumber++) {
+                    pdf.getPage(pageNumber).then(function(page) {
+                        const scale = 1.5; // PDFの初期レンダリング解像度スケール
+                        const viewport = page.getViewport({ scale: scale });
+                        const tempCanvas = document.createElement('canvas');
+                        const tempCtx = tempCanvas.getContext('2d');
+                        tempCanvas.width = viewport.width;
+                        tempCanvas.height = viewport.height;
+
+                        const renderContext = { canvasContext: tempCtx, viewport: viewport };
+                        page.render(renderContext).promise.then(function() {
+                            const dataUrl = tempCanvas.toDataURL('image/png');
+                            const pageFileName = `${baseName}_page${pageNumber}`;
+                            originalImages.push({ dataUrl, fileName: pageFileName, type: 'pdf-page' });
+                            pagesProcessed++;
+                            if (pagesProcessed === numPages) {
+                                callback(); // PDFの全ページ処理完了
+                            }
+                        }).catch(function(renderError){
+                            console.error(`PDFページ ${pageNumber} のレンダリングエラー:`, renderError);
+                            pagesProcessed++;
+                             if (pagesProcessed === numPages) {
+                                callback(); // エラーでもコールバックを呼ぶ
+                            }
+                        });
+                    }).catch(function(pageError){
+                        console.error(`PDFページ ${pageNumber} の取得エラー:`, pageError);
+                        pagesProcessed++; // ページ取得エラーでもカウント
+                         if (pagesProcessed === numPages) {
+                            callback(); // エラーでもコールバックを呼ぶ
+                         }
+                    });
+                }
+            }).catch(function(pdfError) {
+                console.error("PDFファイルの処理エラー:", pdfError);
+                callback(); // PDF自体の処理エラーでもコールバック
             });
-          });
+        };
+        reader.onerror = () => {
+            console.error("PDFファイルの読み込みに失敗しました:", file.name);
+            callback(); // ファイル読み込みエラーでもコールバック
         }
-      }).catch(function(error) {
-        console.error("PDF処理エラー:", error);
+        reader.readAsArrayBuffer(file);
+    }
+
+
+    // オリジナル画像リストを元にCanvasを作成・表示・モザイク処理
+    function processOriginalImages(resetScale = false) {
+      output.innerHTML = ''; // 出力領域をクリア
+
+      originalImages.forEach((imgData, index) => {
+        const { dataUrl, fileName } = imgData;
+        const img = new Image();
+        img.onload = function() {
+          // 利用可能な表示領域を計算 (初回表示またはリセット時)
+          const topBar = document.querySelector('.top-bar');
+          const topBarHeight = topBar ? topBar.offsetHeight : 0;
+          const dropZoneHeight = dropZone ? dropZone.offsetHeight : 0;
+          const padding = 40; // 上下の余白合計のようなもの
+          const availableWidth = window.innerWidth - 40; // 左右の余白も考慮
+          const availableHeight = window.innerHeight - topBarHeight - dropZoneHeight - padding;
+
+          // 画像全体が表示領域に収まるような初期倍率を算出
+          const initialScaleFactor = Math.min(
+            availableWidth / img.width,
+            availableHeight / img.height,
+            1 // 元のサイズ以上に拡大しない
+          );
+
+          // スケールを決定 (リセットフラグ or 保存されたスケール or 初期スケール)
+          let currentScale;
+          const canvasId = `canvas-${index}`;
+          if (resetScale) {
+              currentScale = initialScaleFactor;
+              canvasScales.set(canvasId, currentScale);
+          } else {
+              currentScale = canvasScales.get(canvasId) || initialScaleFactor;
+              // 初回描画時などでMapにない場合はinitialScaleFactorを使い、Mapに保存
+              if (!canvasScales.has(canvasId)) {
+                  canvasScales.set(canvasId, currentScale);
+              }
+          }
+
+
+          // 現在のスケールに基づいて表示サイズを計算
+          const scaledWidth = Math.floor(img.width * currentScale);
+          const scaledHeight = Math.floor(img.height * currentScale);
+
+          const canvas = document.createElement('canvas');
+          canvas.id = canvasId; // IDを設定
+          canvas.width = img.width; // 元の解像度
+          canvas.height = img.height; // 元の解像度
+          canvas.dataset.initialWidth = img.width; // 元の幅を保持
+          canvas.dataset.initialHeight = img.height; // 元の高さを保持
+          // canvas.dataset.currentScale = currentScale; // スケールはMapで管理
+
+          const ctx = canvas.getContext('2d');
+          // 画像を描画（ここは常に元の解像度で）
+          ctx.drawImage(img, 0, 0, img.width, img.height);
+
+          // 全体モザイク処理
+          const globalPixelSize = parseInt(pixelSizeInput.value, 10) || 1;
+          if (globalPixelSize > 1) { // 1より大きい場合のみ適用
+              applyMosaic(ctx, 0, 0, canvas.width, canvas.height, globalPixelSize);
+          }
+
+
+          // --- DOM要素の作成と設定 ---
+          const container = document.createElement('div');
+          container.className = "canvas-wrapper";
+          // Wrapperのサイズもスケールに合わせて設定
+          container.style.width = scaledWidth + 'px';
+          container.style.height = scaledHeight + 'px';
+
+          // Canvasの表示サイズを設定
+          canvas.style.width = scaledWidth + 'px';
+          canvas.style.height = scaledHeight + 'px';
+
+          container.appendChild(canvas);
+
+          // 赤い枠のインジケーター
+          const indicator = document.createElement('div');
+          indicator.className = "mosaic-indicator";
+          container.appendChild(indicator); // container に追加
+          canvas.mosaicIndicator = indicator; // canvasからアクセスできるように保持
+
+          // --- イベントリスナーの設定 ---
+          let isDrawing = false;
+          // マウスイベント (canvasに対して設定)
+          canvas.addEventListener('mousemove', (e) => { updateIndicator(e, canvas, container); if (isDrawing) { applyMosaicRegionAtEvent(e, canvas, ctx); } });
+          canvas.addEventListener('mousedown', (e) => { isDrawing = true; applyMosaicRegionAtEvent(e, canvas, ctx); });
+          canvas.addEventListener('mouseup', () => { isDrawing = false; });
+          canvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+            if (canvas.mosaicIndicator) { canvas.mosaicIndicator.style.display = 'none'; }
+          });
+
+          // Ctrl + ホイールイベント (containerに対して設定)
+          container.addEventListener('wheel', (e) => {
+            if (e.ctrlKey) {
+              e.preventDefault(); // ページのスクロールを防止
+
+              const zoomIntensity = 0.1; // 拡大・縮小の強度
+              const direction = e.deltaY < 0 ? 1 : -1; // 上向きホイールで拡大、下向きで縮小
+
+              let currentScale = canvasScales.get(canvas.id); // 現在のスケールを取得
+              let newScale = currentScale * (1 + direction * zoomIntensity);
+
+              // スケールの上限・下限を設定 (例: 0.1倍から10倍まで)
+              const minScale = 0.1;
+              const maxScale = 10.0;
+              newScale = Math.max(minScale, Math.min(newScale, maxScale));
+
+              if (newScale !== currentScale) { // スケールが実際に変更された場合のみ更新
+                  const originalWidth = parseFloat(canvas.dataset.initialWidth);
+                  const originalHeight = parseFloat(canvas.dataset.initialHeight);
+
+                  const newWidth = Math.floor(originalWidth * newScale);
+                  const newHeight = Math.floor(originalHeight * newScale);
+
+                  // CanvasとWrapperの表示サイズを更新
+                  canvas.style.width = newWidth + 'px';
+                  canvas.style.height = newHeight + 'px';
+                  container.style.width = newWidth + 'px';
+                  container.style.height = newHeight + 'px';
+
+                  // 新しいスケールを保存
+                  canvasScales.set(canvas.id, newScale);
+
+                  // マウスカーソルが乗っていればインジケーターも更新
+                   updateIndicator(e, canvas, container);
+              }
+            }
+          }, { passive: false }); // preventDefault を呼ぶために passive: false を指定
+
+          output.appendChild(container);
+        };
+        img.onerror = () => {
+            console.error("画像データの読み込みに失敗しました:", fileName);
+            // エラー処理: プレースホルダーを表示するなど
+        }
+        img.src = dataUrl;
       });
     }
 
-    // 画像読み込み時の処理
-    function processAndOutputImage(dataUrl, fileName) {
-      const img = new Image();
-      img.onload = function() {
-        // 利用可能な表示領域を計算
-        const topBar = document.querySelector('.top-bar');
-        const topBarHeight = topBar ? topBar.offsetHeight : 0;
-        const dropZoneHeight = dropZone ? dropZone.offsetHeight : 0;
-        const padding = 40; // 余白
-        
-        const availableWidth = window.innerWidth - padding * 2;
-        const availableHeight = window.innerHeight - topBarHeight - dropZoneHeight - padding * 2;
-        
-        // 画像全体が表示領域に収まるような倍率を算出（アスペクト比を維持）
-        const scaleFactor = Math.min(
-          availableWidth / img.width,
-          availableHeight / img.height,
-          1 // 元のサイズ以上に拡大しない
-        );
-        
-        // 正規化後の画像サイズで canvas を作成
-        const scaledWidth = Math.floor(img.width * scaleFactor);
-        const scaledHeight = Math.floor(img.height * scaleFactor);
-        
-        const canvas = document.createElement('canvas');
-        // 処理用の実際のキャンバスサイズは元の解像度を維持
-        canvas.width = img.width;
-        canvas.height = img.height;
-        
-        const ctx = canvas.getContext('2d');
-        // 元の解像度で画像を描画
-        ctx.drawImage(img, 0, 0, img.width, img.height);
-        
-        // 全体モザイク処理（ユーザーが指定したピクセルサイズで適用）
-        const globalPixelSize = parseInt(pixelSizeInput.value, 10) || 1;
-        applyMosaic(ctx, 0, 0, canvas.width, canvas.height, globalPixelSize);
-        
-        // スタイルでキャンバスの表示サイズを設定
-        canvas.style.width = scaledWidth + 'px';
-        canvas.style.height = scaledHeight + 'px';
-        
-        // canvas をラップするコンテナ作成
-        const container = document.createElement('div');
-        container.className = "canvas-wrapper";
-        container.appendChild(canvas);
-        
-        // 赤い枠のインジケーター
-        const indicator = document.createElement('div');
-        indicator.className = "mosaic-indicator";
-        container.appendChild(indicator);
-        canvas.mosaicIndicator = indicator;
 
-        let isDrawing = false;
-        // マウスイベント
-        canvas.addEventListener('mousemove', (e) => {
-          updateIndicator(e, canvas);
-          if (isDrawing) {
-            applyMosaicRegionAtEvent(e, canvas, ctx);
-          }
-        });
-        canvas.addEventListener('mousedown', (e) => { 
-          isDrawing = true; 
-          applyMosaicRegionAtEvent(e, canvas, ctx); 
-        });
-        canvas.addEventListener('mouseup', () => { isDrawing = false; });
-        canvas.addEventListener('mouseleave', () => {
-          isDrawing = false;
-          if (canvas.mosaicIndicator) { 
-            canvas.mosaicIndicator.style.display = 'none'; 
-          }
-        });
+    // マウス座標から赤い枠（インジケーター）の表示を更新
+    function updateIndicator(e, canvas, container) {
+        if (!canvas.mosaicIndicator) return;
 
-        const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "");
-        canvas.dataset.filename = `ぼかし_${nameWithoutExt}.png`;
-        output.appendChild(container);
-      };
-      img.src = dataUrl;
+        const containerRect = container.getBoundingClientRect(); // Wrapperのレクトを取得
+        const canvasRect = canvas.getBoundingClientRect(); // Canvasのレクトも取得（スケール計算用）
+
+        // マウスカーソルのコンテナ（表示領域）内の相対座標 (表示上のピクセル)
+        const mouseX = e.clientX - containerRect.left;
+        const mouseY = e.clientY - containerRect.top;
+
+        // 赤い枠の表示上の左上座標を計算 (マウスカーソル中心)
+        let indicatorX = mouseX - mosaicRegionSize / 2;
+        let indicatorY = mouseY - mosaicRegionSize / 2;
+        let indicatorWidth = mosaicRegionSize;
+        let indicatorHeight = mosaicRegionSize;
+
+        // コンテナ(表示領域)外にはみ出さないように表示位置とサイズを調整
+        if (indicatorX < 0) {
+            indicatorWidth += indicatorX; // 左にはみ出た分だけ幅を縮める
+            indicatorX = 0;
+        }
+        if (indicatorY < 0) {
+            indicatorHeight += indicatorY; // 上にはみ出た分だけ高さを縮める
+            indicatorY = 0;
+        }
+        if (indicatorX + indicatorWidth > containerRect.width) {
+            indicatorWidth = containerRect.width - indicatorX; // 右にはみ出ないように幅を調整
+        }
+        if (indicatorY + indicatorHeight > containerRect.height) {
+            indicatorHeight = containerRect.height - indicatorY; // 下にはみ出ないように高さを調整
+        }
+
+        // 幅や高さが負にならないように
+        indicatorWidth = Math.max(0, indicatorWidth);
+        indicatorHeight = Math.max(0, indicatorHeight);
+
+        // インジケータのスタイルを更新
+        const indicator = canvas.mosaicIndicator;
+        indicator.style.left = indicatorX + 'px';
+        indicator.style.top = indicatorY + 'px';
+        indicator.style.width = indicatorWidth + 'px';
+        indicator.style.height = indicatorHeight + 'px';
+        indicator.style.display = 'block';
     }
 
-    // アップロード済み画像全体の再処理
-    function processOriginalImages() {
-      output.innerHTML = '';
-      originalImages.forEach(({ dataUrl, fileName }) => {
-        processAndOutputImage(dataUrl, fileName);
-      });
-    }
-
-    // マウス座標の補正と局所モザイク処理、赤い枠の更新
-    function updateIndicator(e, canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
-      const startX = Math.max(0, x - mosaicRegionSize / 2);
-      const startY = Math.max(0, y - mosaicRegionSize / 2);
-      const width = Math.min(mosaicRegionSize, canvas.width - startX);
-      const height = Math.min(mosaicRegionSize, canvas.height - startY);
-      
-      if (canvas.mosaicIndicator) {
-        const dispScaleX = rect.width / canvas.width;
-        const dispScaleY = rect.height / canvas.height;
-        canvas.mosaicIndicator.style.left = (startX * dispScaleX) + 'px';
-        canvas.mosaicIndicator.style.top = (startY * dispScaleY) + 'px';
-        canvas.mosaicIndicator.style.width = (width * dispScaleX) + 'px';
-        canvas.mosaicIndicator.style.height = (height * dispScaleY) + 'px';
-        canvas.mosaicIndicator.style.display = 'block';
-      }
-    }
-    
-    // クリック時に局所モザイク処理を実行
+    // クリック/ドラッグ時に局所モザイク処理を実行
     function applyMosaicRegionAtEvent(e, canvas, ctx) {
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
-      const startX = Math.max(0, x - mosaicRegionSize / 2);
-      const startY = Math.max(0, y - mosaicRegionSize / 2);
-      const width = Math.min(mosaicRegionSize, canvas.width - startX);
-      const height = Math.min(mosaicRegionSize, canvas.height - startY);
-      
-      updateIndicator(e, canvas);
-      const localPixelSize = parseInt(localPixelSizeInput.value, 10) || 6;
-      applyMosaic(ctx, startX, startY, width, height, localPixelSize);
+        const canvasRect = canvas.getBoundingClientRect(); // 表示上のサイズと位置
+        const originalWidth = canvas.width;    // 元の幅
+        const originalHeight = canvas.height; // 元の高さ
+        const displayWidth = canvasRect.width; // 表示上の幅
+        const displayHeight = canvasRect.height;// 表示上の高さ
+
+        // 表示サイズが0または無効な場合は処理しない
+        if (displayWidth <= 0 || displayHeight <= 0) {
+            return;
+        }
+
+        // 元画像サイズと表示サイズのスケール比
+        const scaleX = originalWidth / displayWidth;
+        const scaleY = originalHeight / displayHeight;
+
+        // マウスイベント座標から表示上のcanvas内の相対座標を計算
+        const mouseX_display = e.clientX - canvasRect.left;
+        const mouseY_display = e.clientY - canvasRect.top;
+
+        // 表示上の座標を元画像上の座標 (x, y) に変換
+        const x_original = mouseX_display * scaleX;
+        const y_original = mouseY_display * scaleY;
+
+        // 画面上の mosaicRegionSize を元画像上のピクセル数に変換
+        const actualMosaicWidth_original = mosaicRegionSize * scaleX;
+        const actualMosaicHeight_original = mosaicRegionSize * scaleY;
+
+        // 元画像上でのモザイク適用範囲の中心を (x_original, y_original) として、
+        // 左上座標 (startX, startY) と適用サイズ (width, height) を計算
+        const startX = Math.max(0, x_original - actualMosaicWidth_original / 2);
+        const startY = Math.max(0, y_original - actualMosaicHeight_original / 2);
+
+        // 元画像の境界を超えないように適用サイズを計算
+        // Math.min(適用したいサイズ, 境界までの残りサイズ)
+        const width = Math.min(actualMosaicWidth_original, originalWidth - startX);
+        const height = Math.min(actualMosaicHeight_original, originalHeight - startY);
+
+        // サイズが有効な場合のみモザイク処理を実行
+        if (width > 0 && height > 0) {
+            const localPixelSize = parseInt(localPixelSizeInput.value, 10) || 6; // 局所ぼかし濃度
+            applyMosaic(ctx, startX, startY, width, height, localPixelSize);
+        }
+
+        // updateIndicator(e, canvas, canvas.parentElement); // 描画中もインジケータを更新する場合 (必要なら)
     }
-    
-    // 指定領域にモザイク処理を適用する関数
+
+    // 指定領域にモザイク処理を適用する関数 (変更なし)
     function applyMosaic(ctx, startX, startY, width, height, mosaicPixelSize) {
+      // 座標とサイズを整数に丸める
       startX = Math.floor(startX);
       startY = Math.floor(startY);
       width = Math.floor(width);
       height = Math.floor(height);
-      
-      const imageData = ctx.getImageData(startX, startY, width, height);
-      for (let y = 0; y < height; y += mosaicPixelSize) {
-        for (let x = 0; x < width; x += mosaicPixelSize) {
-          const pixelIndex = (y * width + x) * 4;
-          if (pixelIndex >= imageData.data.length) continue;
-          
-          const red = imageData.data[pixelIndex];
-          const green = imageData.data[pixelIndex + 1];
-          const blue = imageData.data[pixelIndex + 2];
-          
-          for (let dy = 0; dy < mosaicPixelSize; dy++) {
-            for (let dx = 0; dx < mosaicPixelSize; dx++) {
-              const index = ((y + dy) * width + (x + dx)) * 4;
-              if (index < imageData.data.length) {
-                imageData.data[index] = red;
-                imageData.data[index + 1] = green;
-                imageData.data[index + 2] = blue;
-              }
-            }
-          }
-        }
+      mosaicPixelSize = Math.max(1, Math.floor(mosaicPixelSize)); // 1未満にならないように
+
+      // 領域サイズが0以下なら何もしない
+      if (width <= 0 || height <= 0) {
+          return;
       }
-      ctx.putImageData(imageData, startX, startY);
+
+      // ImageDataを取得（範囲外アクセスを防ぐため、取得前に範囲チェックが望ましいが、putImageDataでクリップされる）
+      // ただし、startX, startY, width, heightがcanvasの範囲外にならないように事前に計算済みのはず
+      try {
+          const imageData = ctx.getImageData(startX, startY, width, height);
+          const data = imageData.data;
+          const actualWidth = imageData.width; // getImageDataで取得できた実際の幅
+
+          for (let y = 0; y < height; y += mosaicPixelSize) {
+              for (let x = 0; x < width; x += mosaicPixelSize) {
+                  // モザイクブロックの左上のピクセルインデックス (ブロック内の基準色を取得)
+                  // 範囲チェックを追加
+                  const blockStartY = Math.min(y, height - 1);
+                  const blockStartX = Math.min(x, width - 1);
+                  const pixelIndex = (blockStartY * actualWidth + blockStartX) * 4;
+
+                  // 念のため、取得するピクセルがデータ範囲内か確認
+                  if (pixelIndex >= 0 && pixelIndex + 3 < data.length) {
+                      const red = data[pixelIndex];
+                      const green = data[pixelIndex + 1];
+                      const blue = data[pixelIndex + 2];
+                      // alphaは元の値を維持するか、特定の値にするか選べる (ここでは元のpixelの値をコピーする)
+
+                      // モザイクブロック内を同じ色で塗りつぶす
+                      for (let dy = 0; dy < mosaicPixelSize; dy++) {
+                          for (let dx = 0; dx < mosaicPixelSize; dx++) {
+                              const currentX = x + dx;
+                              const currentY = y + dy;
+
+                              // 塗りつぶすピクセルが指定領域 (width, height) 内にあるか確認
+                              if (currentX < width && currentY < height) {
+                                  const index = (currentY * actualWidth + currentX) * 4;
+                                  // ここでも念のため範囲チェック
+                                  if (index >= 0 && index + 3 < data.length) {
+                                      data[index] = red;
+                                      data[index + 1] = green;
+                                      data[index + 2] = blue;
+                                      // data[index + 3] = alpha; // アルファ値もコピーする場合
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          ctx.putImageData(imageData, startX, startY);
+      } catch (error) {
+          console.error("モザイク処理中にエラーが発生しました:", error, {startX, startY, width, height});
+          // getImageDataで範囲外などを指定した場合にエラーが起きる可能性がある
+      }
     }
-    
-    // dataURL からファイルをダウンロードする関数
+
+    // dataURL からファイルをダウンロードする関数 (変更なし)
     function downloadDataUrl(dataUrl, filename) {
       const link = document.createElement('a');
       link.href = dataUrl;
       link.download = filename;
+      document.body.appendChild(link); // Firefoxでの動作のため
       link.click();
+      document.body.removeChild(link); // 作成したリンクを削除
     }
   </script>
 </body>
