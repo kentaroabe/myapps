@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>画像並び替え + 区切り画像（4桁以上）+ ZIP保存</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    #drop-zone {
+      border: 2px dashed #aaa;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    #image-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .image-item {
+      position: relative;
+      cursor: move;
+    }
+    .image-item img {
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    .filename {
+      position: absolute;
+      bottom: 4px;
+      left: 4px;
+      right: 4px;
+      background: rgba(255, 255, 255, 0.8);
+      font-size: 12px;
+      text-align: center;
+      padding: 2px;
+      border-radius: 4px;
+    }
+    .group-marker {
+      border: 2px solid red;
+    }
+    button {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>画像並び替え + 区切り画像（4桁以上）+ ZIP保存</h2>
+
+<div id="drop-zone">画像をここにドラッグ＆ドロップしてください</div>
+
+<div id="controls">
+  <label for="size-range">画像サイズ：</label>
+  <input type="range" id="size-range" min="50" max="300" value="150">
+</div>
+
+<div id="image-grid"></div>
+
+<button id="save-order">1. 並び順を保存（リネーム & クリップボード）</button>
+<button id="download-zip">2. outputフォルダでZIPダウンロード</button>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+<script>
+  const dropZone = document.getElementById('drop-zone');
+  const imageGrid = document.getElementById('image-grid');
+  const sizeRange = document.getElementById('size-range');
+
+  let imageDataList = [];
+  let renameMap = new Map();
+
+  const isGroupMarker = (filename) => {
+    const base = filename.split('/').pop().split('.')[0];
+    return /^[1-9]\d{3,}$/.test(base); // 4桁以上の数字だけ
+  };
+
+  const getBaseName = (filename) => {
+    const name = filename.split('/').pop();
+    const underscoreIndex = name.indexOf('_');
+    return underscoreIndex >= 0 ? name.slice(underscoreIndex + 1) : name;
+  };
+
+  const getLeadingNumber = (filename) => {
+    const match = filename.match(/^(\d{4,})/);
+    return match ? parseInt(match[1]) : Infinity;
+  };
+
+  sizeRange.addEventListener('input', () => {
+    const size = sizeRange.value;
+    document.querySelectorAll('.image-item').forEach(item => {
+      item.style.width = `${size}px`;
+    });
+  });
+
+  const readFileAsDataURL = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ file, dataURL: reader.result });
+      reader.readAsDataURL(file);
+    });
+  };
+
+  dropZone.addEventListener('dragover', e => e.preventDefault());
+
+  dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    imageGrid.innerHTML = '';
+    imageDataList = [];
+
+    const files = Array.from(e.dataTransfer.files)
+      .filter(file => file.type.startsWith('image/'))
+      .sort((a, b) => getLeadingNumber(a.name) - getLeadingNumber(b.name));
+
+    for (const file of files) {
+      const { dataURL } = await readFileAsDataURL(file);
+
+      const div = document.createElement('div');
+      div.className = 'image-item';
+      div.dataset.filename = file.name;
+      div.style.width = `${sizeRange.value}px`;
+
+      const img = document.createElement('img');
+      img.src = dataURL;
+
+      const label = document.createElement('div');
+      label.className = 'filename';
+      label.textContent = file.name;
+
+      div.appendChild(img);
+      div.appendChild(label);
+
+      if (isGroupMarker(file.name)) {
+        div.classList.add('group-marker');
+      }
+
+      imageGrid.appendChild(div);
+      imageDataList.push({ filename: file.name, dataURL });
+    }
+  });
+
+  new Sortable(imageGrid, { animation: 150 });
+
+  document.getElementById('save-order').addEventListener('click', async () => {
+    const items = Array.from(imageGrid.children);
+    let currentGroup = 1000;
+    let counter = 1;
+    const clipboardLines = [];
+    renameMap.clear();
+
+    for (const item of items) {
+      const originalName = item.dataset.filename;
+
+      if (isGroupMarker(originalName)) {
+        currentGroup = parseInt(originalName.split('.')[0]);
+        item.querySelector('.filename').textContent = originalName;
+        counter = 1;
+        continue;
+      }
+
+      const cleanedName = getBaseName(originalName);
+      const newName = `${currentGroup + counter}_${cleanedName}`;
+      item.querySelector('.filename').textContent = newName;
+      clipboardLines.push(`${originalName}\t${newName}`);
+      renameMap.set(originalName, newName);
+      counter++;
+    }
+
+    try {
+      await navigator.clipboard.writeText(clipboardLines.join('\n'));
+      alert('クリップボードにコピーしました！（Excel対応）');
+    } catch {
+      alert('クリップボードコピーに失敗しました。');
+    }
+  });
+
+  document.getElementById('download-zip').addEventListener('click', async () => {
+    if (imageDataList.length === 0) {
+      alert('画像が読み込まれていません。');
+      return;
+    }
+
+    const zip = new JSZip();
+    const folder = zip.folder("output");
+
+    for (const { filename, dataURL } of imageDataList) {
+      const newName = renameMap.get(filename) || filename;
+      const base64 = dataURL.split(',')[1];
+      folder.file(newName, base64, { base64: true });
+    }
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'output.zip';
+    a.click();
+  });
+</script>
+
+</body>
+</html>
