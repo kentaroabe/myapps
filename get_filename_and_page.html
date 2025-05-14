@@ -1,0 +1,165 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>PDF / 画像 ファイル名・ページ数抽出</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+<style>
+  body { font-family: sans-serif; padding: 20px; }
+  #drop-zone {
+    border: 2px dashed #aaa;
+    border-radius: 10px;
+    padding: 30px;
+    text-align: center;
+    color: #666;
+    margin-bottom: 20px;
+  }
+  table {
+    border-collapse: collapse;
+    margin-top: 20px;
+    width: auto; /* ← 横幅を内容に合わせる */
+  }
+  th, td {
+    border: 1px solid #aaa;
+    padding: 6px 12px;
+    text-align: left;
+    white-space: nowrap; /* ← 折り返し防止で横幅にフィット */
+  }
+  #copy-button {
+    margin-top: 10px;
+    padding: 8px 16px;
+  }
+</style>
+
+</head>
+<body>
+
+<h2>PDF / JPEG / PNG ファイル ドラッグ or Ctrl+V</h2>
+<div id="drop-zone">ここにファイルをドロップするか、Ctrl+V で貼り付け</div>
+
+<table id="result-table" style="display:none;">
+  <thead>
+    <tr><th>ファイル名</th><th>ページ数</th></tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<button id="copy-button" style="display:none;">クリップボードにコピー</button>
+
+<script>
+const dropZone = document.getElementById('drop-zone');
+const table = document.getElementById('result-table');
+const tbody = table.querySelector('tbody');
+const copyButton = document.getElementById('copy-button');
+
+// ドラッグ＆ドロップ対応
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.style.background = '#eef';
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.style.background = '';
+});
+
+dropZone.addEventListener('drop', async e => {
+  e.preventDefault();
+  dropZone.style.background = '';
+  await processFiles([...e.dataTransfer.files]);
+});
+
+// Ctrl+V（クリップボード貼り付け）対応
+window.addEventListener('paste', async e => {
+  const items = e.clipboardData.items;
+  const files = [];
+  for (const item of items) {
+    if (item.kind === 'file') {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  if (files.length > 0) {
+    await processFiles(files);
+  }
+});
+
+async function processFiles(files) {
+  table.style.display = 'table';
+  copyButton.style.display = 'inline-block';
+
+  // ファイル名で昇順ソート
+  files.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  for (const file of files) {
+    const ext = file.name.toLowerCase().split('.').pop();
+    if (file.type === 'application/pdf') {
+      const buffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+      addRow(file.name, pdf.numPages);
+    } else if (['jpg', 'jpeg', 'png'].includes(ext) || file.type.startsWith('image/')) {
+      addRow(file.name || 'clipboard-image.png', 1);
+    }
+  }
+}
+
+
+function addRow(name, pages) {
+  const row = document.createElement('tr');
+  row.innerHTML = `<td>${name}</td><td>${pages}</td>`;
+  tbody.appendChild(row);
+}
+
+// コピー機能
+copyButton.addEventListener('click', () => {
+  let text = '';
+  [...tbody.rows].forEach(row => {
+    text += [...row.cells].map(cell => cell.innerText).join('\t') + '\n';
+  });
+
+  navigator.clipboard.writeText(text).then(() => {
+    alert('クリップボードにコピーしました。Excel に貼り付けできます。');
+  });
+});
+</script>
+
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
+</body>
+</html>
