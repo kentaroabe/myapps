@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>画像並び替え + 区切り画像（4桁以上）+ ZIP保存</title>
+  <title>画像並び替え + 区切り画像（4桁以上）+ 動的表示更新</title>
   <style>
     body { font-family: sans-serif; margin: 20px; }
     #drop-zone {
@@ -41,9 +42,25 @@
       text-align: center;
       padding: 2px;
       border-radius: 4px;
+      cursor: pointer;
+    }
+    .filename:hover {
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .filename input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-size: 12px;
+      text-align: center;
+      outline: none;
     }
     .group-marker {
       border: 2px solid red;
+    }
+    .selected {
+      border: 3px solid darkred !important;
+      box-shadow: 0 0 10px darkred;
     }
     button {
       margin-top: 10px;
@@ -52,7 +69,7 @@
 </head>
 <body>
 
-<h2>画像並び替え + 区切り画像（4桁以上）+ ZIP保存</h2>
+<h2>画像並び替え + 区切り画像（4桁以上）+ 動的表示更新</h2>
 
 <div id="drop-zone">画像をここにドラッグ＆ドロップしてください</div>
 
@@ -63,11 +80,9 @@
 
 <div id="image-grid"></div>
 
-<button id="save-order">1. 並び順を保存（リネーム & クリップボード）</button>
-<button id="download-zip">2. outputフォルダでZIPダウンロード</button>
+<button id="save-order">並び順を保存（リネーム & クリップボード）</button>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <script>
   const dropZone = document.getElementById('drop-zone');
@@ -75,7 +90,9 @@
   const sizeRange = document.getElementById('size-range');
 
   let imageDataList = [];
-  let renameMap = new Map();
+
+  // オリジナルファイル名を保持するためのマップ
+  let originalFilenameMap = new Map();
 
   const isGroupMarker = (filename) => {
     const base = filename.split('/').pop().split('.')[0];
@@ -91,6 +108,97 @@
   const getLeadingNumber = (filename) => {
     const match = filename.match(/^(\d{4,})/);
     return match ? parseInt(match[1]) : Infinity;
+  };
+
+  // 元のファイル名から数字部分を除去したベース名を取得
+  const getOriginalBaseName = (filename) => {
+    // 先頭の数字+アンダースコアを除去
+    const name = filename.split('/').pop();
+    const withoutLeadingNumbers = name.replace(/^\d+_/, '');
+    return withoutLeadingNumbers;
+  };
+
+  // ファイル名を編集可能にする
+  const makeFilenameEditable = (filenameDiv, originalName, currentDisplayName) => {
+    if (isGroupMarker(originalName)) return; // 区切り画像は編集不可
+
+    // 現在の表示名から数字部分と拡張子を分離
+    const match = currentDisplayName.match(/^(\d+_)(.+)\.([^.]+)$/);
+    if (!match) return;
+
+    const [, numberPart, basePart, extension] = match;
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = basePart;
+    
+    filenameDiv.innerHTML = '';
+    filenameDiv.appendChild(input);
+    input.focus();
+    input.select();
+
+    const saveEdit = () => {
+      const newBasePart = input.value.trim();
+      if (newBasePart) {
+        const newDisplayName = `${numberPart}${newBasePart}.${extension}`;
+        filenameDiv.textContent = newDisplayName;
+        
+        // 元のファイル名のベース部分も更新
+        const newOriginalName = `${newBasePart}.${extension}`;
+        const oldFilename = filenameDiv.parentElement.dataset.filename;
+        filenameDiv.parentElement.dataset.filename = newOriginalName;
+        
+        // imageDataListも更新
+        const imageData = imageDataList.find(item => item.filename === oldFilename);
+        if (imageData) {
+          imageData.filename = newOriginalName;
+        }
+        
+        // オリジナルファイル名は変更しない（dataset.originalFilenameはそのまま）
+      } else {
+        filenameDiv.textContent = currentDisplayName;
+      }
+    };
+
+    input.addEventListener('blur', saveEdit);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        input.blur();
+      } else if (e.key === 'Escape') {
+        filenameDiv.textContent = currentDisplayName;
+      }
+    });
+  };
+
+  // 新しい表示名を生成
+  const generateDisplayName = (currentGroup, counter, originalFilename) => {
+    if (isGroupMarker(originalFilename)) {
+      return originalFilename;
+    }
+    
+    const baseName = getOriginalBaseName(originalFilename);
+    return `${currentGroup + counter}_${baseName}`;
+  };
+
+  // 全ての画像の表示名を更新
+  const updateAllDisplayNames = () => {
+    const items = Array.from(imageGrid.children);
+    let currentGroup = 1000;
+    let counter = 1;
+
+    for (const item of items) {
+      const originalName = item.dataset.filename;
+
+      if (isGroupMarker(originalName)) {
+        currentGroup = parseInt(originalName.split('.')[0]);
+        counter = 1;
+        continue;
+      }
+
+      const newDisplayName = generateDisplayName(currentGroup, counter, originalName);
+      item.querySelector('.filename').textContent = newDisplayName;
+      counter++;
+    }
   };
 
   sizeRange.addEventListener('input', () => {
@@ -125,6 +233,7 @@
       const div = document.createElement('div');
       div.className = 'image-item';
       div.dataset.filename = file.name;
+      div.dataset.originalFilename = file.name; // オリジナルファイル名を属性として保存
       div.style.width = `${sizeRange.value}px`;
 
       const img = document.createElement('img');
@@ -132,7 +241,6 @@
 
       const label = document.createElement('div');
       label.className = 'filename';
-      label.textContent = file.name;
 
       div.appendChild(img);
       div.appendChild(label);
@@ -141,66 +249,85 @@
         div.classList.add('group-marker');
       }
 
+      // クリックイベントを追加
+      div.addEventListener('click', () => {
+        selectImage(div);
+      });
+
+      // ダブルクリックでファイル名編集
+      div.addEventListener('dblclick', (e) => {
+        if (!isGroupMarker(file.name)) { // 区切り画像は編集不可
+          makeFilenameEditable(label, file.name, label.textContent);
+        }
+      });
+
+      // ファイル名の編集機能を追加（クリックでも可能）
+      label.addEventListener('click', (e) => {
+        e.stopPropagation(); // 画像選択を防ぐ
+        makeFilenameEditable(label, file.name, label.textContent);
+      });
+
       imageGrid.appendChild(div);
       imageDataList.push({ filename: file.name, dataURL });
     }
+
+    // ドロップ直後に表示名を更新
+    updateAllDisplayNames();
   });
 
-  new Sortable(imageGrid, { animation: 150 });
+  // 画像選択機能
+  const selectImage = (item) => {
+    // 他の画像の選択を解除
+    document.querySelectorAll('.image-item').forEach(img => {
+      img.classList.remove('selected');
+    });
+    // 新しい画像を選択
+    item.classList.add('selected');
+  };
+
+  // Sortableの設定とドラッグ終了時の更新
+  const sortable = new Sortable(imageGrid, { 
+    animation: 150,
+    onEnd: function() {
+      // ドラッグ終了時に表示名を更新
+      updateAllDisplayNames();
+    }
+  });
 
   document.getElementById('save-order').addEventListener('click', async () => {
     const items = Array.from(imageGrid.children);
     let currentGroup = 1000;
     let counter = 1;
     const clipboardLines = [];
-    renameMap.clear();
 
     for (const item of items) {
-      const originalName = item.dataset.filename;
+      const currentName = item.dataset.filename;
+      const originalName = item.dataset.originalFilename; // データ属性からオリジナルファイル名を取得
 
-      if (isGroupMarker(originalName)) {
-        currentGroup = parseInt(originalName.split('.')[0]);
-        item.querySelector('.filename').textContent = originalName;
+      if (isGroupMarker(currentName)) {
+        currentGroup = parseInt(currentName.split('.')[0]);
         counter = 1;
         continue;
       }
 
-      const cleanedName = getBaseName(originalName);
-      const newName = `${currentGroup + counter}_${cleanedName}`;
-      item.querySelector('.filename').textContent = newName;
-      clipboardLines.push(`${originalName}\t${newName}`);
-      renameMap.set(originalName, newName);
+      const baseName = getOriginalBaseName(currentName);
+      const newName = `${currentGroup + counter}_${baseName}`;
+      
+      // ファイル名を拡張子あり・なしに分割
+      const originalNameOnly = originalName.split('.')[0];
+      const extension = originalName.split('.').pop();
+      const newNameOnly = newName.split('.')[0];
+      
+      clipboardLines.push(`${originalNameOnly}\t${extension}\t${newNameOnly}`);
       counter++;
     }
 
     try {
       await navigator.clipboard.writeText(clipboardLines.join('\n'));
-      alert('クリップボードにコピーしました！（Excel対応）');
+      alert('クリップボードにコピーしました！（Excel対応）\n形式：元ファイル名（拡張子なし）\t拡張子\t新ファイル名（拡張子なし）');
     } catch {
       alert('クリップボードコピーに失敗しました。');
     }
-  });
-
-  document.getElementById('download-zip').addEventListener('click', async () => {
-    if (imageDataList.length === 0) {
-      alert('画像が読み込まれていません。');
-      return;
-    }
-
-    const zip = new JSZip();
-    const folder = zip.folder("output");
-
-    for (const { filename, dataURL } of imageDataList) {
-      const newName = renameMap.get(filename) || filename;
-      const base64 = dataURL.split(',')[1];
-      folder.file(newName, base64, { base64: true });
-    }
-
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'output.zip';
-    a.click();
   });
 </script>
 
