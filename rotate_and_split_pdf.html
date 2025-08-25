@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF回転・分割ツール</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .upload-area {
+            padding: 40px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .upload-box {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-box:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+            transform: translateY(-2px);
+        }
+
+        .upload-box.dragover {
+            background: #e8ebff;
+            border-color: #667eea;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .upload-subtext {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .controls {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            display: none;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        .pages-container {
+            padding: 30px;
+            display: none;
+        }
+
+        .pages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 30px;
+        }
+
+        .page-item {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .page-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .page-preview {
+            width: 100%;
+            height: 300px;
+            object-fit: contain;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+        }
+
+        .page-controls {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .page-number {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .page-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+
+        .rotation-display {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .split-control {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .split-checkbox {
+            transform: scale(1.2);
+        }
+
+        .split-label {
+            font-size: 0.9rem;
+            color: #555;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .page-item.split-after::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 20px;
+            right: 20px;
+            height: 4px;
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            border-radius: 2px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e6ed;
+            border-radius: 4px;
+            margin: 20px 0;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .pages-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-group {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 PDF回転・分割ツール</h1>
+            <p>PDFファイルをアップロードして、ページ回転や分割を行えます</p>
+        </div>
+
+        <div class="upload-area">
+            <div class="upload-box" id="uploadBox">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">PDFファイルをドロップまたはクリックして選択</div>
+                <div class="upload-subtext">対応形式: PDF</div>
+            </div>
+            <input type="file" id="fileInput" class="file-input" accept=".pdf">
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <div>PDFを読み込み中...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="controls" id="controls">
+            <div class="control-group">
+                <button class="btn btn-primary" onclick="downloadRotated()">
+                    🔄 回転したPDFをダウンロード
+                </button>
+                <button class="btn btn-secondary" onclick="downloadSplit()">
+                    ✂️ 分割したPDFをダウンロード
+                </button>
+                <button class="btn btn-danger" onclick="resetAll()">
+                    🔄 リセット
+                </button>
+            </div>
+        </div>
+
+        <div class="pages-container" id="pagesContainer">
+            <div class="pages-grid" id="pagesGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        let originalPdfDoc = null;
+        let pageRotations = {};
+        let splitPoints = new Set();
+        let originalFileName = '';
+
+        // PDF.js ワーカーの設定
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadBox = document.getElementById('uploadBox');
+            const fileInput = document.getElementById('fileInput');
+
+            // ドラッグ&ドロップの設定
+            uploadBox.addEventListener('click', () => fileInput.click());
+            uploadBox.addEventListener('dragover', handleDragOver);
+            uploadBox.addEventListener('dragleave', handleDragLeave);
+            uploadBox.addEventListener('drop', handleDrop);
+            fileInput.addEventListener('change', handleFileSelect);
+        });
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('uploadBox').classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('uploadBox').classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('uploadBox').classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                loadPDF(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file && file.type === 'application/pdf') {
+                loadPDF(file);
+            }
+        }
+
+        async function loadPDF(file) {
+            try {
+                showLoading();
+                
+                // 元のファイル名を保存（拡張子を除く）
+                originalFileName = file.name.replace(/\.pdf$/i, '');
+                
+                // PDF-lib でドキュメントを読み込み
+                const arrayBuffer = await file.arrayBuffer();
+                originalPdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                
+                // PDF.js でプレビューを生成
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                await renderPages(pdf);
+                
+                hideLoading();
+                showControls();
+            } catch (error) {
+                console.error('PDFの読み込みエラー:', error);
+                alert('PDFファイルの読み込みに失敗しました。');
+                hideLoading();
+            }
+        }
+
+        async function renderPages(pdf) {
+            const pagesGrid = document.getElementById('pagesGrid');
+            pagesGrid.innerHTML = '';
+            pageRotations = {};
+            splitPoints.clear();
+
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+
+                const viewport = page.getViewport({ scale: 1.5 });
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                await page.render({
+                    canvasContext: context,
+                    viewport: viewport
+                }).promise;
+
+                const pageItem = createPageItem(pageNum, canvas.toDataURL());
+                pagesGrid.appendChild(pageItem);
+                pageRotations[pageNum] = 0;
+            }
+        }
+
+        function createPageItem(pageNum, previewUrl) {
+            const pageItem = document.createElement('div');
+            pageItem.className = 'page-item';
+            pageItem.innerHTML = `
+                <img src="${previewUrl}" alt="Page ${pageNum}" class="page-preview" id="preview-${pageNum}">
+                <div class="page-controls">
+                    <div class="page-number">ページ ${pageNum}</div>
+                    <div class="rotation-display" id="rotation-${pageNum}">回転: 0°</div>
+                    <div class="page-buttons">
+                        <button class="btn btn-primary btn-small" onclick="rotatePage(${pageNum}, -90)">
+                            ↺ 左回転
+                        </button>
+                        <button class="btn btn-primary btn-small" onclick="rotatePage(${pageNum}, 90)">
+                            ↻ 右回転
+                        </button>
+                    </div>
+                    <div class="split-control">
+                        <input type="checkbox" id="split-${pageNum}" class="split-checkbox" onchange="toggleSplit(${pageNum})">
+                        <label for="split-${pageNum}" class="split-label">このページの後で分割</label>
+                    </div>
+                </div>
+            `;
+            return pageItem;
+        }
+
+        function rotatePage(pageNum, degrees) {
+            pageRotations[pageNum] = (pageRotations[pageNum] + degrees) % 360;
+            if (pageRotations[pageNum] < 0) pageRotations[pageNum] += 360;
+            
+            const preview = document.getElementById(`preview-${pageNum}`);
+            const rotationDisplay = document.getElementById(`rotation-${pageNum}`);
+            
+            preview.style.transform = `rotate(${pageRotations[pageNum]}deg)`;
+            rotationDisplay.textContent = `回転: ${pageRotations[pageNum]}°`;
+        }
+
+        function toggleSplit(pageNum) {
+            const checkbox = document.getElementById(`split-${pageNum}`);
+            const pageItem = checkbox.closest('.page-item');
+            
+            if (checkbox.checked) {
+                splitPoints.add(pageNum);
+                pageItem.classList.add('split-after');
+            } else {
+                splitPoints.delete(pageNum);
+                pageItem.classList.remove('split-after');
+            }
+        }
+
+        async function downloadRotated() {
+            if (!originalPdfDoc) return;
+
+            try {
+                showLoading();
+                const newDoc = await PDFLib.PDFDocument.create();
+                const pages = await newDoc.copyPages(originalPdfDoc, Array.from({length: originalPdfDoc.getPageCount()}, (_, i) => i));
+
+                pages.forEach((page, index) => {
+                    const pageNum = index + 1;
+                    const rotation = pageRotations[pageNum] || 0;
+                    if (rotation !== 0) {
+                        page.setRotation(PDFLib.degrees(rotation));
+                    }
+                    newDoc.addPage(page);
+                });
+
+                const pdfBytes = await newDoc.save();
+                downloadPDF(pdfBytes, `${originalFileName}_rotated.pdf`);
+                hideLoading();
+            } catch (error) {
+                console.error('PDF生成エラー:', error);
+                alert('PDFの生成に失敗しました。');
+                hideLoading();
+            }
+        }
+
+        async function downloadSplit() {
+            if (!originalPdfDoc || splitPoints.size === 0) {
+                alert('分割ポイントが設定されていません。');
+                return;
+            }
+
+            try {
+                showLoading();
+                const sortedSplitPoints = Array.from(splitPoints).sort((a, b) => a - b);
+                let startPage = 0;
+                let partNumber = 1;
+
+                for (const splitPoint of sortedSplitPoints) {
+                    const newDoc = await PDFLib.PDFDocument.create();
+                    const pageIndices = Array.from({length: splitPoint - startPage}, (_, i) => startPage + i);
+                    const pages = await newDoc.copyPages(originalPdfDoc, pageIndices);
+
+                    pages.forEach((page, index) => {
+                        const pageNum = startPage + index + 1;
+                        const rotation = pageRotations[pageNum] || 0;
+                        if (rotation !== 0) {
+                            page.setRotation(PDFLib.degrees(rotation));
+                        }
+                        newDoc.addPage(page);
+                    });
+
+                    const pdfBytes = await newDoc.save();
+                    downloadPDF(pdfBytes, `${originalFileName}_${partNumber}.pdf`);
+                    
+                    startPage = splitPoint;
+                    partNumber++;
+                }
+
+                // 最後の部分
+                if (startPage < originalPdfDoc.getPageCount()) {
+                    const newDoc = await PDFLib.PDFDocument.create();
+                    const pageIndices = Array.from({length: originalPdfDoc.getPageCount() - startPage}, (_, i) => startPage + i);
+                    const pages = await newDoc.copyPages(originalPdfDoc, pageIndices);
+
+                    pages.forEach((page, index) => {
+                        const pageNum = startPage + index + 1;
+                        const rotation = pageRotations[pageNum] || 0;
+                        if (rotation !== 0) {
+                            page.setRotation(PDFLib.degrees(rotation));
+                        }
+                        newDoc.addPage(page);
+                    });
+
+                    const pdfBytes = await newDoc.save();
+                    downloadPDF(pdfBytes, `${originalFileName}_${partNumber}.pdf`);
+                }
+
+                hideLoading();
+            } catch (error) {
+                console.error('PDF分割エラー:', error);
+                alert('PDFの分割に失敗しました。');
+                hideLoading();
+            }
+        }
+
+        function downloadPDF(pdfBytes, filename) {
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        function resetAll() {
+            originalPdfDoc = null;
+            pageRotations = {};
+            splitPoints.clear();
+            originalFileName = '';
+            document.getElementById('pagesGrid').innerHTML = '';
+            document.getElementById('fileInput').value = '';
+            document.getElementById('controls').style.display = 'none';
+            document.getElementById('pagesContainer').style.display = 'none';
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showControls() {
+            document.getElementById('controls').style.display = 'block';
+            document.getElementById('pagesContainer').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
