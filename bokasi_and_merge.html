@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -5,1015 +6,674 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ぼかし処理＆PDF結合アプリ</title>
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #f7f7f7;
-      font-family: Arial, sans-serif;
-      overflow-x: hidden;
-    }
-    .top-bar {
-      background-color: white;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      padding: 15px 20px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .top-bar .container {
-      max-width: 100%;
-    }
-    .controls-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 15px;
-      justify-content: space-between;
-    }
-    .blur-controls {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 15px;
-    }
-    .action-controls {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px;
-    }
-    .control-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-    }
-    .control-group label {
-      margin: 0;
-      font-size: 14px;
-    }
-    .control-group input {
-      width: 60px;
-    }
-    .control-group .btn {
-      padding: 4px 8px;
-      font-size: 12px;
-    }
-    .mosaic-size-selector {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .mosaic-size-option {
-      display: inline-block;
-      border-radius: 50%;
-      background: #ccc;
-      cursor: pointer;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .mosaic-size-option.selected {
-      box-shadow: 0 0 5px 2px #007bff;
-      transform: scale(1.1);
-    }
-    .filename-input {
-      width: 180px;
-      font-size: 14px;
-    }
-    .action-btn {
-      font-size: 14px;
-      padding: 6px 12px;
-      white-space: nowrap;
-    }
+    body { margin: 0; padding: 0; background-color: #f7f7f7; font-family: "Helvetica Neue", Arial, sans-serif; overflow-x: hidden; }
+    
+    /* Top Bar & Controls */
+    .top-bar { background-color: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); padding: 10px 20px; position: sticky; top: 0; z-index: 100; }
+    .controls-row { display: flex; flex-wrap: wrap; align-items: center; gap: 15px; justify-content: space-between; }
+    .blur-controls, .action-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .control-group { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .control-group label { margin: 0; font-size: 13px; font-weight: bold; }
+    .control-group input[type="number"] { width: 60px; text-align: center; }
+    .btn-xs { padding: 2px 6px; font-size: 12px; }
+    
+    /* Mosaic Size Selector */
+    .mosaic-size-selector { display: flex; align-items: center; gap: 8px; margin-left: 10px; }
+    .mosaic-size-option { display: inline-block; border-radius: 50%; background: #ddd; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; }
+    .mosaic-size-option:hover { background: #bbb; }
+    .mosaic-size-option.selected { border-color: #007bff; background-color: #007bff; transform: scale(1.1); }
+    
+    /* Drop Zone */
     #dropZone {
-      width: 100%;
-      min-height: 80px;
-      border: 2px dashed #ccc;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      color: #666;
-      margin: 10px 0;
-      border-radius: 8px;
-      background-color: #f1f1f1;
+      width: 98%; margin: 15px auto; min-height: 100px;
+      border: 3px dashed #ccc; border-radius: 12px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; color: #777; background-color: #fdfdfd; transition: all 0.3s;
       cursor: pointer;
     }
-    #compressionStatus {
-      margin: 10px 0;
-      padding: 10px;
-      background-color: #e9ecef;
-      border-radius: 5px;
-      display: none;
-    }
-    .compression-item {
-      margin: 5px 0;
-      padding: 5px;
-      background-color: white;
-      border-radius: 3px;
-      font-size: 14px;
-    }
-    #output {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px;
-      overflow-x: hidden;
-    }
-    .canvas-wrapper {
-      position: relative;
-      display: inline-block;
-      margin-bottom: 20px;
-      max-width: 100%;
-      overflow: hidden;
-      border: 1px solid #ccc;
-      box-sizing: content-box;
-    }
-    .mosaic-indicator {
-      position: absolute;
-      border: 2px solid red;
-      pointer-events: none;
-      display: none;
-      box-sizing: border-box;
-    }
-    canvas {
-      display: block;
-      max-width: none;
-      height: auto;
-      cursor: crosshair;
-    }
+    #dropZone:hover, #dropZone.dragover { background-color: #eefbff; border-color: #007bff; color: #007bff; }
     
-    /* 順番変更パネル */
-    .order-panel {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background-color: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      z-index: 1000;
-      max-width: 90vw;
-      max-height: 80vh;
-      overflow-y: auto;
-      display: none;
-    }
-    .order-panel.show {
-      display: block;
-    }
-    .order-panel-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0,0,0,0.5);
-      z-index: 999;
-      display: none;
-    }
-    .order-panel-overlay.show {
-      display: block;
-    }
-    #fileOrderList {
-      list-style: none;
-      padding: 0;
-      margin: 10px 0;
-      max-height: 300px;
-      overflow-y: auto;
-    }
-    #fileOrderList li {
-      padding: 8px 12px;
-      margin: 3px 0;
-      background: #f8f9fa;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      cursor: move;
-      display: flex;
-      align-items: center;
-      font-size: 14px;
-    }
-    #fileOrderList li:hover {
-      background-color: #e9ecef;
-    }
-    .drag-handle {
-      margin-right: 8px;
-      color: #6c757d;
-    }
-    #filenameInput {
-      width: 200px;
-    }
+    /* Output Area */
+    #output { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 10px; gap: 20px; }
+    .canvas-wrapper { position: relative; border: 1px solid #ddd; box-shadow: 0 4px 6px rgba(0,0,0,0.1); background: #fff; overflow: hidden; line-height: 0; }
+    canvas { display: block; cursor: crosshair; }
+    .mosaic-indicator { position: absolute; border: 2px solid rgba(255, 0, 0, 0.8); background-color: rgba(255, 0, 0, 0.1); pointer-events: none; display: none; box-sizing: border-box; z-index: 10; }
     
-    /* レスポンシブ対応 */
+    /* Modals & Panels */
+    .order-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 1000; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; display: none; }
+    .order-panel.show { display: block; }
+    .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; display: none; }
+    .overlay.show { display: block; }
+    
+    /* Sortable List */
+    #fileOrderList { list-style: none; padding: 0; margin: 10px 0; }
+    #fileOrderList li { padding: 8px 12px; margin-bottom: 5px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; cursor: grab; display: flex; align-items: center; justify-content: space-between; font-size: 14px; }
+    #fileOrderList li:active { cursor: grabbing; }
+    .drag-handle { color: #aaa; margin-right: 10px; cursor: grab; }
+    
+    /* Loading Spinner */
+    #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 2000; flex-direction: column; justify-content: center; align-items: center; }
+    .spinner-border { width: 3rem; height: 3rem; }
+
+    /* Responsive */
     @media (max-width: 768px) {
-      .controls-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-      }
-      .blur-controls {
-        justify-content: center;
-      }
-      .action-controls {
-        justify-content: center;
-      }
-      .control-group {
-        flex-direction: column;
-        text-align: center;
-        gap: 5px;
-      }
-      .control-group label {
-        font-size: 12px;
-      }
-      .filename-input {
-        width: 150px;
-      }
+      .controls-row { flex-direction: column; align-items: stretch; }
+      .blur-controls, .action-controls { justify-content: center; }
+      .filename-input { width: 100%; }
     }
   </style>
 </head>
 <body>
+
+  <div id="loadingOverlay">
+    <div class="spinner-border text-primary" role="status"></div>
+    <div class="mt-3 font-weight-bold" id="loadingText">処理中...</div>
+  </div>
+
   <div class="top-bar">
-    <div class="container">
+    <div class="container-fluid">
       <div class="controls-row">
-        <!-- ぼかし制御 -->
         <div class="blur-controls">
           <div class="control-group">
-            <label for="pixelSize">全体ぼかし濃度:</label>
-            <input type="number" id="pixelSize" value="1" min="1" step="1" class="form-control">
-            <button id="decreasePixelSize" class="btn btn-primary">-</button>
-            <button id="increasePixelSize" class="btn btn-primary">+</button>
+            <label><i class="fas fa-image"></i> 全体ぼかし:</label>
+            <button id="decreasePixelSize" class="btn btn-outline-secondary btn-xs">-</button>
+            <input type="number" id="pixelSize" value="1" min="1" class="form-control form-control-sm">
+            <button id="increasePixelSize" class="btn btn-outline-secondary btn-xs">+</button>
           </div>
-          <div class="control-group">
-            <label for="localPixelSize">局所ぼかし濃度:</label>
-            <input type="number" id="localPixelSize" value="4" min="1" step="1" class="form-control">
-            <button id="localDecreasePixelSize" class="btn btn-primary">-</button>
-            <button id="localIncreasePixelSize" class="btn btn-primary">+</button>
+          <div class="control-group ml-2">
+            <label><i class="fas fa-mouse-pointer"></i> 部分ぼかし:</label>
+            <button id="localDecreasePixelSize" class="btn btn-outline-secondary btn-xs">-</button>
+            <input type="number" id="localPixelSize" value="6" min="1" class="form-control form-control-sm">
+            <button id="localIncreasePixelSize" class="btn btn-outline-secondary btn-xs">+</button>
           </div>
-          <div class="mosaic-size-selector">
-            <span style="width:20px;height:20px;" class="mosaic-size-option" data-size="20"></span>
-            <span style="width:40px;height:40px;" class="mosaic-size-option" data-size="40"></span>
-            <span style="width:60px;height:60px;" class="mosaic-size-option selected" data-size="60"></span>
-            <span style="width:80px;height:80px;" class="mosaic-size-option" data-size="80"></span>
+          <div class="mosaic-size-selector" title="部分ぼかし範囲サイズ">
+            <span style="width:15px;height:15px;" class="mosaic-size-option" data-size="30"></span>
+            <span style="width:25px;height:25px;" class="mosaic-size-option" data-size="60"></span>
+            <span style="width:35px;height:35px;" class="mosaic-size-option selected" data-size="90"></span>
+            <span style="width:45px;height:45px;" class="mosaic-size-option" data-size="120"></span>
+            <span style="width:55px;height:55px;" class="mosaic-size-option" data-size="160"></span>
           </div>
         </div>
         
-        <!-- アクション制御 -->
         <div class="action-controls" id="actionControls" style="display: none;">
-          <div class="control-group">
-            <label for="filenameInput">出力ファイル名:</label>
-            <input type="text" id="filenameInput" class="form-control filename-input" value="ぼかし処理済み" placeholder="出力ファイル名">
-          </div>
-          <button id="downloadButton" class="btn btn-success action-btn">個別ダウンロード</button>
-          <button id="toggleOrderPanel" class="btn btn-info action-btn">順番変更</button>
-          <button id="mergePdfButton" class="btn btn-primary action-btn">PDF結合</button>
+          <input type="text" id="filenameInput" class="form-control form-control-sm filename-input" value="ぼかし" placeholder="ファイル名" style="width: 150px;">
+          <button id="downloadButton" class="btn btn-success btn-sm"><i class="fas fa-download"></i> 画像DL</button>
+          <button id="toggleOrderPanel" class="btn btn-info btn-sm"><i class="fas fa-sort"></i> 順番変更</button>
+          <button id="mergePdfButton" class="btn btn-primary btn-sm"><i class="fas fa-file-pdf"></i> PDF結合</button>
+          <button id="resetButton" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> リセット</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="dropZone">ここに画像またはPDFをドラッグ＆ドロップまたはCtrl+Vしてください<br><small>（大きな画像は自動的に1MB以下に圧縮されます）</small></div>
-  
-  <div id="compressionStatus">
-    <strong>画像圧縮状況:</strong>
-    <div id="compressionDetails"></div>
+  <div id="dropZone">
+    <h4><i class="fas fa-cloud-upload-alt"></i> 画像・PDFをドロップ</h4>
+    <p class="mb-0 small text-muted">またはクリックしてファイルを選択 (複数選択可)<br>Ctrl+V で貼り付けも可能</p>
   </div>
-  
-  <input type="file" id="fileInput" multiple style="display: none;">
-  
+  <input type="file" id="fileInput" multiple style="display: none;" accept="image/*,application/pdf">
+
   <div id="output"></div>
 
-  <!-- 順番変更パネル（モーダル） -->
-  <div class="order-panel-overlay" id="orderPanelOverlay"></div>
+  <div class="overlay" id="orderPanelOverlay"></div>
   <div class="order-panel" id="orderPanel">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="mb-0"><i class="fas fa-sort"></i> ファイル順番の変更</h5>
-      <button type="button" class="btn btn-outline-secondary btn-sm" id="closeOrderPanel">×</button>
+      <h5 class="mb-0">ファイルの順番変更</h5>
+      <button type="button" class="close" id="closeOrderPanel">&times;</button>
     </div>
-    <p class="small text-muted">ドラッグして順番を変更できます</p>
-    <div class="d-flex mb-3">
-      <button id="sortByName" class="btn btn-sm btn-outline-secondary mr-2">名前順</button>
-      <button id="sortByNameReverse" class="btn btn-sm btn-outline-secondary">名前逆順</button>
+    <div class="btn-group btn-group-sm w-100 mb-3">
+      <button id="sortByName" class="btn btn-outline-secondary">名前順 (A-Z)</button>
+      <button id="sortByNameReverse" class="btn btn-outline-secondary">名前逆順 (Z-A)</button>
     </div>
     <ul id="fileOrderList"></ul>
+    <div class="text-right mt-3">
+      <button class="btn btn-primary btn-sm" id="applyOrderBtn">閉じる</button>
+    </div>
   </div>
 
-  <script>
+<script>
+    // --- Configuration & State ---
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
     const { PDFDocument } = PDFLib;
 
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const output = document.getElementById('output');
-    const pixelSizeInput = document.getElementById('pixelSize');
-    const localPixelSizeInput = document.getElementById('localPixelSize');
-    const increasePixelSizeBtn = document.getElementById('increasePixelSize');
-    const decreasePixelSizeBtn = document.getElementById('decreasePixelSize');
-    const localIncreasePixelSizeBtn = document.getElementById('localIncreasePixelSize');
-    const localDecreasePixelSizeBtn = document.getElementById('localDecreasePixelSize');
-    const downloadButton = document.getElementById('downloadButton');
-    const mergePdfButton = document.getElementById('mergePdfButton');
-    const toggleOrderPanelBtn = document.getElementById('toggleOrderPanel');
-    const orderPanel = document.getElementById('orderPanel');
-    const orderPanelOverlay = document.getElementById('orderPanelOverlay');
-    const closeOrderPanelBtn = document.getElementById('closeOrderPanel');
-    const fileOrderList = document.getElementById('fileOrderList');
-    const sortByNameBtn = document.getElementById('sortByName');
-    const sortByNameReverseBtn = document.getElementById('sortByNameReverse');
-    const filenameInput = document.getElementById('filenameInput');
-    const actionControls = document.getElementById('actionControls');
-    const compressionStatus = document.getElementById('compressionStatus');
-    const compressionDetails = document.getElementById('compressionDetails');
+    const state = {
+        images: [], // { dataUrl, fileName, type, originalWidth, originalHeight }
+        mosaicRegionSize: 90, // デフォルトを少し大きくしました
+        canvasScales: new Map(), // canvasId -> scale
+    };
 
-    let mosaicRegionSize = 60;
-    let originalImages = [];
-    const canvasScales = new Map();
+    // --- DOM Elements ---
+    const elements = {
+        dropZone: document.getElementById('dropZone'),
+        fileInput: document.getElementById('fileInput'),
+        output: document.getElementById('output'),
+        pixelSize: document.getElementById('pixelSize'),
+        localPixelSize: document.getElementById('localPixelSize'),
+        actionControls: document.getElementById('actionControls'),
+        loadingOverlay: document.getElementById('loadingOverlay'),
+        loadingText: document.getElementById('loadingText'),
+        filenameInput: document.getElementById('filenameInput'),
+        orderPanel: document.getElementById('orderPanel'),
+        orderPanelOverlay: document.getElementById('orderPanelOverlay'),
+        fileOrderList: document.getElementById('fileOrderList'),
+    };
 
-    // Sortable for file order list
-    new Sortable(fileOrderList, {
-      animation: 150,
-      handle: '.drag-handle'
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+        setupEventListeners();
+        setupSortable();
     });
 
-    // 画像圧縮関数
-    function compressImage(file, targetSizeKB = 1024) {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          const img = new Image();
-          img.onload = function() {
-            let quality = 0.9;
-            let compressedDataUrl = null;
-            let attempts = 0;
-            const maxAttempts = 10;
-            
-            const tryCompress = () => {
-              const canvas = document.createElement('canvas');
-              const ctx = canvas.getContext('2d');
-              
-              let { width, height } = calculateOptimalSize(img.width, img.height, targetSizeKB, quality);
-              
-              canvas.width = width;
-              canvas.height = height;
-              
-              ctx.drawImage(img, 0, 0, width, height);
-              
-              compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-              
-              const estimatedSizeKB = Math.round((compressedDataUrl.length * 0.75) / 1024);
-              
-              attempts++;
-              
-              if (estimatedSizeKB <= targetSizeKB || quality <= 0.1 || attempts >= maxAttempts) {
-                resolve({
-                  dataUrl: compressedDataUrl,
-                  originalSize: Math.round(file.size / 1024),
-                  compressedSize: estimatedSizeKB,
-                  quality: Math.round(quality * 100),
-                  dimensions: `${width}×${height}`
-                });
-              } else {
-                quality *= 0.85;
-                setTimeout(tryCompress, 0);
-              }
-            };
-            
-            tryCompress();
-          };
-          img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    function calculateOptimalSize(originalWidth, originalHeight, targetSizeKB, quality) {
-      const pixelCount = originalWidth * originalHeight;
-      
-      if (targetSizeKB < 500 && pixelCount > 1000000) {
-        const scaleFactor = Math.sqrt(Math.min(1, 800000 / pixelCount));
-        return {
-          width: Math.floor(originalWidth * scaleFactor),
-          height: Math.floor(originalHeight * scaleFactor)
-        };
-      } else if (targetSizeKB < 200 && pixelCount > 500000) {
-        const scaleFactor = Math.sqrt(Math.min(1, 400000 / pixelCount));
-        return {
-          width: Math.floor(originalWidth * scaleFactor),
-          height: Math.floor(originalHeight * scaleFactor)
-        };
-      }
-      
-      return { width: originalWidth, height: originalHeight };
-    }
-
-    function showCompressionStatus(compressionResults) {
-      if (compressionResults.length === 0) {
-        compressionStatus.style.display = 'none';
-        return;
-      }
-
-      compressionDetails.innerHTML = '';
-      compressionResults.forEach((result, index) => {
-        const item = document.createElement('div');
-        item.className = 'compression-item';
-        const reductionPercent = Math.round((1 - result.compressedSize / result.originalSize) * 100);
-        item.innerHTML = `
-          <strong>画像 ${index + 1}:</strong> 
-          ${result.originalSize}KB → ${result.compressedSize}KB 
-          (${reductionPercent}% 削減, 品質: ${result.quality}%, サイズ: ${result.dimensions})
-        `;
-        compressionDetails.appendChild(item);
-      });
-      
-      compressionStatus.style.display = 'block';
-      setTimeout(() => {
-        compressionStatus.style.display = 'none';
-      }, 8000);
-    }
-
-    function updateFileOrderList() {
-      fileOrderList.innerHTML = '';
-      originalImages.forEach((imgData, index) => {
-        const li = document.createElement('li');
-        li.setAttribute('data-index', index);
-        li.innerHTML = `
-          <span class="drag-handle">⋮⋮</span>
-          <span>${imgData.fileName}</span>
-        `;
-        fileOrderList.appendChild(li);
-      });
-    }
-
-    function showActionControls() {
-      if (originalImages.length > 0) {
-        actionControls.style.display = 'flex';
-        updateFileOrderList();
-      } else {
-        actionControls.style.display = 'none';
-      }
-    }
-
-    function closeOrderPanelModal() {
-      orderPanel.classList.remove('show');
-      orderPanelOverlay.classList.remove('show');
-      toggleOrderPanelBtn.textContent = '順番変更';
-    }
-
-    function openOrderPanelModal() {
-      orderPanel.classList.add('show');
-      orderPanelOverlay.classList.add('show');
-      toggleOrderPanelBtn.textContent = '閉じる';
-    }
-
-    window.addEventListener('resize', () => {
-      if (originalImages.length > 0) {
-        processOriginalImages(true);
-      }
-    });
-
-    const mosaicOptions = document.querySelectorAll('.mosaic-size-option');
-    mosaicOptions.forEach(option => {
-      option.addEventListener('click', () => {
-        mosaicOptions.forEach(opt => opt.classList.remove('selected'));
-        option.classList.add('selected');
-        mosaicRegionSize = parseInt(option.getAttribute('data-size'), 10);
-      });
-    });
-
-    dropZone.addEventListener('dragover', (event) => { event.preventDefault(); dropZone.classList.add('dragover'); });
-    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
-    dropZone.addEventListener('drop', (event) => { event.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(event.dataTransfer.files); });
-    fileInput.addEventListener('change', () => { handleFiles(fileInput.files); });
-    dropZone.addEventListener('click', () => { fileInput.click(); });
-    
-    document.addEventListener('paste', (event) => {
-      const items = event.clipboardData.items;
-      let filesToHandle = [];
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1 || items[i].type === "application/pdf") {
-          const file = items[i].getAsFile();
-          if (file) {
-             filesToHandle.push(file);
-          }
-        }
-      }
-      if (filesToHandle.length > 0) {
-          handleFiles(filesToHandle);
-      }
-    });
-
-    increasePixelSizeBtn.addEventListener('click', () => { 
-      pixelSizeInput.value = parseInt(pixelSizeInput.value, 10) + 1; 
-      processOriginalImages(); 
-    });
-    decreasePixelSizeBtn.addEventListener('click', () => { 
-      let current = parseInt(pixelSizeInput.value, 10); 
-      if (current > 1) { 
-        pixelSizeInput.value = current - 1; 
-        processOriginalImages(); 
-      } 
-    });
-
-    localIncreasePixelSizeBtn.addEventListener('click', () => { 
-      localPixelSizeInput.value = parseInt(localPixelSizeInput.value, 10) + 1; 
-    });
-    localDecreasePixelSizeBtn.addEventListener('click', () => { 
-      let current = parseInt(localPixelSizeInput.value, 10); 
-      if (current > 1) { 
-        localPixelSizeInput.value = current - 1; 
-      } 
-    });
-
-    toggleOrderPanelBtn.addEventListener('click', () => {
-      if (orderPanel.classList.contains('show')) {
-        closeOrderPanelModal();
-      } else {
-        openOrderPanelModal();
-      }
-    });
-
-    closeOrderPanelBtn.addEventListener('click', closeOrderPanelModal);
-    orderPanelOverlay.addEventListener('click', closeOrderPanelModal);
-
-    sortByNameBtn.addEventListener('click', () => {
-      originalImages.sort((a, b) => a.fileName.localeCompare(b.fileName));
-      processOriginalImages();
-      updateFileOrderList();
-    });
-
-    sortByNameReverseBtn.addEventListener('click', () => {
-      originalImages.sort((a, b) => b.fileName.localeCompare(a.fileName));
-      processOriginalImages();
-      updateFileOrderList();
-    });
-
-    downloadButton.addEventListener('click', () => {
-      const canvases = output.querySelectorAll("canvas");
-      canvases.forEach((canvas, index) => {
-        const originalFileName = originalImages[index]?.fileName || `image_${index+1}`;
-        const nameWithoutExt = originalFileName.replace(/\.[^/.]+$/, "");
-        const filename = `ぼかし_${nameWithoutExt}.jpg`;
+    function setupEventListeners() {
+        // Drag & Drop
+        elements.dropZone.addEventListener('dragover', e => { e.preventDefault(); elements.dropZone.classList.add('dragover'); });
+        elements.dropZone.addEventListener('dragleave', () => elements.dropZone.classList.remove('dragover'));
+        elements.dropZone.addEventListener('drop', e => { e.preventDefault(); elements.dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+        elements.dropZone.addEventListener('click', () => elements.fileInput.click());
+        elements.fileInput.addEventListener('change', () => handleFiles(elements.fileInput.files));
         
-        compressCanvasForDownload(canvas, filename);
-      });
-    });
-
-    mergePdfButton.addEventListener('click', async () => {
-      const sortedIndices = Array.from(fileOrderList.children).map(li => parseInt(li.getAttribute('data-index')));
-      const canvases = output.querySelectorAll("canvas");
-      const mergedPdf = await PDFDocument.create();
-
-      for (const index of sortedIndices) {
-        const canvas = canvases[index];
-        if (canvas) {
-          try {
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-            const imageBytes = dataURItoBlob(dataUrl);
-            const pdfImage = await mergedPdf.embedJpg(await imageBytes.arrayBuffer());
-            
-            const page = mergedPdf.addPage([canvas.width, canvas.height]);
-            page.drawImage(pdfImage, {
-              x: 0,
-              y: 0,
-              width: canvas.width,
-              height: canvas.height
-            });
-          } catch (error) {
-            console.error('画像の埋め込みエラー:', error);
-          }
-        }
-      }
-
-      try {
-        const pdfBytes = await mergedPdf.save();
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${filenameInput.value}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error('PDF保存エラー:', error);
-      }
-    });
-
-    function dataURItoBlob(dataURI) {
-      const byteString = atob(dataURI.split(',')[1]);
-      const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-      const ab = new ArrayBuffer(byteString.length);
-      const ia = new Uint8Array(ab);
-      for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-      }
-      return new Blob([ab], { type: mimeString });
-    }
-
-    async function handleFiles(files) {
-      output.innerHTML = '';
-      originalImages = [];
-      canvasScales.clear();
-      const fileList = Array.from(files);
-
-      const pdfFiles = fileList.filter(file => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
-      const imageFiles = fileList.filter(file => file.type.startsWith("image/"));
-
-      let compressionResults = [];
-
-      for (const file of imageFiles) {
-        try {
-          const fileSizeKB = Math.round(file.size / 1024);
-          
-          if (fileSizeKB > 1024) {
-            console.log(`画像を圧縮中: ${file.name} (${fileSizeKB}KB)`);
-            const result = await compressImage(file);
-            compressionResults.push({ ...result, fileName: file.name });
-            originalImages.push({ dataUrl: result.dataUrl, fileName: file.name, type: 'image' });
-          } else {
-            const dataUrl = await new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onload = (e) => resolve(e.target.result);
-              reader.readAsDataURL(file);
-            });
-            originalImages.push({ dataUrl, fileName: file.name, type: 'image' });
-          }
-        } catch (error) {
-          console.error("画像ファイルの処理に失敗しました:", file.name, error);
-        }
-      }
-
-      if (compressionResults.length > 0) {
-        showCompressionStatus(compressionResults);
-      }
-
-      let processedPdfCount = 0;
-      const totalPdfFiles = pdfFiles.length;
-
-      const checkCompletion = () => {
-        processedPdfCount++;
-        if (processedPdfCount === totalPdfFiles) {
-          processOriginalImages();
-          showActionControls();
-        }
-      };
-
-      if (totalPdfFiles === 0) {
-        processOriginalImages();
-        showActionControls();
-      } else {
-        pdfFiles.forEach(file => {
-          processPdfFile(file, checkCompletion);
+        // Paste Handling (Ctrl + V)
+        document.addEventListener('paste', e => {
+            // モダンブラウザでは clipboardData.files に複数ファイルが入る可能性があります
+            if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                e.preventDefault();
+                handleFiles(e.clipboardData.files);
+            } 
+            // 念のため items もチェック（古い仕様や一部の画像データ用）
+            else if (e.clipboardData && e.clipboardData.items) {
+                const files = [];
+                for (let i = 0; i < e.clipboardData.items.length; i++) {
+                    const item = e.clipboardData.items[i];
+                    if (item.kind === 'file') {
+                        const file = item.getAsFile();
+                        if (file) files.push(file);
+                    }
+                }
+                if (files.length > 0) {
+                    e.preventDefault();
+                    handleFiles(files);
+                }
+            }
         });
-      }
+
+        // Controls
+        document.getElementById('increasePixelSize').onclick = () => updatePixelSize(1);
+        document.getElementById('decreasePixelSize').onclick = () => updatePixelSize(-1);
+        document.getElementById('localIncreasePixelSize').onclick = () => updateLocalPixelSize(1);
+        document.getElementById('localDecreasePixelSize').onclick = () => updateLocalPixelSize(-1);
+        
+        elements.pixelSize.addEventListener('change', () => renderImages(false));
+
+        document.querySelectorAll('.mosaic-size-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                document.querySelectorAll('.mosaic-size-option').forEach(o => o.classList.remove('selected'));
+                this.classList.add('selected');
+                state.mosaicRegionSize = parseInt(this.dataset.size);
+            });
+        });
+
+        // Action Buttons
+        document.getElementById('downloadButton').onclick = downloadIndividualImages;
+        document.getElementById('mergePdfButton').onclick = mergeAndDownloadPdf;
+        document.getElementById('resetButton').onclick = resetApp;
+        
+        // Order Panel
+        document.getElementById('toggleOrderPanel').onclick = openOrderPanel;
+        document.getElementById('closeOrderPanel').onclick = closeOrderPanel;
+        document.getElementById('orderPanelOverlay').onclick = closeOrderPanel;
+        document.getElementById('applyOrderBtn').onclick = closeOrderPanel;
+        document.getElementById('sortByName').onclick = () => sortImages((a, b) => a.fileName.localeCompare(b.fileName));
+        document.getElementById('sortByNameReverse').onclick = () => sortImages((a, b) => b.fileName.localeCompare(a.fileName));
     }
 
-    function processPdfFile(file, callback) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const arrayBuffer = e.target.result;
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-            loadingTask.promise.then(function(pdf) {
-                const numPages = pdf.numPages;
-                let pagesProcessed = 0;
-                const baseName = file.name.replace(/\.[^/.]+$/, "");
+    function setupSortable() {
+        new Sortable(elements.fileOrderList, {
+            animation: 150,
+            handle: '.drag-handle',
+            onEnd: () => {
+                // Update internal state order based on DOM order
+                const newOrderIndices = Array.from(elements.fileOrderList.children).map(li => parseInt(li.dataset.index));
+                const reorderedImages = newOrderIndices.map(i => state.images[i]);
+                state.images = reorderedImages;
+                renderImages(false); // Re-render in new order
+                updateOrderList(); // Re-assign indices
+            }
+        });
+    }
 
-                for (let pageNumber = 1; pageNumber <= numPages; pageNumber++) {
-                    pdf.getPage(pageNumber).then(function(page) {
-                        const scale = 1.5;
-                        const viewport = page.getViewport({ scale: scale });
-                        const tempCanvas = document.createElement('canvas');
-                        const tempCtx = tempCanvas.getContext('2d');
-                        tempCanvas.width = viewport.width;
-                        tempCanvas.height = viewport.height;
+    function toggleLoading(show, text = "処理中...") {
+        elements.loadingOverlay.style.display = show ? 'flex' : 'none';
+        elements.loadingText.textContent = text;
+    }
 
-                        const renderContext = { canvasContext: tempCtx, viewport: viewport };
-                        page.render(renderContext).promise.then(function() {
-                            const dataUrl = tempCanvas.toDataURL('image/png');
-                            const pageFileName = `${baseName}_page${pageNumber}`;
-                            originalImages.push({ dataUrl, fileName: pageFileName, type: 'pdf-page' });
-                            pagesProcessed++;
-                            if (pagesProcessed === numPages) {
-                                callback();
+    function updatePixelSize(delta) {
+        let val = parseInt(elements.pixelSize.value) + delta;
+        if (val < 1) val = 1;
+        elements.pixelSize.value = val;
+        renderImages(false); // Re-apply global blur
+    }
+
+    function updateLocalPixelSize(delta) {
+        let val = parseInt(elements.localPixelSize.value) + delta;
+        if (val < 1) val = 1;
+        elements.localPixelSize.value = val;
+    }
+
+    // --- File Processing ---
+
+    async function handleFiles(fileList) {
+        if (!fileList || fileList.length === 0) return;
+        toggleLoading(true, "ファイルを読み込み中...");
+
+        try {
+            const files = Array.from(fileList);
+            // Process all files in parallel
+            const promises = files.map(file => {
+                if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                    return processPdf(file);
+                } else if (file.type.startsWith('image/')) {
+                    return processImage(file);
+                }
+                return Promise.resolve([]);
+            });
+
+            const results = await Promise.all(promises);
+            // Flatten the array of arrays (since PDF returns multiple pages)
+            const newImages = results.flat().filter(img => img !== null);
+            
+            state.images = [...state.images, ...newImages];
+            
+            if (state.images.length > 0) {
+                elements.actionControls.style.display = 'flex';
+                updateOrderList();
+                renderImages(true); // Initial render reset scale
+            }
+        } catch (error) {
+            console.error("File processing error:", error);
+            alert("ファイルの読み込み中にエラーが発生しました。");
+        } finally {
+            toggleLoading(false);
+            elements.fileInput.value = '';
+        }
+    }
+
+    async function processImage(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Compress if large (> 1MB)
+                    const isLarge = file.size > 1024 * 1024;
+                    if (isLarge) {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const scale = Math.sqrt(1024 * 1024 / file.size); // Rough estimation
+                        canvas.width = img.width * scale;
+                        canvas.height = img.height * scale;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve([{
+                            dataUrl: canvas.toDataURL('image/jpeg', 0.85),
+                            fileName: file.name,
+                            type: 'image',
+                            width: canvas.width,
+                            height: canvas.height
+                        }]);
+                    } else {
+                        resolve([{
+                            dataUrl: e.target.result,
+                            fileName: file.name,
+                            type: 'image',
+                            width: img.width,
+                            height: img.height
+                        }]);
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function processPdf(file) {
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            const pages = [];
+            const baseName = file.name.replace(/\.[^/.]+$/, "");
+
+            // Process pages sequentially to avoid memory spikes
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better quality
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+
+                await page.render({ canvasContext: context, viewport: viewport }).promise;
+                
+                pages.push({
+                    dataUrl: canvas.toDataURL('image/jpeg', 0.8),
+                    fileName: `${baseName}_p${i}`,
+                    type: 'pdf-page',
+                    width: canvas.width,
+                    height: canvas.height
+                });
+            }
+            return pages;
+        } catch (e) {
+            console.error("PDF Parse Error", e);
+            alert(`${file.name} の読み込みに失敗しました。`);
+            return [];
+        }
+    }
+
+    // --- Rendering & Canvas Logic ---
+
+    function renderImages(resetScale = false) {
+        elements.output.innerHTML = '';
+        state.canvasScales = resetScale ? new Map() : state.canvasScales;
+
+        state.images.forEach((imgData, index) => {
+            const container = document.createElement('div');
+            container.className = 'canvas-wrapper';
+            
+            const canvas = document.createElement('canvas');
+            canvas.id = `canvas-${index}`;
+            // Set internal resolution
+            canvas.width = imgData.width;
+            canvas.height = imgData.height;
+            
+            // Draw initial image
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.src = imgData.dataUrl;
+            
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0);
+                
+                // Apply Global Blur
+                const globalBlur = parseInt(elements.pixelSize.value);
+                if (globalBlur > 1) {
+                    applyMosaic(ctx, 0, 0, canvas.width, canvas.height, globalBlur);
+                }
+            };
+
+            // Calculate Display Size (Scaling)
+            if (resetScale) {
+                const maxWidth = window.innerWidth - 40;
+                const maxHeight = window.innerHeight * 0.7;
+                const scale = Math.min(maxWidth / imgData.width, maxHeight / imgData.height, 1);
+                state.canvasScales.set(canvas.id, scale);
+            }
+            
+            let currentScale = state.canvasScales.get(canvas.id) || 1;
+            setCanvasDisplaySize(canvas, container, currentScale);
+
+            // Events
+            attachCanvasEvents(canvas, container, ctx);
+
+            container.appendChild(canvas);
+            
+            // Indicator
+            const indicator = document.createElement('div');
+            indicator.className = 'mosaic-indicator';
+            container.appendChild(indicator);
+            canvas.mosaicIndicator = indicator;
+
+            elements.output.appendChild(container);
+        });
+    }
+
+    function setCanvasDisplaySize(canvas, container, scale) {
+        const w = Math.floor(canvas.width * scale);
+        const h = Math.floor(canvas.height * scale);
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        container.style.width = `${w}px`;
+        container.style.height = `${h}px`;
+        state.canvasScales.set(canvas.id, scale);
+    }
+
+    function attachCanvasEvents(canvas, container, ctx) {
+        let isDrawing = false;
+
+        const getCoords = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY,
+                displayX: e.clientX - rect.left,
+                displayY: e.clientY - rect.top
+            };
+        };
+
+        const updateIndicator = (e) => {
+            const coords = getCoords(e);
+            const size = state.mosaicRegionSize;
+            // Indicator follows mouse, scaled to display
+            const rect = canvas.getBoundingClientRect();
+            const scale = rect.width / canvas.width;
+            const displaySize = size * scale;
+            
+            const ind = canvas.mosaicIndicator;
+            ind.style.width = `${displaySize}px`;
+            ind.style.height = `${displaySize}px`;
+            ind.style.left = `${coords.displayX - displaySize/2}px`;
+            ind.style.top = `${coords.displayY - displaySize/2}px`;
+            ind.style.display = 'block';
+        };
+
+        const doMosaic = (e) => {
+            const coords = getCoords(e);
+            const size = state.mosaicRegionSize;
+            const localBlur = parseInt(elements.localPixelSize.value);
+            
+            // Calculate region centered on mouse
+            const startX = Math.max(0, coords.x - size / 2);
+            const startY = Math.max(0, coords.y - size / 2);
+            const w = Math.min(size, canvas.width - startX);
+            const h = Math.min(size, canvas.height - startY);
+
+            applyMosaic(ctx, startX, startY, w, h, localBlur);
+        };
+
+        canvas.addEventListener('mousedown', e => { isDrawing = true; doMosaic(e); });
+        canvas.addEventListener('mousemove', e => { 
+            updateIndicator(e);
+            if (isDrawing) doMosaic(e); 
+        });
+        canvas.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mouseleave', () => { 
+            isDrawing = false; 
+            canvas.mosaicIndicator.style.display = 'none'; 
+        });
+
+        // Zoom with Wheel
+        container.addEventListener('wheel', e => {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                let scale = state.canvasScales.get(canvas.id) * delta;
+                scale = Math.max(0.1, Math.min(scale, 5));
+                setCanvasDisplaySize(canvas, container, scale);
+                updateIndicator(e); // Update indicator size/pos
+            }
+        }, { passive: false });
+    }
+
+    function applyMosaic(ctx, x, y, w, h, pixelSize) {
+        if (pixelSize <= 1) return;
+        x = Math.floor(x); y = Math.floor(y); w = Math.floor(w); h = Math.floor(h);
+        
+        try {
+            const imageData = ctx.getImageData(x, y, w, h);
+            const data = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+
+            for (let r = 0; r < height; r += pixelSize) {
+                for (let c = 0; c < width; c += pixelSize) {
+                    // Get average color or just top-left pixel color
+                    const pIndex = (r * width + c) * 4;
+                    const red = data[pIndex];
+                    const green = data[pIndex + 1];
+                    const blue = data[pIndex + 2];
+
+                    for (let dr = 0; dr < pixelSize; dr++) {
+                        for (let dc = 0; dc < pixelSize; dc++) {
+                            if (r + dr < height && c + dc < width) {
+                                const tIndex = ((r + dr) * width + (c + dc)) * 4;
+                                data[tIndex] = red;
+                                data[tIndex+1] = green;
+                                data[tIndex+2] = blue;
                             }
-                        }).catch(function(renderError){
-                            console.error(`PDFページ ${pageNumber} のレンダリングエラー:`, renderError);
-                            pagesProcessed++;
-                             if (pagesProcessed === numPages) {
-                                callback();
-                            }
-                        });
-                    }).catch(function(pageError){
-                        console.error(`PDFページ ${pageNumber} の取得エラー:`, pageError);
-                        pagesProcessed++;
-                         if (pagesProcessed === numPages) {
-                            callback();
-                         }
+                        }
+                    }
+                }
+            }
+            ctx.putImageData(imageData, x, y);
+        } catch (e) {
+            console.error("Mosaic Error", e);
+        }
+    }
+
+    // --- Output & Actions ---
+
+    function updateOrderList() {
+        elements.fileOrderList.innerHTML = '';
+        state.images.forEach((img, index) => {
+            const li = document.createElement('li');
+            li.dataset.index = index;
+            li.innerHTML = `<span><i class="fas fa-grip-vertical drag-handle"></i> ${img.fileName}</span> <span class="badge badge-secondary">${index + 1}</span>`;
+            elements.fileOrderList.appendChild(li);
+        });
+    }
+
+    function sortImages(compareFn) {
+        state.images.sort(compareFn);
+        renderImages(false);
+        updateOrderList();
+    }
+
+    function openOrderPanel() {
+        elements.orderPanel.classList.add('show');
+        elements.orderPanelOverlay.classList.add('show');
+    }
+    
+    function closeOrderPanel() {
+        elements.orderPanel.classList.remove('show');
+        elements.orderPanelOverlay.classList.remove('show');
+    }
+
+    function downloadIndividualImages() {
+        const baseName = elements.filenameInput.value || "image";
+        state.images.forEach((imgData, index) => {
+            const canvas = document.getElementById(`canvas-${index}`);
+            if (canvas) {
+                const link = document.createElement('a');
+                link.download = `${baseName}_${index+1}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.9);
+                link.click();
+            }
+        });
+    }
+
+    async function mergeAndDownloadPdf() {
+        toggleLoading(true, "PDFを作成中...");
+        try {
+            const mergedPdf = await PDFDocument.create();
+            
+            for (let i = 0; i < state.images.length; i++) {
+                const canvas = document.getElementById(`canvas-${i}`);
+                if (canvas) {
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    const imageBytes = await fetch(dataUrl).then(res => res.arrayBuffer());
+                    const image = await mergedPdf.embedJpg(imageBytes);
+                    
+                    const page = mergedPdf.addPage([canvas.width, canvas.height]);
+                    page.drawImage(image, {
+                        x: 0,
+                        y: 0,
+                        width: canvas.width,
+                        height: canvas.height,
                     });
                 }
-            }).catch(function(pdfError) {
-                console.error("PDFファイルの処理エラー:", pdfError);
-                callback();
-            });
-        };
-        reader.onerror = () => {
-            console.error("PDFファイルの読み込みに失敗しました:", file.name);
-            callback();
-        }
-        reader.readAsArrayBuffer(file);
-    }
-
-    function processOriginalImages(resetScale = false) {
-      output.innerHTML = '';
-
-      originalImages.forEach((imgData, index) => {
-        const { dataUrl, fileName } = imgData;
-        const img = new Image();
-        img.onload = function() {
-          const topBar = document.querySelector('.top-bar');
-          const topBarHeight = topBar ? topBar.offsetHeight : 0;
-          const dropZoneHeight = dropZone ? dropZone.offsetHeight : 0;
-          const compressionHeight = compressionStatus.style.display !== 'none' ? compressionStatus.offsetHeight : 0;
-          const padding = 40;
-          const availableWidth = window.innerWidth - 40;
-          const availableHeight = window.innerHeight - topBarHeight - dropZoneHeight - compressionHeight - padding;
-
-          const initialScaleFactor = Math.min(
-            availableWidth / img.width,
-            availableHeight / img.height,
-            1
-          );
-
-          let currentScale;
-          const canvasId = `canvas-${index}`;
-          if (resetScale) {
-              currentScale = initialScaleFactor;
-              canvasScales.set(canvasId, currentScale);
-          } else {
-              currentScale = canvasScales.get(canvasId) || initialScaleFactor;
-              if (!canvasScales.has(canvasId)) {
-                  canvasScales.set(canvasId, currentScale);
-              }
-          }
-
-          const scaledWidth = Math.floor(img.width * currentScale);
-          const scaledHeight = Math.floor(img.height * currentScale);
-
-          const canvas = document.createElement('canvas');
-          canvas.id = canvasId;
-          canvas.width = img.width;
-          canvas.height = img.height;
-          canvas.dataset.initialWidth = img.width;
-          canvas.dataset.initialHeight = img.height;
-
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, img.width, img.height);
-
-          const globalPixelSize = parseInt(pixelSizeInput.value, 10) || 1;
-          if (globalPixelSize > 1) {
-              applyMosaic(ctx, 0, 0, canvas.width, canvas.height, globalPixelSize);
-          }
-
-          const container = document.createElement('div');
-          container.className = "canvas-wrapper";
-          container.style.width = scaledWidth + 'px';
-          container.style.height = scaledHeight + 'px';
-
-          canvas.style.width = scaledWidth + 'px';
-          canvas.style.height = scaledHeight + 'px';
-
-          container.appendChild(canvas);
-
-          const indicator = document.createElement('div');
-          indicator.className = "mosaic-indicator";
-          container.appendChild(indicator);
-          canvas.mosaicIndicator = indicator;
-
-          let isDrawing = false;
-          canvas.addEventListener('mousemove', (e) => { 
-            updateIndicator(e, canvas, container); 
-            if (isDrawing) { 
-              applyMosaicRegionAtEvent(e, canvas, ctx); 
-            } 
-          });
-          canvas.addEventListener('mousedown', (e) => { 
-            isDrawing = true; 
-            applyMosaicRegionAtEvent(e, canvas, ctx); 
-          });
-          canvas.addEventListener('mouseup', () => { 
-            isDrawing = false; 
-          });
-          canvas.addEventListener('mouseleave', () => {
-            isDrawing = false;
-            if (canvas.mosaicIndicator) { 
-              canvas.mosaicIndicator.style.display = 'none'; 
             }
-          });
-
-          container.addEventListener('wheel', (e) => {
-            if (e.ctrlKey) {
-              e.preventDefault();
-
-              const zoomIntensity = 0.1;
-              const direction = e.deltaY < 0 ? 1 : -1;
-
-              let currentScale = canvasScales.get(canvas.id);
-              let newScale = currentScale * (1 + direction * zoomIntensity);
-
-              const minScale = 0.1;
-              const maxScale = 10.0;
-              newScale = Math.max(minScale, Math.min(newScale, maxScale));
-
-              if (newScale !== currentScale) {
-                  const originalWidth = parseFloat(canvas.dataset.initialWidth);
-                  const originalHeight = parseFloat(canvas.dataset.initialHeight);
-
-                  const newWidth = Math.floor(originalWidth * newScale);
-                  const newHeight = Math.floor(originalHeight * newScale);
-
-                  canvas.style.width = newWidth + 'px';
-                  canvas.style.height = newHeight + 'px';
-                  container.style.width = newWidth + 'px';
-                  container.style.height = newHeight + 'px';
-
-                  canvasScales.set(canvas.id, newScale);
-                  updateIndicator(e, canvas, container);
-              }
-            }
-          }, { passive: false });
-
-          output.appendChild(container);
-        };
-        img.onerror = () => {
-            console.error("画像データの読み込みに失敗しました:", fileName);
-        }
-        img.src = dataUrl;
-      });
-    }
-
-    function updateIndicator(e, canvas, container) {
-        if (!canvas.mosaicIndicator) return;
-
-        const containerRect = container.getBoundingClientRect();
-
-        const mouseX = e.clientX - containerRect.left;
-        const mouseY = e.clientY - containerRect.top;
-
-        let indicatorX = mouseX - mosaicRegionSize / 2;
-        let indicatorY = mouseY - mosaicRegionSize / 2;
-        let indicatorWidth = mosaicRegionSize;
-        let indicatorHeight = mosaicRegionSize;
-
-        if (indicatorX < 0) {
-            indicatorWidth += indicatorX;
-            indicatorX = 0;
-        }
-        if (indicatorY < 0) {
-            indicatorHeight += indicatorY;
-            indicatorY = 0;
-        }
-        if (indicatorX + indicatorWidth > containerRect.width) {
-            indicatorWidth = containerRect.width - indicatorX;
-        }
-        if (indicatorY + indicatorHeight > containerRect.height) {
-            indicatorHeight = containerRect.height - indicatorY;
-        }
-
-        indicatorWidth = Math.max(0, indicatorWidth);
-        indicatorHeight = Math.max(0, indicatorHeight);
-
-        const indicator = canvas.mosaicIndicator;
-        indicator.style.left = indicatorX + 'px';
-        indicator.style.top = indicatorY + 'px';
-        indicator.style.width = indicatorWidth + 'px';
-        indicator.style.height = indicatorHeight + 'px';
-        indicator.style.display = 'block';
-    }
-
-    function applyMosaicRegionAtEvent(e, canvas, ctx) {
-        const canvasRect = canvas.getBoundingClientRect();
-        const originalWidth = canvas.width;
-        const originalHeight = canvas.height;
-        const displayWidth = canvasRect.width;
-        const displayHeight = canvasRect.height;
-
-        if (displayWidth <= 0 || displayHeight <= 0) {
-            return;
-        }
-
-        const scaleX = originalWidth / displayWidth;
-        const scaleY = originalHeight / displayHeight;
-
-        const mouseX_display = e.clientX - canvasRect.left;
-        const mouseY_display = e.clientY - canvasRect.top;
-
-        const x_original = mouseX_display * scaleX;
-        const y_original = mouseY_display * scaleY;
-
-        const actualMosaicWidth_original = mosaicRegionSize * scaleX;
-        const actualMosaicHeight_original = mosaicRegionSize * scaleY;
-
-        const startX = Math.max(0, x_original - actualMosaicWidth_original / 2);
-        const startY = Math.max(0, y_original - actualMosaicHeight_original / 2);
-
-        const width = Math.min(actualMosaicWidth_original, originalWidth - startX);
-        const height = Math.min(actualMosaicHeight_original, originalHeight - startY);
-
-        if (width > 0 && height > 0) {
-            const localPixelSize = parseInt(localPixelSizeInput.value, 10) || 6;
-            applyMosaic(ctx, startX, startY, width, height, localPixelSize);
+            
+            const pdfBytes = await mergedPdf.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${elements.filenameInput.value || "merged"}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error(e);
+            alert("PDF作成中にエラーが発生しました");
+        } finally {
+            toggleLoading(false);
         }
     }
 
-    function applyMosaic(ctx, startX, startY, width, height, mosaicPixelSize) {
-      startX = Math.floor(startX);
-      startY = Math.floor(startY);
-      width = Math.floor(width);
-      height = Math.floor(height);
-      mosaicPixelSize = Math.max(1, Math.floor(mosaicPixelSize));
-
-      if (width <= 0 || height <= 0) {
-          return;
-      }
-
-      try {
-          const imageData = ctx.getImageData(startX, startY, width, height);
-          const data = imageData.data;
-          const actualWidth = imageData.width;
-
-          for (let y = 0; y < height; y += mosaicPixelSize) {
-              for (let x = 0; x < width; x += mosaicPixelSize) {
-                  const blockStartY = Math.min(y, height - 1);
-                  const blockStartX = Math.min(x, width - 1);
-                  const pixelIndex = (blockStartY * actualWidth + blockStartX) * 4;
-
-                  if (pixelIndex >= 0 && pixelIndex + 3 < data.length) {
-                      const red = data[pixelIndex];
-                      const green = data[pixelIndex + 1];
-                      const blue = data[pixelIndex + 2];
-
-                      for (let dy = 0; dy < mosaicPixelSize; dy++) {
-                          for (let dx = 0; dx < mosaicPixelSize; dx++) {
-                              const currentX = x + dx;
-                              const currentY = y + dy;
-
-                              if (currentX < width && currentY < height) {
-                                  const index = (currentY * actualWidth + currentX) * 4;
-                                  if (index >= 0 && index + 3 < data.length) {
-                                      data[index] = red;
-                                      data[index + 1] = green;
-                                      data[index + 2] = blue;
-                                  }
-                              }
-                          }
-                      }
-                  }
-              }
-          }
-          ctx.putImageData(imageData, startX, startY);
-      } catch (error) {
-          console.error("モザイク処理中にエラーが発生しました:", error, {startX, startY, width, height});
-      }
-    }
-
-    function compressCanvasForDownload(canvas, filename, targetSizeKB = 1024) {
-      let quality = 0.9;
-      let attempts = 0;
-      const maxAttempts = 10;
-      
-      const tryCompress = () => {
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        const estimatedSizeKB = Math.round((dataUrl.length * 0.75) / 1024);
-        
-        attempts++;
-        
-        if (estimatedSizeKB <= targetSizeKB || quality <= 0.1 || attempts >= maxAttempts) {
-          console.log(`ダウンロード: ${filename} (${estimatedSizeKB}KB, 品質: ${Math.round(quality * 100)}%)`);
-          downloadDataUrl(dataUrl, filename);
-        } else {
-          quality *= 0.85;
-          setTimeout(tryCompress, 0);
+    function resetApp() {
+        if(confirm("すべてリセットしますか？")) {
+            state.images = [];
+            state.canvasScales = new Map();
+            elements.output.innerHTML = '';
+            elements.actionControls.style.display = 'none';
+            elements.fileInput.value = '';
         }
-      };
-      
-      tryCompress();
     }
 
-    function downloadDataUrl(dataUrl, filename) {
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
-  </script>
+</script>
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
 </body>
 </html>
