@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -318,16 +319,14 @@
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                         resolve([{
                             dataUrl: canvas.toDataURL('image/jpeg', 0.85),
-                            fileName: file.name,
-                            type: 'image',
+fileName: `ぼかし_${file.name.replace(/\.[^/.]+$/, "")}`,                            type: 'image',
                             width: canvas.width,
                             height: canvas.height
                         }]);
                     } else {
                         resolve([{
                             dataUrl: e.target.result,
-                            fileName: file.name,
-                            type: 'image',
+fileName: `ぼかし_${file.name.replace(/\.[^/.]+$/, "")}`,                            type: 'image',
                             width: img.width,
                             height: img.height
                         }]);
@@ -339,32 +338,32 @@
         });
     }
 
-    async function processPdf(file) {
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-            const pages = [];
-            const baseName = file.name.replace(/\.[^/.]+$/, "");
+async function processPdf(file) {
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        const pages = [];
+        const baseName = file.name.replace(/\.[^/.]+$/, ""); // 拡張子を除いたファイル名
 
-            // Process pages sequentially to avoid memory spikes
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const viewport = page.getViewport({ scale: 2.0 }); // Higher scale for better quality
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 2.0 });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
 
-                await page.render({ canvasContext: context, viewport: viewport }).promise;
-                
-                pages.push({
-                    dataUrl: canvas.toDataURL('image/jpeg', 0.8),
-                    fileName: `${baseName}_p${i}`,
-                    type: 'pdf-page',
-                    width: canvas.width,
-                    height: canvas.height
-                });
-            }
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+            
+            pages.push({
+                dataUrl: canvas.toDataURL('image/jpeg', 0.8),
+                // ここを修正：ご希望のフォーマットに変更
+                fileName: `ぼかし_${baseName}_${i}`, 
+                type: 'pdf-page',
+                width: canvas.width,
+                height: canvas.height
+            });
+        }
             return pages;
         } catch (e) {
             console.error("PDF Parse Error", e);
@@ -573,18 +572,22 @@
         elements.orderPanelOverlay.classList.remove('show');
     }
 
-    function downloadIndividualImages() {
-        const baseName = elements.filenameInput.value || "image";
-        state.images.forEach((imgData, index) => {
-            const canvas = document.getElementById(`canvas-${index}`);
-            if (canvas) {
-                const link = document.createElement('a');
-                link.download = `${baseName}_${index+1}.jpg`;
-                link.href = canvas.toDataURL('image/jpeg', 0.9);
-                link.click();
-            }
-        });
-    }
+// --- downloadIndividualImages 関数を以下のように修正 ---
+function downloadIndividualImages() {
+    state.images.forEach((imgData, index) => {
+        const canvas = document.getElementById(`canvas-${index}`);
+        if (canvas) {
+            const link = document.createElement('a');
+            
+            // 修正：imgData.fileName があればそれを使用し、なければ入力欄の名前を使用する
+            let downloadName = imgData.fileName || (elements.filenameInput.value || "image") + `_${index + 1}`;
+            
+            link.download = `${downloadName}.jpg`;
+            link.href = canvas.toDataURL('image/jpeg', 0.9);
+            link.click();
+        }
+    });
+}
 
     async function mergeAndDownloadPdf() {
         toggleLoading(true, "PDFを作成中...");
