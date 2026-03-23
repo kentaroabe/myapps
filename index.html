@@ -6,112 +6,340 @@
   <title>社内アプリ一覧</title>
   <meta name="robots" content="noindex">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
   <style>
     :root {
       --primary: #667eea;
-      --primary-dark: #5a6fd6;
-      --secondary: #6c757d;
-      --secondary-dark: #545b62;
-      --bg: #f0f2f5;
-      --card-bg: #ffffff;
-      --text: #333;
-      --radius: 10px;
+      --secondary: #764ba2;
+      --accent: #f093fb;
+      --success: #4facfe;
+      --dark: #1a1a2e;
+      --card-bg: rgba(255,255,255,0.92);
+      --radius: 16px;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
     body {
-      font-family: 'Noto Sans JP', Arial, sans-serif;
-      background-color: var(--bg);
-      padding: 20px;
+      font-family: 'Noto Sans JP', sans-serif;
+      background: var(--dark);
+      color: #333;
+      min-height: 100vh;
+      overflow-x: hidden;
     }
-    .container {
-      max-width: 600px;
-      margin: 40px auto;
-      background: var(--card-bg);
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-      padding: 32px;
+
+    /* ── Animated background ─────────────────────────────── */
+    .bg-canvas {
+      position: fixed; inset: 0; z-index: 0; overflow: hidden;
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
     }
-    h1 {
+    .orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(80px); opacity: 0.45; animation: float infinite ease-in-out alternate;
+    }
+    .orb-1 { width: 520px; height: 520px; background: #667eea; top: -140px; left: -180px; animation-duration: 8s; }
+    .orb-2 { width: 380px; height: 380px; background: #f093fb; bottom: -80px; right: -100px; animation-duration: 10s; }
+    .orb-3 { width: 260px; height: 260px; background: #4facfe; top: 40%; left: 55%; animation-duration: 7s; }
+    @keyframes float {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(30px, 40px) scale(1.08); }
+    }
+
+    /* Grid dots */
+    .grid-overlay {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 36px 36px;
+    }
+
+    /* ── Page wrapper ────────────────────────────────────── */
+    .page {
+      position: relative; z-index: 1;
+      max-width: 680px; margin: 0 auto;
+      padding: 40px 20px 60px;
+    }
+
+    /* ── Hero header ─────────────────────────────────────── */
+    .hero {
       text-align: center;
-      color: var(--text);
-      font-size: 1.6rem;
-      font-weight: 700;
-      margin-bottom: 28px;
-      padding-bottom: 16px;
-      border-bottom: 2px solid var(--primary);
+      margin-bottom: 40px;
+      animation: heroIn 0.8s cubic-bezier(.22,.61,.36,1) both;
     }
-    .section-title {
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--secondary);
+    @keyframes heroIn {
+      from { opacity: 0; transform: translateY(-24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: linear-gradient(90deg, rgba(102,126,234,0.25), rgba(240,147,251,0.25));
+      border: 1px solid rgba(102,126,234,0.5);
+      color: #b4c1ff;
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em;
+      padding: 5px 14px; border-radius: 100px; margin-bottom: 18px;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin: 20px 0 8px;
     }
-    ul { list-style: none; }
-    li { margin: 8px 0; }
-    .btn-app {
-      display: block;
-      padding: 12px 18px;
-      border-radius: var(--radius);
+
+    .hero h1 {
+      font-size: clamp(2rem, 6vw, 2.8rem);
+      font-weight: 900;
+      line-height: 1.15;
+      background: linear-gradient(90deg, #fff 0%, #c4bbff 40%, #f093fb 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    .hero p {
+      color: rgba(255,255,255,0.45);
+      font-size: 0.92rem;
+    }
+
+    /* ── Section label ───────────────────────────────────── */
+    .section-label {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(255,255,255,0.35);
+      margin: 28px 0 12px 4px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .section-label::after {
+      content: ''; flex: 1; height: 1px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.12), transparent);
+    }
+
+    /* ── App Grid ────────────────────────────────────────── */
+    .app-grid { display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── App Card ────────────────────────────────────────── */
+    .app-card {
+      display: flex; align-items: center; gap: 16px;
       text-decoration: none;
-      font-size: 0.95rem;
-      font-weight: 500;
-      transition: all 0.2s ease;
-      border: 2px solid transparent;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: #fff;
+      transition: background 0.25s, border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+      position: relative; overflow: hidden;
+
+      /* Stagger loaded via --i */
+      opacity: 0;
+      animation: cardIn 0.55s cubic-bezier(.22,.61,.36,1) both;
+      animation-delay: calc(var(--i) * 60ms + 200ms);
     }
-    .btn-primary-app {
-      background: linear-gradient(135deg, var(--primary), #764ba2);
-      color: white;
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0)    scale(1); }
     }
-    .btn-primary-app:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(102,126,234,0.35);
+
+    .app-card::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(102,126,234,0.0) 0%, rgba(240,147,251,0.0) 100%);
+      transition: background 0.3s;
     }
-    .btn-secondary-app {
-      background: transparent;
-      color: var(--secondary);
-      border-color: #dee2e6;
+    .app-card:hover::before {
+      background: linear-gradient(135deg, rgba(102,126,234,0.15) 0%, rgba(240,147,251,0.12) 100%);
     }
-    .btn-secondary-app:hover {
-      background: #f8f9fa;
-      border-color: var(--secondary);
-      color: var(--text);
+    .app-card:hover {
+      background: rgba(255,255,255,0.11);
+      border-color: rgba(180,160,255,0.4);
+      transform: translateX(6px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.06);
     }
-    @media (max-width: 600px) {
-      .container { margin: 10px; padding: 20px; }
+    .app-card:active { transform: translateX(3px) scale(0.99); }
+
+    /* Shine sweep on hover */
+    .app-card::after {
+      content: '';
+      position: absolute; top: 0; left: -80%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+      transform: skewX(-20deg);
+      transition: left 0.5s;
     }
+    .app-card:hover::after { left: 130%; }
+
+    .app-icon {
+      font-size: 1.6rem; line-height: 1;
+      width: 46px; height: 46px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      flex-shrink: 0;
+      transition: transform 0.3s;
+    }
+    .app-card:hover .app-icon { transform: scale(1.15) rotate(-5deg); }
+
+    .app-info { flex: 1; min-width: 0; }
+    .app-name {
+      font-size: 0.95rem; font-weight: 700;
+      color: #fff; line-height: 1.3;
+    }
+    .app-desc {
+      font-size: 0.78rem; color: rgba(255,255,255,0.4);
+      margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .app-arrow {
+      font-size: 1.1rem; color: rgba(255,255,255,0.2);
+      transition: color 0.25s, transform 0.25s;
+      flex-shrink: 0;
+    }
+    .app-card:hover .app-arrow { color: rgba(180,160,255,0.8); transform: translateX(4px); }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    .footer {
+      text-align: center; margin-top: 48px;
+      color: rgba(255,255,255,0.18); font-size: 0.78rem;
+      animation: heroIn 1s 0.8s both;
+    }
+
+    /* ── Scrollbar ───────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>📱 アプリ一覧</h1>
+  <div class="bg-canvas">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+  <div class="grid-overlay"></div>
 
-    <p class="section-title">📄 PDF処理</p>
-    <ul>
-      <li><a href="bokasi_and_merge.html" class="btn-app btn-primary-app">🌫️ 画像ぼかし・PDF結合</a></li>
-      <li><a href="rotate_and_split_pdf.html" class="btn-app btn-primary-app">🔄 PDF回転・分割</a></li>
-      <li><a href="merge_pdf.html" class="btn-app btn-primary-app">📎 PDF結合</a></li>
-      <li><a href="get_filename_and_page.html" class="btn-app btn-primary-app">📊 PDFの枚数取得</a></li>
-      <li><a href="convert_pdf_to_jpeg.html" class="btn-app btn-primary-app">🖼️ PDFを画像に変換</a></li>
-    </ul>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-badge">✦ 社内ツール</div>
+      <h1>App Dashboard</h1>
+      <p>PDF・画像処理のユーティリティツール集</p>
+    </header>
 
-    <p class="section-title">🖼️ 画像処理</p>
-    <ul>
-      <li><a href="price.html" class="btn-app btn-primary-app">💲 価格並べ替え</a></li>
-      <li><a href="sample_png_from_pdf.html" class="btn-app btn-primary-app">🔲 SAMPLEサムネイル作成</a></li>
-      <li><a href="add_text_at_top_right_left.html" class="btn-app btn-secondary-app">✏️ 右上・左上にテキスト追加</a></li>
-      <li><a href="convert_jpeg_to_pdf.html" class="btn-app btn-secondary-app">📄 画像をPDFに変換</a></li>
-      <li><a href="seihoukei.html" class="btn-app btn-secondary-app">🔲 画像を正方形にする</a></li>
-      <li><a href="sample.html" class="btn-app btn-secondary-app">🖋️ SAMPLE透かし追加</a></li>
-      <li><a href="add_name_of_document.html" class="btn-app btn-secondary-app">🏷️ 画像にファイル名を記載</a></li>
-    </ul>
+    <div class="section-label">📄 PDF処理</div>
+    <div class="app-grid">
+      <a href="bokasi_and_merge.html" class="app-card" style="--i:0">
+        <div class="app-icon">🌫️</div>
+        <div class="app-info">
+          <div class="app-name">画像ぼかし・PDF結合</div>
+          <div class="app-desc">画像のぼかし加工と複数ファイルのPDF結合</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+      <a href="rotate_and_split_pdf.html" class="app-card" style="--i:1">
+        <div class="app-icon">🔄</div>
+        <div class="app-info">
+          <div class="app-name">PDF回転・分割</div>
+          <div class="app-desc">ページ単位の回転と任意位置での分割</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+      <a href="merge_pdf.html" class="app-card" style="--i:2">
+        <div class="app-icon">📎</div>
+        <div class="app-info">
+          <div class="app-name">PDF結合</div>
+          <div class="app-desc">複数のPDF・画像ファイルを1つのPDFに結合</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+      <a href="get_filename_and_page.html" class="app-card" style="--i:3">
+        <div class="app-icon">📊</div>
+        <div class="app-info">
+          <div class="app-name">PDFの枚数取得</div>
+          <div class="app-desc">ファイル名とページ数を一覧表示・コピー</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+      <a href="convert_pdf_to_jpeg.html" class="app-card" style="--i:4">
+        <div class="app-icon">🖼️</div>
+        <div class="app-info">
+          <div class="app-name">PDFを画像に変換</div>
+          <div class="app-desc">PDFの各ページをPNG画像として書き出す</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+    </div>
 
-    <p class="section-title">その他</p>
-    <ul>
-      <li><a href="oneforma_zaiko.html" class="btn-app btn-secondary-app">📦 OneForma在庫</a></li>
-    </ul>
+    <div class="section-label">🖼️ 画像処理</div>
+    <div class="app-grid">
+      <a href="price.html" class="app-card" style="--i:5">
+        <div class="app-icon">💲</div>
+        <div class="app-info">
+          <div class="app-name">価格並べ替え</div>
+          <div class="app-desc">画像のドラッグ&ドロップ並べ替えとリネーム</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+      <a href="sample_png_from_pdf.html" class="app-card" style="--i:6">
+        <div class="app-icon">🔲</div>
+        <div class="app-info">
+          <div class="app-name">SAMPLEサムネイル作成</div>
+          <div class="app-desc">PDF→正方形・SAMPLE透かし入り画像を生成</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+      <a href="add_text_at_top_right_left.html" class="app-card" style="--i:7">
+        <div class="app-icon">✏️</div>
+        <div class="app-info">
+          <div class="app-name">右上・左上にテキスト追加</div>
+          <div class="app-desc">画像の指定位置に赤字テキストを入れる</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+      <a href="convert_jpeg_to_pdf.html" class="app-card" style="--i:8">
+        <div class="app-icon">📄</div>
+        <div class="app-info">
+          <div class="app-name">画像をPDFに変換</div>
+          <div class="app-desc">JPEG・PNGを1枚または複数まとめてPDF化</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+      <a href="seihoukei.html" class="app-card" style="--i:9">
+        <div class="app-icon">⬛</div>
+        <div class="app-info">
+          <div class="app-name">画像を正方形にする</div>
+          <div class="app-desc">余白追加またはトリミングで1:1に変換</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+      <a href="sample.html" class="app-card" style="--i:10">
+        <div class="app-icon">🖋️</div>
+        <div class="app-info">
+          <div class="app-name">SAMPLE透かし追加</div>
+          <div class="app-desc">画像・PDFに赤い斜め「SAMPLE」を追加</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+      <a href="add_name_of_document.html" class="app-card" style="--i:11">
+        <div class="app-icon">🏷️</div>
+        <div class="app-info">
+          <div class="app-name">画像にファイル名を記載</div>
+          <div class="app-desc">ファイル名を抽出して画像上部に赤字で追加</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+    </div>
+
+    <div class="section-label">📦 その他</div>
+    <div class="app-grid">
+      <a href="oneforma_zaiko.html" class="app-card" style="--i:12">
+        <div class="app-icon">📦</div>
+        <div class="app-info">
+          <div class="app-name">OneForma在庫</div>
+          <div class="app-desc">翻訳在庫数の確認</div>
+        </div>
+        <div class="app-arrow">›</div>
+      </a>
+    </div>
+
+    <footer class="footer">
+      社内専用ツール — All tools run locally in your browser.
+    </footer>
   </div>
 </body>
 </html>
