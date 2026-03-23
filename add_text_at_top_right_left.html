@@ -1,215 +1,164 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>画像テキスト処理</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        #drop-zone {
-            border: 2px dashed #ccc;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 20px;
-            height: 200px;
-        }
-        #drop-zone.dragover {
-            background-color: #f0f8ff;
-        }
-        .controls {
-            margin-bottom: 20px;
-        }
-        .controls input[type="text"] {
-            padding: 5px;
-            margin-right: 10px;
-        }
-        .radio-group {
-            margin: 10px 0;
-        }
-        .radio-group label {
-            margin-right: 20px;
-        }
-        #result-container {
-            margin-top: 20px;
-            text-align: center;
-        }
-        #result-image {
-            max-width: 100%;
-            max-height: 600px;
-            border: 1px solid #ccc;
-            display: none;
-        }
-        .download-button {
-            margin-top: 10px;
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            display: none;
-        }
-        .download-button:hover {
-            background-color: #45a049;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>右上・左上にテキスト追加</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #667eea; --secondary: #6c757d; --success: #28a745; --bg: #f0f2f5; --radius: 10px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', Arial, sans-serif; background: var(--bg); }
+    .page-header {
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 24px; background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px;
+    }
+    .btn-back {
+      padding: 8px 16px; background: var(--secondary); color: white;
+      border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 500; white-space: nowrap;
+    }
+    .btn-back:hover { background: #545b62; }
+    h1 { font-size: 1.2rem; font-weight: 700; color: #333; }
+    main { padding: 0 24px 40px; max-width: 700px; margin: 0 auto; }
+    .controls-card {
+      background: white; border-radius: var(--radius);
+      padding: 20px; margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .controls-card label { font-size: 0.9rem; font-weight: 500; color: #555; display: block; margin-bottom: 6px; }
+    .controls-card input[type="text"] {
+      width: 100%; padding: 10px 12px; border: 1px solid #dee2e6;
+      border-radius: 8px; font-size: 1rem; font-family: inherit; margin-bottom: 14px;
+    }
+    .radio-group { display: flex; gap: 20px; }
+    .radio-group label { font-weight: 400; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .drop-zone {
+      border: 3px dashed #ccc; border-radius: var(--radius); padding: 48px 24px;
+      text-align: center; color: #777; background: white; cursor: pointer;
+      transition: all 0.2s; font-size: 1rem; margin-bottom: 20px;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: #f0f2ff; color: var(--primary); }
+    #result-container { text-align: center; }
+    #result-image { max-width: 100%; max-height: 600px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; margin-bottom: 12px; }
+    .btn-download {
+      display: none; padding: 10px 24px; background: var(--success);
+      color: white; border: none; border-radius: 8px; cursor: pointer;
+      font-size: 0.95rem; font-weight: 500; font-family: inherit;
+    }
+    .btn-download:hover { background: #218838; }
+  </style>
 </head>
-    <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-
 <body>
-    <h1>画像テキスト処理</h1>
-    
-    <div class="controls">
-        <input type="text" id="watermark-text" placeholder="透かしテキストを入力">
-        <div class="radio-group">
-            <label>
-                <input type="radio" name="position" value="left" checked>
-                左上
-            </label>
-            <label>
-                <input type="radio" name="position" value="right">
-                右上
-            </label>
-        </div>
+  <div class="page-header">
+    <a href="index.html" class="btn-back">← 戻る</a>
+    <h1>✏️ 右上・左上にテキスト追加</h1>
+  </div>
+  <main>
+    <div class="controls-card">
+      <label for="watermark-text">追加するテキスト</label>
+      <input type="text" id="watermark-text" placeholder="テキストを入力">
+      <label>位置</label>
+      <div class="radio-group">
+        <label><input type="radio" name="position" value="left" checked> 左上</label>
+        <label><input type="radio" name="position" value="right"> 右上</label>
+      </div>
     </div>
 
-    <div id="drop-zone">
-        ここに画像をドラッグ＆ドロップするか、クリックして選択してください
-        <input type="file" id="file-input" accept="image/*" style="display: none;">
+    <div id="drop-zone" class="drop-zone">
+      ここに画像をドラッグ＆ドロップ、またはクリックして選択
+      <input type="file" id="file-input" accept="image/*" style="display:none;">
     </div>
 
     <div id="result-container">
-        <img id="result-image" alt="処理結果">
-        <button id="download-button" class="download-button">画像を再ダウンロード</button>
+      <img id="result-image" alt="処理結果">
+      <br>
+      <button id="download-button" class="btn-download">📥 画像を再ダウンロード</button>
     </div>
+  </main>
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const watermarkInput = document.getElementById('watermark-text');
+    const resultImage = document.getElementById('result-image');
+    const downloadButton = document.getElementById('download-button');
+    let lastDataUrl = null;
+    let currentFileName = '';
 
-    <script>
-        const dropZone = document.getElementById('drop-zone');
-        const fileInput = document.getElementById('file-input');
-        const watermarkInput = document.getElementById('watermark-text');
-        const resultImage = document.getElementById('result-image');
-        const downloadButton = document.getElementById('download-button');
-        let lastProcessedDataUrl = null;
-        let currentFileName = '';
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) processImage(files[0]);
+    });
+    fileInput.addEventListener('change', e => {
+      if (e.target.files.length > 0) processImage(e.target.files[0]);
+    });
+    downloadButton.addEventListener('click', () => {
+      if (!lastDataUrl) return;
+      const text = watermarkInput.value || '透かし';
+      downloadImage(lastDataUrl, getOutputName(currentFileName, text));
+    });
 
-        dropZone.addEventListener('click', () => {
-            fileInput.click();
-        });
+    function getOutputName(name, text) {
+      const base = name.substring(0, name.lastIndexOf('.'));
+      const ext = name.substring(name.lastIndexOf('.'));
+      return `${base}_${text}${ext}`;
+    }
 
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
+    function downloadImage(dataUrl, fileName) {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = fileName;
+      link.click();
+    }
 
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('dragover');
-        });
+    function processImage(file) {
+      if (!file.type.startsWith('image/')) { alert('画像ファイルを選択してください。'); return; }
+      currentFileName = file.name;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const size = Math.max(img.width, img.height);
+          canvas.width = size;
+          canvas.height = size;
 
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                processImage(files[0]);
-            }
-        });
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, size, size);
+          ctx.drawImage(img, (size - img.width) / 2, (size - img.height) / 2);
 
-        fileInput.addEventListener('change', (e) => {
-            const files = e.target.files;
-            if (files.length > 0) {
-                processImage(files[0]);
-            }
-        });
+          const text = watermarkInput.value || '透かし';
+          const position = document.querySelector('input[name="position"]:checked').value;
+          const fontSize = 50;
+          ctx.font = `bold ${fontSize}px Arial`;
+          ctx.fillStyle = 'rgba(255, 0, 0, 1)';
+          ctx.textBaseline = 'top';
 
-        downloadButton.addEventListener('click', () => {
-            if (lastProcessedDataUrl) {
-                const watermarkText = watermarkInput.value || '透かし';
-                const fileName = getProcessedFileName(currentFileName, watermarkText);
-                downloadImage(lastProcessedDataUrl, fileName);
-            }
-        });
+          if (position === 'left') {
+            ctx.textAlign = 'left';
+            ctx.fillText(text, fontSize, fontSize);
+          } else {
+            ctx.textAlign = 'right';
+            ctx.fillText(text, size - fontSize, fontSize);
+          }
 
-        function getProcessedFileName(originalFileName, watermarkText) {
-            const nameWithoutExt = originalFileName.substring(0, originalFileName.lastIndexOf('.'));
-            const extension = originalFileName.substring(originalFileName.lastIndexOf('.'));
-            return `${nameWithoutExt}_${watermarkText}${extension}`;
-        }
-
-        function downloadImage(dataUrl, fileName) {
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = fileName;
-            link.click();
-        }
-
-        function processImage(file) {
-            if (!file.type.startsWith('image/')) {
-                alert('画像ファイルを選択してください。');
-                return;
-            }
-
-            currentFileName = file.name;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    // キャンバスを正方形に設定
-                    const size = Math.max(img.width, img.height);
-                    canvas.width = size;
-                    canvas.height = size;
-
-                    // 白背景を描画
-                    ctx.fillStyle = 'white';
-                    ctx.fillRect(0, 0, size, size);
-
-                    // 画像を中央に描画
-                    const x = (size - img.width) / 2;
-                    const y = (size - img.height) / 2;
-                    ctx.drawImage(img, x, y);
-
-                    // テキストを追加
-                    const text = watermarkInput.value || '透かし';
-                    const position = document.querySelector('input[name="position"]:checked').value;
-                    
-                    // フォントサイズを設定
-                    const fontSize = 50;
-                    ctx.font = `bold ${fontSize}px Arial`;
-                    ctx.fillStyle = 'rgba(255, 0, 0, 1)';
-                    ctx.textBaseline = 'top';
-
-                    // マージンを1行分（フォントサイズ分）設定
-                    const topMargin = fontSize;
-                    const sideMargin = fontSize;
-
-                    if (position === 'left') {
-                        ctx.textAlign = 'left';
-                        ctx.fillText(text, sideMargin, topMargin);
-                    } else {
-                        ctx.textAlign = 'right';
-                        ctx.fillText(text, size - sideMargin, topMargin);
-                    }
-
-                    // 処理結果を保存して表示
-                    const dataUrl = canvas.toDataURL('image/png');
-                    lastProcessedDataUrl = dataUrl;
-                    resultImage.src = dataUrl;
-                    resultImage.style.display = 'block';
-                    downloadButton.style.display = 'inline-block';
-
-                    // 自動ダウンロード
-                    const fileName = getProcessedFileName(currentFileName, text);
-                    downloadImage(dataUrl, fileName);
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-    </script>
+          const dataUrl = canvas.toDataURL('image/png');
+          lastDataUrl = dataUrl;
+          resultImage.src = dataUrl;
+          resultImage.style.display = 'block';
+          downloadButton.style.display = 'inline-block';
+          downloadImage(dataUrl, getOutputName(currentFileName, text));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
 </body>
 </html>

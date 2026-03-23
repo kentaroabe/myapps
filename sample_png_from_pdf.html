@@ -3,406 +3,209 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDFマルチ処理＆ダウンロード</title>
+  <title>SAMPLEサムネイル作成</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 20px;
+    :root { --primary: #667eea; --secondary: #6c757d; --success: #28a745; --bg: #f0f2f5; --radius: 10px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', Arial, sans-serif; background: var(--bg); }
+    .page-header {
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 24px; background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px;
     }
-    #drop-zone {
-      border: 2px dashed #ccc;
-      padding: 20px;
-      text-align: center;
-      margin-bottom: 20px;
-      height: 200px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
+    .btn-back {
+      padding: 8px 16px; background: var(--secondary); color: white;
+      border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 500; white-space: nowrap;
     }
-    #drop-zone.dragover {
-      background-color: #f0f8ff;
+    .btn-back:hover { background: #545b62; }
+    h1 { font-size: 1.2rem; font-weight: 700; color: #333; }
+    main { padding: 0 24px 40px; max-width: 800px; margin: 0 auto; }
+    .controls-card {
+      background: white; border-radius: var(--radius); padding: 20px;
+      margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
     }
-    .control-panel {
-      margin: 20px 0;
-      padding: 20px;
-      border: 1px solid #eee;
-      border-radius: 5px;
+    .controls-card label { font-size: 0.9rem; font-weight: 500; color: #555; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .controls-card input[type="text"] {
+      flex: 1; min-width: 200px; padding: 9px 12px; border: 1px solid #dee2e6;
+      border-radius: 8px; font-size: 0.9rem; font-family: inherit;
     }
-    .input-group {
-      margin-bottom: 15px;
+    .drop-zone {
+      border: 3px dashed #ccc; border-radius: var(--radius); padding: 48px 24px;
+      text-align: center; color: #777; background: white; cursor: pointer;
+      transition: all 0.2s; font-size: 1rem; margin-bottom: 16px;
     }
-    .input-group label {
-      display: block;
-      margin-bottom: 5px;
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: #f0f2ff; color: var(--primary); }
+    .btn-dl {
+      display: block; width: 100%; padding: 12px; background: var(--success); color: white;
+      border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; font-family: inherit;
+      font-weight: 600; margin-bottom: 16px;
     }
-    .input-group input {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-    }
-    .radio-group {
-      margin-bottom: 15px;
-    }
-    .radio-group label {
-      margin-right: 20px;
-    }
-    .button-group {
-      margin-top: 20px;
-      text-align: center;
-    }
-    button {
-      padding: 10px 20px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin: 0 5px;
-      font-size: 16px;
-    }
-    button:disabled {
-      background-color: #cccccc;
-      cursor: not-allowed;
-    }
-    #preview {
-      margin-top: 20px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-    }
-    .preview-item {
-      text-align: center;
-    }
-    .preview-item canvas {
-      max-width: 200px;
-      border: 1px solid #ddd;
-      margin-bottom: 5px;
-    }
+    .btn-dl:disabled { background: #ccc; cursor: not-allowed; }
+    .btn-dl:not(:disabled):hover { background: #218838; }
+    #preview { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+    .preview-item { text-align: center; }
+    .preview-item canvas { max-width: 160px; border: 1px solid #dee2e6; border-radius: 6px; }
+    .preview-item div { font-size: 0.8rem; color: #666; margin-top: 4px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
-  <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-
 <body>
-  <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-  <h1>PDFマルチ処理＆ダウンロード</h1>
-  
-  <div class="control-panel">
-    <div class="radio-group">
-      <label>
-        <input type="radio" name="colorMode" value="normal" checked>
-        そのまま
-      </label>
-      <label>
-        <input type="radio" name="colorMode" value="gray">
-        グレー
-      </label>
-    </div>
+  <div class="page-header">
+    <a href="index.html" class="btn-back">← 戻る</a>
+    <h1>🔲 SAMPLEサムネイル作成</h1>
   </div>
-
-  <!-- 複数ファイル選択可能に変更 -->
-  <div id="drop-zone">
-    ここにPDFファイルをドラッグ＆ドロップするか、クリックして選択してください
-    <input type="file" id="file-input" accept=".pdf" multiple style="display: none;">
-  </div>
-
-  <div class="control-panel">
-    <div class="input-group">
-      <label for="watermark-text">透かし文字 (全ファイル共通):</label>
-      <input type="text" id="watermark-text" placeholder="透かし文字を入力してください">
+  <main>
+    <div class="controls-card">
+      <label><input type="radio" name="colorMode" value="normal" checked> そのまま</label>
+      <label><input type="radio" name="colorMode" value="gray"> グレー</label>
+      <input type="text" id="watermark-text" placeholder="透かし文字（省略時はファイル名）">
     </div>
-    <div class="button-group">
-      <button id="download-all" disabled>すべての画像をダウンロード</button>
+
+    <div id="drop-zone" class="drop-zone">
+      ここにPDFをドラッグ＆ドロップ、またはクリックして選択<br>
+      <small>Ctrl+V でクリップボードから貼り付けも可</small>
+      <input type="file" id="file-input" accept=".pdf" multiple style="display:none;">
     </div>
-  </div>
 
-  <div id="preview"></div>
+    <button class="btn-dl" id="download-all" disabled>📥 すべての画像をダウンロード</button>
 
-  <!-- PDF.js の読み込み -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+    <div id="preview"></div>
+  </main>
   <script>
-    // 複数ファイルの処理結果を保持する配列
     let processedFiles = [];
-    
-    // 各要素の取得
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const watermarkText = document.getElementById('watermark-text');
-    const downloadAllButton = document.getElementById('download-all');
+    const downloadAllBtn = document.getElementById('download-all');
     const preview = document.getElementById('preview');
     const colorModeRadios = document.getElementsByName('colorMode');
 
-    /* --- ユーティリティ関数 --- */
-    function getColorMode() {
-      return document.querySelector('input[name="colorMode"]:checked').value;
-    }
+    function getColorMode() { return document.querySelector('input[name="colorMode"]:checked').value; }
 
-    function applyGrayBackground(canvas) {
+    function applyGray(canvas) {
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'rgba(128, 128, 128, 0.3)';
+      ctx.fillStyle = 'rgba(128,128,128,0.3)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       return canvas;
     }
 
-    function addSampleWatermark(ctx, width, height) {
+    function addSampleWatermark(ctx, w, h) {
+      ctx.save();
       ctx.font = 'bold 150px Arial';
-      ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+      ctx.fillStyle = 'rgba(255,0,0,0.5)';
       ctx.textAlign = 'center';
-      ctx.translate(width / 2, height / 2);
+      ctx.translate(w / 2, h / 2);
       ctx.rotate(-Math.PI / 8);
       ctx.fillText('SAMPLE', 0, 0);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.restore();
     }
 
-    function delay(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-    function downloadFile(dataUrl, fileName) {
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = fileName;
-      link.click();
+    function downloadFile(dataUrl, name) {
+      const a = document.createElement('a'); a.href = dataUrl; a.download = name; a.click();
     }
 
     function updatePreviews() {
       preview.innerHTML = '';
       processedFiles.forEach(item => {
-        const container = document.createElement('div');
-        container.classList.add('preview-item');
-        const canvasClone = document.createElement('canvas');
-        canvasClone.width = item.canvas.width;
-        canvasClone.height = item.canvas.height;
-        canvasClone.getContext('2d').drawImage(item.canvas, 0, 0);
-        container.appendChild(canvasClone);
-        const caption = document.createElement('div');
-        caption.textContent = item.fileName;
-        container.appendChild(caption);
-        preview.appendChild(container);
+        const wrap = document.createElement('div'); wrap.className = 'preview-item';
+        const c = document.createElement('canvas');
+        c.width = item.canvas.width; c.height = item.canvas.height;
+        c.getContext('2d').drawImage(item.canvas, 0, 0);
+        const label = document.createElement('div'); label.textContent = item.fileName;
+        wrap.appendChild(c); wrap.appendChild(label); preview.appendChild(wrap);
       });
     }
 
-    function createBaseCanvas(sourceCanvas) {
-      const baseCanvas = document.createElement('canvas');
-      baseCanvas.width = sourceCanvas.width;
-      baseCanvas.height = sourceCanvas.height;
-      baseCanvas.getContext('2d').drawImage(sourceCanvas, 0, 0);
-      if (getColorMode() === 'gray') {
-        applyGrayBackground(baseCanvas);
-      }
-      return baseCanvas;
+    function createBase(src) {
+      const c = document.createElement('canvas');
+      c.width = src.width; c.height = src.height;
+      c.getContext('2d').drawImage(src, 0, 0);
+      if (getColorMode() === 'gray') applyGray(c);
+      return c;
     }
 
-    /* --- クリップボードからのアップロード対応 --- */
-    document.addEventListener('paste', (e) => {
-      if (e.clipboardData && e.clipboardData.items) {
-        for (let i = 0; i < e.clipboardData.items.length; i++) {
-          const item = e.clipboardData.items[i];
-          if (item.kind === 'file') {
-            const file = item.getAsFile();
-            if (file) {
-              if (file.type === 'application/pdf') {
-                processPDFFile(file);
-              }
-            }
-          }
+    document.addEventListener('paste', e => {
+      if (e.clipboardData?.items) {
+        for (const item of e.clipboardData.items) {
+          if (item.kind === 'file') { const f = item.getAsFile(); if (f?.type === 'application/pdf') processPDF(f); }
         }
       }
     });
 
-    /* --- ドラッグ＆ドロップ、クリックでのファイル選択 --- */
     dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length) {
-        Array.from(e.dataTransfer.files).forEach(file => {
-          if (file.type === 'application/pdf') {
-            processPDFFile(file);
-          }
-        });
-      }
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      Array.from(e.dataTransfer.files).forEach(f => { if (f.type === 'application/pdf') processPDF(f); });
     });
-    fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length) {
-        Array.from(e.target.files).forEach(file => {
-          if (file.type === 'application/pdf') {
-            processPDFFile(file);
-          }
-        });
-      }
+    fileInput.addEventListener('change', e => {
+      Array.from(e.target.files).forEach(f => { if (f.type === 'application/pdf') processPDF(f); });
     });
 
-    /* --- PDF の読み込み・プレビュー --- */
-    async function processPDFFile(file) {
-      const fileName = file.name.replace(/\.pdf$/i, '');
-      
-      // 読み込み
-      const fileReader = new FileReader();
-      fileReader.onload = async function() {
-        const typedArray = new Uint8Array(this.result);
-        try {
-          const pdf = await pdfjsLib.getDocument(typedArray).promise;
-          const page = await pdf.getPage(1);
-          const viewport = page.getViewport({ scale: 2 });
-          
-          const canvas = document.createElement('canvas');
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          await page.render({
-            canvasContext: canvas.getContext('2d'),
-            viewport
-          }).promise;
-          
-          if (getColorMode() === 'gray') {
-            applyGrayBackground(canvas);
-          }
-          // 各ファイルの結果を配列に追加
-          processedFiles.push({ canvas, fileName });
-          updatePreviews();
-          downloadAllButton.disabled = false;
-        } catch (error) {
-          console.error('PDFの処理エラー:', error);
-        }
-      };
-      fileReader.readAsArrayBuffer(file);
-    }
-
-    /* --- カラーモード変更時のプレビュー更新 --- */
     colorModeRadios.forEach(radio => {
       radio.addEventListener('change', () => {
-        processedFiles = processedFiles.map(item => {
-          // 現在のキャンバスを元に新たに再描画
-          const newCanvas = createBaseCanvas(item.canvas);
-          return { canvas: newCanvas, fileName: item.fileName };
-        });
+        processedFiles = processedFiles.map(item => ({ canvas: createBase(item.canvas), fileName: item.fileName }));
         updatePreviews();
       });
     });
 
-    /* --- 画像生成・一括ダウンロード --- */
-    downloadAllButton.addEventListener('click', async () => {
-      if (processedFiles.length === 0) return;
-      
-      const commonText = watermarkText.value || '';
-      
-      // 各ファイルごとに処理
+    async function processPDF(file) {
+      const fileName = file.name.replace(/\.pdf$/i, '');
+      const reader = new FileReader();
+      reader.onload = async function() {
+        const pdf = await pdfjsLib.getDocument(new Uint8Array(this.result)).promise;
+        const page = await pdf.getPage(1);
+        const vp = page.getViewport({ scale: 2 });
+        const canvas = document.createElement('canvas');
+        canvas.width = vp.width; canvas.height = vp.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+        if (getColorMode() === 'gray') applyGray(canvas);
+        processedFiles.push({ canvas, fileName });
+        updatePreviews();
+        downloadAllBtn.disabled = false;
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    downloadAllBtn.addEventListener('click', async () => {
+      if (!processedFiles.length) return;
+      const text = watermarkText.value || '';
       for (const item of processedFiles) {
-        const baseCanvas = createBaseCanvas(item.canvas);
-        const text = commonText || item.fileName;
-  
-        // SAMPLE画像の生成
-        const sampleCanvas = document.createElement('canvas');
-        sampleCanvas.width = baseCanvas.width;
-        sampleCanvas.height = baseCanvas.height;
-        const sampleCtx = sampleCanvas.getContext('2d');
-        sampleCtx.drawImage(baseCanvas, 0, 0);
-        addSampleWatermark(sampleCtx, sampleCanvas.width, sampleCanvas.height);
-        await delay(500);
-  
-        // 透かし付き画像の生成
-        const watermarkCanvas = document.createElement('canvas');
-        watermarkCanvas.width = baseCanvas.width;
-        watermarkCanvas.height = baseCanvas.height;
-        const watermarkCtx = watermarkCanvas.getContext('2d');
-        watermarkCtx.drawImage(baseCanvas, 0, 0);
-        watermarkCtx.font = 'bold 50px Arial';
-        watermarkCtx.fillStyle = 'rgba(255, 0, 0, 1)';
-        watermarkCtx.textAlign = 'center';
-        watermarkCtx.textBaseline = 'top';
-        watermarkCtx.fillText(text, watermarkCanvas.width / 2, 50);
-        await delay(500);
-  
-        // 正方形画像の生成
-        const size = Math.max(baseCanvas.width, baseCanvas.height);
-        const squareCanvas = document.createElement('canvas');
-        squareCanvas.width = size;
-        squareCanvas.height = size;
-        const squareCtx = squareCanvas.getContext('2d');
-  
-        squareCtx.fillStyle = 'white';
-        squareCtx.fillRect(0, 0, size, size);
-  
-        if (baseCanvas.height > baseCanvas.width) {
-          squareCtx.drawImage(
-            baseCanvas,
-            0, 0, baseCanvas.width, baseCanvas.width,
-            0, 0, size, size
-          );
+        const base = createBase(item.canvas);
+        const label = text || item.fileName;
+
+        // 正方形SAMPLE画像を生成してダウンロード
+        const size = Math.max(base.width, base.height);
+        const sq = document.createElement('canvas');
+        sq.width = size; sq.height = size;
+        const sqCtx = sq.getContext('2d');
+        sqCtx.fillStyle = 'white'; sqCtx.fillRect(0, 0, size, size);
+
+        if (base.height > base.width) {
+          sqCtx.drawImage(base, 0, 0, base.width, base.width, 0, 0, size, size);
         } else {
-          squareCtx.drawImage(
-            baseCanvas,
-            0, 0, baseCanvas.width, baseCanvas.height,
-            (size - baseCanvas.width) / 2,
-            (size - baseCanvas.height) / 2,
-            baseCanvas.width,
-            baseCanvas.height
-          );
+          sqCtx.drawImage(base, (size - base.width) / 2, (size - base.height) / 2);
         }
-  
-        squareCtx.font = 'bold 50px Arial';
-        squareCtx.fillStyle = 'rgba(255, 0, 0, 1)';
-        squareCtx.textAlign = 'center';
-        squareCtx.textBaseline = 'top';
-        squareCtx.fillText(text, size / 2, 50);
-        await delay(500);
-  
-        // 正方形SAMPLE画像の生成とダウンロード
-        const squareSampleCanvas = document.createElement('canvas');
-        squareSampleCanvas.width = size;
-        squareSampleCanvas.height = size;
-        const squareSampleCtx = squareSampleCanvas.getContext('2d');
-        squareSampleCtx.drawImage(squareCanvas, 0, 0);
-        addSampleWatermark(squareSampleCtx, size, size);
-        // 各ファイル名に連番や個別の名前を付ける場合は工夫してください
-        downloadFile(squareSampleCanvas.toDataURL('image/png'), `${item.fileName}.png`);
+
+        // 透かし文字追加
+        sqCtx.font = 'bold 50px Arial';
+        sqCtx.fillStyle = 'rgba(255,0,0,1)';
+        sqCtx.textAlign = 'center'; sqCtx.textBaseline = 'top';
+        sqCtx.fillText(label, size / 2, 50);
+
+        // SAMPLEウォーターマーク
+        addSampleWatermark(sqCtx, size, size);
+
+        await delay(400);
+        downloadFile(sq.toDataURL('image/png'), `${item.fileName}.png`);
       }
     });
-  </script>
-  <!-- Code injected by live-server -->
-  <script>
-    if ('WebSocket' in window) {
-      (function () {
-        function refreshCSS() {
-          var sheets = [].slice.call(document.getElementsByTagName("link"));
-          var head = document.getElementsByTagName("head")[0];
-          for (var i = 0; i < sheets.length; ++i) {
-            var elem = sheets[i];
-            var parent = elem.parentElement || head;
-            parent.removeChild(elem);
-            var rel = elem.rel;
-            if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
-              var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
-              elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
-            }
-            parent.appendChild(elem);
-          }
-        }
-        var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
-        var address = protocol + window.location.host + window.location.pathname + '/ws';
-        var socket = new WebSocket(address);
-        socket.onmessage = function (msg) {
-          if (msg.data == 'reload') window.location.reload();
-          else if (msg.data == 'refreshcss') refreshCSS();
-        };
-        if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
-          console.log('Live reload enabled.');
-          sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
-        }
-      })();
-    } else {
-      console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
-    }
   </script>
 </body>
 </html>

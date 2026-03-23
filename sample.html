@@ -1,136 +1,118 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAMPLEを入れる</title>
-    <style>
-        #drop-zone {
-            width: 100%;
-            height: 300px;
-            border: 2px dashed #ccc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-        #drop-zone.drag-over {
-            background-color: #f0f0f0;
-        }
-        img {
-            max-width: 100%;
-            max-height: 300px;
-        }
-        canvas {
-            display: none;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAMPLE透かし追加</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #667eea; --secondary: #6c757d; --bg: #f0f2f5; --radius: 10px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', Arial, sans-serif; background: var(--bg); }
+    .page-header {
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 24px; background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px;
+    }
+    .btn-back {
+      padding: 8px 16px; background: var(--secondary); color: white;
+      border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 500; white-space: nowrap;
+    }
+    .btn-back:hover { background: #545b62; }
+    h1 { font-size: 1.2rem; font-weight: 700; color: #333; }
+    main { padding: 0 24px 40px; max-width: 700px; margin: 0 auto; }
+    .drop-zone {
+      border: 3px dashed #ccc; border-radius: var(--radius); padding: 48px 24px;
+      text-align: center; color: #777; background: white; cursor: pointer;
+      transition: all 0.2s; font-size: 1rem; margin-bottom: 20px;
+    }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: var(--primary); background: #f0f2ff; color: var(--primary); }
+    #preview img { max-width: 100%; border-radius: 8px; margin-top: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    canvas { display: none; }
+  </style>
 </head>
-      <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-
 <body>
-    <h1>画像にSAMPLE透かしを入れるアプリ</h1>
-    <div id="drop-zone">ここに画像またはPDFをドラッグ＆ドロップしてください</div>
+  <div class="page-header">
+    <a href="index.html" class="btn-back">← 戻る</a>
+    <h1>🖋️ SAMPLE透かし追加</h1>
+  </div>
+  <main>
+    <div id="drop-zone" class="drop-zone">
+      ここに画像またはPDFをドラッグ＆ドロップ<br>
+      <small>（赤い「SAMPLE」が斜めに追加されます）</small>
+    </div>
     <div id="preview"></div>
     <canvas id="canvas"></canvas>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
-    <script>
-        const dropZone = document.getElementById('drop-zone');
-        const preview = document.getElementById('preview');
-        const canvas = document.getElementById('canvas');
+  </main>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const preview = document.getElementById('preview');
+    const canvas = document.getElementById('canvas');
 
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('drag-over');
-        });
-
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('drag-over');
-
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const file = files[0];
-                if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-
-                    reader.onload = (event) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            addWatermark(img, file.name);
-                        };
-                        img.src = event.target.result;
-                    };
-
-                    reader.readAsDataURL(file);
-                } else if (file.type === 'application/pdf') {
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        const loadingTask = pdfjsLib.getDocument({ data: event.target.result });
-                        loadingTask.promise.then((pdf) => {
-                            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                                pdf.getPage(pageNum).then((page) => {
-                                    const viewport = page.getViewport({ scale: 2 });
-                                    canvas.width = viewport.width;
-                                    canvas.height = viewport.height;
-                                    const ctx = canvas.getContext('2d');
-
-                                    const renderContext = {
-                                        canvasContext: ctx,
-                                        viewport: viewport
-                                    };
-
-                                    page.render(renderContext).promise.then(() => {
-                                        const img = new Image();
-                                        img.onload = () => {
-                                            addWatermark(img, file.name.replace(/\.pdf$/, '') + `_page${pageNum}`);
-                                        };
-                                        img.src = canvas.toDataURL('image/png');
-                                    });
-                                });
-                            }
-                        });
-                    };
-                    reader.readAsArrayBuffer(file);
-                }
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const files = e.dataTransfer.files;
+      if (!files.length) return;
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const img = new Image();
+          img.onload = () => addWatermark(img, file.name);
+          img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      } else if (file.type === 'application/pdf') {
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const loadingTask = pdfjsLib.getDocument({ data: ev.target.result });
+          loadingTask.promise.then(pdf => {
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+              pdf.getPage(pageNum).then(page => {
+                const viewport = page.getViewport({ scale: 2 });
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                const ctx = canvas.getContext('2d');
+                page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+                  const img = new Image();
+                  img.onload = () => addWatermark(img, file.name.replace(/\.pdf$/, '') + `_page${pageNum}`);
+                  img.src = canvas.toDataURL('image/png');
+                });
+              });
             }
-        });
+          });
+        };
+        reader.readAsArrayBuffer(file);
+      }
+    });
 
-        function addWatermark(img, originalFileName) {
-            const ctx = canvas.getContext('2d');
-            canvas.width = img.width;
-            canvas.height = img.height;
+    function addWatermark(img, originalFileName) {
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+      ctx.font = 'bold 150px Arial';
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+      ctx.textAlign = 'center';
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(-Math.PI / 8);
+      ctx.fillText('SAMPLE', 0, 0);
 
-            ctx.drawImage(img, 0, 0);
-            ctx.font = 'bold 150px Arial';
-            ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-            ctx.textAlign = 'center';
-            ctx.translate(canvas.width / 2, canvas.height / 2);
-            ctx.rotate(-Math.PI / 8);
-            ctx.fillText('SAMPLE', 0, 0);
+      const watermarkedDataUrl = canvas.toDataURL('image/png');
+      const imgEl = document.createElement('img');
+      imgEl.src = watermarkedDataUrl;
+      preview.appendChild(imgEl);
 
-            const watermarkedDataUrl = canvas.toDataURL('image/png');
-            showPreview(watermarkedDataUrl);
-            downloadImage(watermarkedDataUrl, originalFileName);
-        }
-
-        function showPreview(dataUrl) {
-            const imgElement = document.createElement('img');
-            imgElement.src = dataUrl;
-            preview.appendChild(imgElement);
-        }
-
-        function downloadImage(dataUrl, originalFileName) {
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = originalFileName.replace(/\.[^/.]+$/, '') + '_sample.png';
-            link.click();
-        }
-    </script>
+      const link = document.createElement('a');
+      link.href = watermarkedDataUrl;
+      link.download = originalFileName.replace(/\.[^/.]+$/, '') + '_sample.png';
+      link.click();
+    }
+  </script>
 </body>
 </html>

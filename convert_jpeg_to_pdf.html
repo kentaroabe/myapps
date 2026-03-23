@@ -1,143 +1,110 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>画像をPDFに変換</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        #drop-zone {
-            border: 2px dashed #ccc;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        #output img {
-            max-width: 100%;
-            margin-bottom: 20px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>画像をPDFに変換</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #667eea; --secondary: #6c757d; --bg: #f0f2f5; --radius: 10px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', Arial, sans-serif; background: var(--bg); }
+    .page-header {
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 24px; background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px;
+    }
+    .btn-back {
+      padding: 8px 16px; background: var(--secondary); color: white;
+      border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 500; white-space: nowrap;
+    }
+    .btn-back:hover { background: #545b62; }
+    h1 { font-size: 1.2rem; font-weight: 700; color: #333; }
+    main { padding: 0 24px 40px; max-width: 700px; margin: 0 auto; }
+    .drop-zone {
+      border: 3px dashed #ccc; border-radius: var(--radius); padding: 48px 24px;
+      text-align: center; color: #777; background: white; cursor: pointer;
+      transition: all 0.2s; font-size: 1rem;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: #f0f2ff; color: var(--primary); }
+    .note {
+      margin-top: 16px; padding: 12px 16px; background: #e8f4f8;
+      border-radius: 8px; font-size: 0.85rem; color: #0c5460;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
-<a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-
 <body>
-    <h1>画像をPDFに変換</h1>
-    <div id="drop-zone">ここに画像ファイルをドラッグ&ドロップしてください</div>
-    <input type="file" id="file-upload" accept=".jpeg,.jpg,.jfif,.png" multiple style="display: none;" />
-    <div id="output"></div>
+  <div class="page-header">
+    <a href="index.html" class="btn-back">← 戻る</a>
+    <h1>📄 画像をPDFに変換</h1>
+  </div>
+  <main>
+    <div id="drop-zone" class="drop-zone">
+      ここに画像ファイルをドラッグ＆ドロップ、またはクリックして選択
+      <input type="file" id="file-upload" accept=".jpeg,.jpg,.jfif,.png" multiple style="display:none;">
+    </div>
+    <p class="note">📌 JPEG・PNG・JFIFファイルに対応。複数ファイルを選択すると1つのPDFに結合します。</p>
+  </main>
+  <script>
+    const { jsPDF } = window.jspdf;
+    const dropZone = document.getElementById('drop-zone');
+    const fileUpload = document.getElementById('file-upload');
 
-    <!-- jsPDF ライブラリ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script>
-        const { jsPDF } = window.jspdf;
-        const fileUpload = document.getElementById('file-upload');
-        const output = document.getElementById('output');
-        const dropZone = document.getElementById('drop-zone');
+    dropZone.addEventListener('click', () => fileUpload.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+    fileUpload.addEventListener('change', e => handleFiles(e.target.files));
 
-        function handleFiles(files) {
-            if (!files.length) {
-                alert('JPEGまたはPNGファイルを選択してください。');
-                return;
+    function handleFiles(files) {
+      if (!files.length) { alert('JPEG またはPNGファイルを選択してください。'); return; }
+
+      let pdf;
+      let imageAdded = false;
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/jfif', 'image/png'];
+
+      for (const file of files) {
+        const isValid = validTypes.includes(file.type) ||
+          /\.(jfif|jpg|jpeg|png)$/i.test(file.name);
+        if (!isValid) { alert(`${file.name} はサポートされていないファイル形式です。スキップします。`); continue; }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            let orientation = img.width > img.height ? 'l' : 'p';
+            let imgWidth = orientation === 'l' ? 297 : 210;
+            let imgHeight = (img.height * imgWidth) / img.width;
+
+            if (!imageAdded) {
+              pdf = new jsPDF({ orientation });
+            } else {
+              pdf.addPage(orientation);
             }
+            pdf.addImage(img, file.type === 'image/png' ? 'PNG' : 'JPEG', 0, 0, imgWidth, imgHeight);
+            imageAdded = true;
+          };
+          img.onerror = () => alert(`${file.name} の読み込み中にエラーが発生しました。`);
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      }
 
-            let imageAdded = false;
-
-            // 初期PDFの向きを設定しないでおく
-            let pdf;
-
-            for (const file of files) {
-                const fileType = file.type;
-
-                if (fileType === 'image/jpeg' || fileType === 'image/jpg' || fileType === 'image/jfif' || fileType === 'image/png' || file.name.toLowerCase().endsWith('.jfif') || file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg') || file.name.toLowerCase().endsWith('.png')) {
-                    // JPEGファイルの処理
-                    const fileReader = new FileReader();
-                    fileReader.onload = function() {
-                        const img = new Image();
-                        img.onload = function() {
-                            // 画像の向きを決定する
-                            let imgWidth, imgHeight;
-                            let orientation = 'p'; // 縦長デフォルト
-
-                            if (img.width > img.height) {
-                                orientation = 'l'; // 横長の場合ランドスケープに変更
-                                imgWidth = 297; // A4横幅（mm単位）
-                                imgHeight = (img.height * imgWidth) / img.width;
-                            } else {
-                                imgWidth = 210; // A4縦幅（mm単位）
-                                imgHeight = (img.height * imgWidth) / img.width;
-                            }
-
-                            // PDFの初期化（最初のページを作成するときに行う）
-                            if (!imageAdded) {
-                                pdf = new jsPDF({ orientation });
-                            } else {
-                                pdf.addPage(orientation);
-                            }
-
-                            const format = fileType === 'image/png' ? 'PNG' : 'JPEG';
-                            pdf.addImage(img, format, 0, 0, imgWidth, imgHeight);
-                            imageAdded = true;
-                        };
-                        img.onerror = function() {
-                            alert(`${file.name} の読み込み中にエラーが発生しました。`);
-                        };
-                        img.src = fileReader.result;
-                    };
-                    fileReader.readAsDataURL(file);
-                } else {
-                    alert(`${file.name} はサポートされていないファイル形式です。スキップします。`);
-                    continue;
-                }
-            }
-
-            // 入力をリセット（同じファイルを再度選択可能にするため）
-            fileUpload.value = '';
-
-            // 全ての画像が追加された後にPDFをダウンロード
-            setTimeout(() => {
-                if (imageAdded) {
-                    const baseName = files[0].name.replace(/\.[^.]+$/, '');
-                    pdf.save(`${baseName}.pdf`);
-                } else {
-                    alert('PDFに変換できる画像がありませんでした。');
-                }
-            }, 1000);
+      fileUpload.value = '';
+      setTimeout(() => {
+        if (imageAdded) {
+          const baseName = files[0].name.replace(/\.[^.]+$/, '');
+          pdf.save(`${baseName}.pdf`);
+        } else {
+          alert('PDFに変換できる画像がありませんでした。');
         }
-
-        // ファイルがドロップされたとき
-        dropZone.addEventListener('drop', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const files = event.dataTransfer.files;
-            handleFiles(files);
-            dropZone.style.backgroundColor = ''; // 背景色をリセット
-        });
-
-        // ドラッグ中のスタイル変更
-        dropZone.addEventListener('dragover', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            dropZone.style.backgroundColor = '#f0f0f0';
-        });
-
-        dropZone.addEventListener('dragleave', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            dropZone.style.backgroundColor = '';
-        });
-
-        // ファイルが選択されたとき
-        fileUpload.addEventListener('change', async (event) => {
-            const files = event.target.files;
-            handleFiles(files);
-        });
-
-        // ドロップゾーンをクリックしてファイル選択ダイアログを開く
-        dropZone.addEventListener('click', () => {
-            fileUpload.click();
-        });
-    </script>
+      }, 1000);
+    }
+  </script>
 </body>
 </html>

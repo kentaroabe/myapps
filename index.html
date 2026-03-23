@@ -1,77 +1,117 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>社内アプリ一覧</title>
   <meta name="robots" content="noindex">
-
-  <!-- Bootstrap の CSS を読み込み -->
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --primary: #667eea;
+      --primary-dark: #5a6fd6;
+      --secondary: #6c757d;
+      --secondary-dark: #545b62;
+      --bg: #f0f2f5;
+      --card-bg: #ffffff;
+      --text: #333;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Arial', sans-serif;
-      background-color: #f0f2f5;
-      margin: 0;
-      padding: 0;
-    }
-
-    .container-custom {
-      max-width: 800px;
-      margin: 50px auto;
+      font-family: 'Noto Sans JP', Arial, sans-serif;
+      background-color: var(--bg);
       padding: 20px;
-      background-color: #ffffff;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
     }
-
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      padding: 32px;
+    }
     h1 {
       text-align: center;
-      color: #333;
-      margin-bottom: 30px;
+      color: var(--text);
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid var(--primary);
     }
-
-    ul {
-      list-style-type: none;
-      padding: 0;
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin: 20px 0 8px;
     }
-
-    li {
-      margin: 15px 0;
+    ul { list-style: none; }
+    li { margin: 8px 0; }
+    .btn-app {
+      display: block;
+      padding: 12px 18px;
+      border-radius: var(--radius);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      border: 2px solid transparent;
     }
-
+    .btn-primary-app {
+      background: linear-gradient(135deg, var(--primary), #764ba2);
+      color: white;
+    }
+    .btn-primary-app:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(102,126,234,0.35);
+    }
+    .btn-secondary-app {
+      background: transparent;
+      color: var(--secondary);
+      border-color: #dee2e6;
+    }
+    .btn-secondary-app:hover {
+      background: #f8f9fa;
+      border-color: var(--secondary);
+      color: var(--text);
+    }
     @media (max-width: 600px) {
-      .container-custom {
-        margin: 20px;
-        padding: 15px;
-      }
+      .container { margin: 10px; padding: 20px; }
     }
   </style>
 </head>
-
 <body>
-  <div class="container-custom">
-    <h1>アプリ一覧</h1>
+  <div class="container">
+    <h1>📱 アプリ一覧</h1>
+
+    <p class="section-title">📄 PDF処理</p>
     <ul>
-      <!-- 最初の 4 つのボタンは Bootstrap の色付けクラスを使用 -->
-      <li><a href="bokasi_and_merge.html" class="btn btn-secondary btn-block">画像ぼかし・PDF結合</a></li>
+      <li><a href="bokasi_and_merge.html" class="btn-app btn-primary-app">🌫️ 画像ぼかし・PDF結合</a></li>
+      <li><a href="rotate_and_split_pdf.html" class="btn-app btn-primary-app">🔄 PDF回転・分割</a></li>
+      <li><a href="merge_pdf.html" class="btn-app btn-primary-app">📎 PDF結合</a></li>
+      <li><a href="get_filename_and_page.html" class="btn-app btn-primary-app">📊 PDFの枚数取得</a></li>
+      <li><a href="convert_pdf_to_jpeg.html" class="btn-app btn-primary-app">🖼️ PDFを画像に変換</a></li>
+    </ul>
 
-      <li><a href="rotate_and_split_pdf.html" class="btn btn-secondary btn-block">PDF回転・分割</a></li>
-      <li><a href="merge_pdf.html" class="btn btn-secondary btn-block">PDF結合</a></li>
-      <li><a href="get_filename_and_page.html" class="btn btn-secondary btn-block">PDFの枚数取得</a></li>
-      <li><a href="price.html" class="btn btn-secondary btn-block">価格並べ替え</a></li>
-      <li><a href="convert_pdf_to_jpeg.html" class="btn btn-secondary btn-block">PDFを画像に変換</a></li>
-      <li><a href="sample_png_from_pdf.html" class="btn btn-secondary btn-block">PDFから、正方形のSAMPLE画像作成</a></li>
+    <p class="section-title">🖼️ 画像処理</p>
+    <ul>
+      <li><a href="price.html" class="btn-app btn-primary-app">💲 価格並べ替え</a></li>
+      <li><a href="sample_png_from_pdf.html" class="btn-app btn-primary-app">🔲 SAMPLEサムネイル作成</a></li>
+      <li><a href="add_text_at_top_right_left.html" class="btn-app btn-secondary-app">✏️ 右上・左上にテキスト追加</a></li>
+      <li><a href="convert_jpeg_to_pdf.html" class="btn-app btn-secondary-app">📄 画像をPDFに変換</a></li>
+      <li><a href="seihoukei.html" class="btn-app btn-secondary-app">🔲 画像を正方形にする</a></li>
+      <li><a href="sample.html" class="btn-app btn-secondary-app">🖋️ SAMPLE透かし追加</a></li>
+      <li><a href="add_name_of_document.html" class="btn-app btn-secondary-app">🏷️ 画像にファイル名を記載</a></li>
+    </ul>
 
-      <!-- その他のリンクはお好みで Bootstrap のクラスを追加 -->
-      <li><a href="add_text_at_top_right_left.html" class="btn btn-outline-dark btn-block">右上か左上に文字柄</a></li>
-      <li><a href="convert_jpeg_to_pdf.html" class="btn btn-outline-dark btn-block">画像をPDFに変換</a></li>
-      <li><a href="seihoukei.html" class="btn btn-outline-dark btn-block">画像を正方形にする</a></li>
-      <li><a href="sample.html" class="btn btn-outline-dark btn-block">Sample記載</a></li>
-      <li><a href="add_name_of_document.html" class="btn btn-outline-dark btn-block">名前記載</a></li>
-      <li><a href="oneforma_zaiko.html" class="btn btn-outline-dark btn-block">OneForma在庫</a></li>
+    <p class="section-title">その他</p>
+    <ul>
+      <li><a href="oneforma_zaiko.html" class="btn-app btn-secondary-app">📦 OneForma在庫</a></li>
     </ul>
   </div>
 </body>
-
 </html>

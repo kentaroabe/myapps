@@ -1,228 +1,163 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PDFを画像に変換</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .drop-zone {
-            border: 2px dashed #dee2e6;
-            border-radius: 10px;
-            padding: 2rem;
-            text-align: center;
-            transition: all 0.3s ease;
-            background-color: #f8f9fa;
-            cursor: pointer;
-        }
-        .drop-zone:hover {
-            background-color: #e9ecef;
-            border-color: #6c757d;
-        }
-        .drop-zone.dragover {
-            background-color: #e9ecef;
-            border-color: #0d6efd;
-        }
-        #output img {
-            max-width: 100%;
-            margin-bottom: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDFを画像に変換</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #667eea; --secondary: #6c757d; --success: #28a745; --bg: #f0f2f5; --radius: 10px; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', Arial, sans-serif; background: var(--bg); }
+    .page-header {
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 24px; background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px;
+    }
+    .btn-back {
+      padding: 8px 16px; background: var(--secondary); color: white;
+      border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 500; white-space: nowrap;
+    }
+    .btn-back:hover { background: #545b62; }
+    h1 { font-size: 1.2rem; font-weight: 700; color: #333; }
+    main { padding: 0 24px 40px; max-width: 700px; margin: 0 auto; }
+    .drop-zone {
+      border: 3px dashed #ccc; border-radius: var(--radius); padding: 48px 24px;
+      text-align: center; color: #777; background: white; cursor: pointer;
+      transition: all 0.2s; font-size: 1rem; margin-bottom: 16px;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: #f0f2ff; color: var(--primary); }
+    #output { margin-top: 20px; }
+    #output img {
+      max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 16px; display: block;
+    }
+    .alert {
+      padding: 12px 16px; border-radius: 8px; margin-bottom: 10px;
+      font-size: 0.9rem; display: flex; align-items: center; gap: 8px;
+    }
+    .alert-success { background: #d4edda; color: #155724; }
+    .alert-warning { background: #fff3cd; color: #856404; }
+    .alert-danger { background: #f8d7da; color: #721c24; }
+  </style>
 </head>
-    <a href="https://kentaroabe.github.io/myapps/" style="margin: 20px; padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 5px; text-decoration: none; display: inline-block;">アプリリストに戻る</a>
-
-<body class="bg-light">
-    <div class="container py-5">
-        <nav class="mb-4">
-            <a href="https://kentaroabe.github.io/myapps/" class="btn btn-secondary">
-                アプリリストに戻る
-            </a>
-        </nav>
-
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h1 class="card-title text-center mb-4">PDFを画像に変換</h1>
-                        
-                        <div class="drop-zone mb-4" id="drop-zone">
-                            <div class="mb-3">
-                                <i class="bi bi-cloud-upload" style="font-size: 2rem;"></i>
-                            </div>
-                            <p class="mb-1">ここにPDFまたはJFIFファイルをドラッグ&ドロップ</p>
-                            <p class="text-muted small">または、クリックしてファイルを選択<br>
-                            Ctrl+V でクリップボードから直接ペースト可能</p>
-                        </div>
-                        
-                        <input type="file" id="file-upload" accept=".pdf,.jfif" multiple style="display: none;" />
-                        
-                        <div id="output" class="mt-4"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+<body>
+  <div class="page-header">
+    <a href="index.html" class="btn-back">← 戻る</a>
+    <h1>🖼️ PDFを画像に変換</h1>
+  </div>
+  <main>
+    <div class="drop-zone" id="drop-zone">
+      <p>ここにPDFまたはJFIFをドラッグ＆ドロップ、またはクリックして選択</p>
+      <small style="color:#999">Ctrl+V で貼り付けも可能</small>
     </div>
+    <input type="file" id="file-upload" accept=".pdf,.jfif" multiple style="display:none;">
+    <div id="output"></div>
+  </main>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <script>
+    const fileUpload = document.getElementById('file-upload');
+    const output = document.getElementById('output');
+    const dropZone = document.getElementById('drop-zone');
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
-    
-    <script>
-        const fileUpload = document.getElementById('file-upload');
-        const output = document.getElementById('output');
-        const dropZone = document.getElementById('drop-zone');
+    document.addEventListener('paste', e => {
+      e.preventDefault();
+      const files = [];
+      for (const item of e.clipboardData.items) {
+        if (item.kind === 'file') { const f = item.getAsFile(); if (f) files.push(f); }
+      }
+      if (files.length) handleFiles(files);
+    });
 
-        // クリップボードからのペースト処理を追加
-        document.addEventListener('paste', (event) => {
-            event.preventDefault();
-            const items = event.clipboardData.items;
-            
-            for (const item of items) {
-                if (item.kind === 'file') {
-                    const file = item.getAsFile();
-                    handleFiles([file]);
-                }
-            }
-        });
+    dropZone.addEventListener('click', () => fileUpload.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault(); dropZone.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+    fileUpload.addEventListener('change', e => handleFiles(e.target.files));
 
-        function handleFiles(files) {
-            if (!files.length) {
-                showAlert('PDFまたはJFIFファイルを選択してください。', 'warning');
-                return;
-            }
-
-            for (const file of files) {
-                const fileType = file.type;
-
-                if (fileType === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-                    processPDF(file);
-                } else if (fileType === 'image/jpeg' || fileType === 'image/jfif' || file.name.toLowerCase().endsWith('.jfif')) {
-                    processImage(file);
-                } else {
-                    showAlert(`${file.name} はサポートされていないファイル形式です。`, 'warning');
-                    continue;
-                }
-            }
-
-            fileUpload.value = '';
+    function handleFiles(files) {
+      if (!files.length) { showAlert('PDFまたはJFIFファイルを選択してください。', 'warning'); return; }
+      for (const file of files) {
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          processPDF(file);
+        } else if (file.type === 'image/jpeg' || file.type === 'image/jfif' || file.name.toLowerCase().endsWith('.jfif')) {
+          processImage(file);
+        } else {
+          showAlert(`${file.name} はサポートされていないファイル形式です。`, 'warning');
         }
+      }
+      fileUpload.value = '';
+    }
 
-        async function processPDF(file) {
-            const fileReader = new FileReader();
-            fileReader.onload = async function() {
-                try {
-                    const typedarray = new Uint8Array(this.result);
-                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
-                    const numPages = pdf.numPages;
-
-                    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-                        const page = await pdf.getPage(pageNum);
-                        const viewport = page.getViewport({ scale: 2 });
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-                        canvas.height = viewport.height;
-                        canvas.width = viewport.width;
-
-                        await page.render({ canvasContext: context, viewport: viewport }).promise;
-                        downloadAndDisplayImage(canvas, file.name, pageNum);
-                    }
-                    showAlert('PDF変換が完了しました！', 'success');
-                } catch (error) {
-                    console.error(`Error processing ${file.name}:`, error);
-                    showAlert(`${file.name} の処理中にエラーが発生しました。`, 'danger');
-                }
-            };
-            fileReader.readAsArrayBuffer(file);
+    async function processPDF(file) {
+      const reader = new FileReader();
+      reader.onload = async function() {
+        try {
+          const typedarray = new Uint8Array(this.result);
+          const pdf = await pdfjsLib.getDocument(typedarray).promise;
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const viewport = page.getViewport({ scale: 2 });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            await page.render({ canvasContext: context, viewport }).promise;
+            downloadAndDisplay(canvas, file.name, pageNum);
+          }
+          showAlert('PDF変換が完了しました！', 'success');
+        } catch (err) {
+          showAlert(`${file.name} の処理中にエラーが発生しました。`, 'danger');
         }
+      };
+      reader.readAsArrayBuffer(file);
+    }
 
-        function processImage(file) {
-            const fileReader = new FileReader();
-            fileReader.onload = function() {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    downloadAndDisplayImage(canvas, file.name);
-                    showAlert('画像変換が完了しました！', 'success');
-                };
-                img.onerror = function() {
-                    showAlert(`${file.name} の読み込み中にエラーが発生しました。`, 'danger');
-                };
-                img.src = fileReader.result;
-            };
-            fileReader.readAsDataURL(file);
-        }
+    function processImage(file) {
+      const reader = new FileReader();
+      reader.onload = function() {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          downloadAndDisplay(canvas, file.name);
+          showAlert('画像変換が完了しました！', 'success');
+        };
+        img.onerror = () => showAlert(`${file.name} の読み込みエラー。`, 'danger');
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }
 
-        function downloadAndDisplayImage(canvas, fileName, pageNum = null) {
-            const imgDataUrl = canvas.toDataURL('image/png');
-            
-            // 画像をページに表示
-            const img = document.createElement('img');
-            img.src = imgDataUrl;
-            img.alt = pageNum ? `${fileName} - ページ ${pageNum}` : fileName;
-            img.className = 'img-fluid';
-            output.appendChild(img);
+    function downloadAndDisplay(canvas, fileName, pageNum = null) {
+      const dataUrl = canvas.toDataURL('image/png');
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.alt = pageNum ? `${fileName} - ページ ${pageNum}` : fileName;
+      output.appendChild(img);
 
-            // ダウンロード
-            const link = document.createElement('a');
-            link.href = imgDataUrl;
-            const baseName = fileName.replace(/\.(pdf|jfif)$/i, '');
-            link.download = pageNum ? `${baseName}_${pageNum}.png` : `画像_${baseName}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      const base = fileName.replace(/\.(pdf|jfif)$/i, '');
+      link.download = pageNum ? `${base}_${pageNum}.png` : `画像_${base}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
 
-        function showAlert(message, type) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-            alertDiv.role = 'alert';
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            `;
-            output.insertBefore(alertDiv, output.firstChild);
-            
-            // 3秒後に自動で消える
-            setTimeout(() => {
-                alertDiv.classList.remove('show');
-                setTimeout(() => alertDiv.remove(), 150);
-            }, 3000);
-        }
-
-        // ドラッグ&ドロップイベントの処理
-        dropZone.addEventListener('drop', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            dropZone.classList.remove('dragover');
-            const files = event.dataTransfer.files;
-            handleFiles(files);
-        });
-
-        dropZone.addEventListener('dragover', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            dropZone.classList.add('dragover');
-        });
-
-        dropZone.addEventListener('dragleave', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            dropZone.classList.remove('dragover');
-        });
-
-        fileUpload.addEventListener('change', (event) => {
-            const files = event.target.files;
-            handleFiles(files);
-        });
-
-        dropZone.addEventListener('click', () => {
-            fileUpload.click();
-        });
-    </script>
+    function showAlert(message, type) {
+      const div = document.createElement('div');
+      div.className = `alert alert-${type}`;
+      div.textContent = message;
+      output.insertBefore(div, output.firstChild);
+      setTimeout(() => div.remove(), 3000);
+    }
+  </script>
 </body>
 </html>

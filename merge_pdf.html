@@ -3,139 +3,111 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>高速ファイル結合アプリ (Ctrl+V対応)</title>
+  <title>PDF結合ツール</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-    
-    #drop-area {
-      border: 3px dashed #007bff;
-      border-radius: 10px;
-      padding: 40px;
-      text-align: center;
-      margin-bottom: 20px;
-      background-color: #f9f9f9;
-      transition: background-color 0.3s;
-      cursor: pointer;
-      position: relative;
+    :root {
+      --primary: #667eea; --primary-dark: #5a6fd6;
+      --success: #28a745; --danger: #dc3545; --warning: #ffc107;
+      --secondary: #6c757d; --bg: #f0f2f5; --radius: 10px;
     }
-    #drop-area.highlight {
-      border-color: #0056b3;
-      background-color: #e7f0ff;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', Arial, sans-serif; background: var(--bg); }
+    .page-header {
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 24px; background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px;
     }
-    /* Ctrl+Vのヒントを表示 */
-    #drop-area::after {
-      content: "または Ctrl+V で貼り付け";
-      display: block;
-      margin-top: 10px;
-      font-size: 0.9em;
-      color: #666;
+    .btn-back {
+      padding: 8px 16px; background: var(--secondary); color: white;
+      border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 500; white-space: nowrap;
     }
-    
+    .btn-back:hover { background: #545b62; }
+    h1 { font-size: 1.2rem; font-weight: 700; color: #333; }
+    main { padding: 0 24px 40px; max-width: 800px; margin: 0 auto; }
+    .drop-zone {
+      border: 3px dashed var(--primary); border-radius: var(--radius); padding: 40px 24px;
+      text-align: center; color: #777; background: #f9faff; cursor: pointer;
+      transition: background 0.2s; margin-bottom: 16px; position: relative;
+    }
+    .drop-zone::after { content: "または Ctrl+V で貼り付け"; display: block; margin-top: 8px; font-size: 0.85em; color: #aaa; }
+    .drop-zone.highlight { background: #e7f0ff; border-color: var(--primary-dark); }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    button {
+      padding: 10px 18px; color: white; border: none; border-radius: 8px;
+      cursor: pointer; font-size: 0.9rem; font-family: inherit; font-weight: 500;
+      transition: opacity 0.2s;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #sort-button { background: var(--success); }
+    #reverse-sort-button { background: var(--warning); color: #333; }
+    #clear-button { background: var(--danger); }
+    #filename-input {
+      flex: 1; padding: 10px 14px; font-size: 1rem; border: 1px solid #dee2e6;
+      border-radius: 8px; font-family: inherit; min-width: 140px;
+    }
+    #output-button { background: var(--primary); flex-grow: 1; font-weight: 700; }
+    #output-button:hover:not(:disabled) { background: var(--primary-dark); }
     #file-list {
-      list-style: none;
-      padding: 0;
-      margin: 20px 0;
-      max-height: 400px;
-      overflow-y: auto;
-      border: 1px solid #eee;
+      list-style: none; max-height: 360px; overflow-y: auto;
+      border: 1px solid #dee2e6; border-radius: var(--radius); background: white; margin-bottom: 16px;
     }
     #file-list li {
-      padding: 10px 15px;
-      margin: 5px;
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      cursor: grab;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      padding: 10px 16px; border-bottom: 1px solid #f0f0f0;
+      cursor: grab; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;
     }
+    #file-list li:last-child { border-bottom: none; }
     #file-list li:active { cursor: grabbing; }
-    
-    .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
-    
-    button {
-      padding: 10px 20px;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    button:disabled { background-color: #ccc !important; cursor: not-allowed; }
-    
-    #output-button { background-color: #007bff; flex-grow: 1; font-weight: bold; }
-    #output-button:hover { background-color: #0056b3; }
-    
-    #sort-button { background-color: #28a745; }
-    #reverse-sort-button { background-color: #ffc107; color: #000; }
-    #clear-button { background-color: #dc3545; }
-    
-    #filename-input {
-      padding: 10px;
-      flex-grow: 1;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-
-    /* ローディングオーバーレイ */
+    .file-size { font-size: 0.8em; color: #999; }
+    .btn-remove { background: none; border: none; color: var(--danger); font-size: 1.1rem; cursor: pointer; padding: 0 4px; }
     #loading-overlay {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255, 255, 255, 0.9);
-      display: none;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0.9); display: none;
+      flex-direction: column; justify-content: center; align-items: center; z-index: 1000;
     }
     .spinner {
-      border: 8px solid #f3f3f3;
-      border-top: 8px solid #007bff;
-      border-radius: 50%;
-      width: 60px;
-      height: 60px;
-      animation: spin 1s linear infinite;
-      margin-bottom: 20px;
+      border: 6px solid #eee; border-top: 6px solid var(--primary);
+      border-radius: 50%; width: 50px; height: 50px; animation: spin 0.8s linear infinite; margin-bottom: 16px;
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    #status-text { font-size: 18px; color: #333; }
+    #status-text { font-size: 1rem; color: #555; }
   </style>
 </head>
 <body>
-
-  <h2>PDF・画像 結合ツール</h2>
-  
-  <div id="drop-area">
-    <p>ここにPDFまたは画像をドラッグ＆ドロップ<br>(クリックして選択)</p>
-    <input type="file" id="file-input" multiple accept=".pdf,image/png,image/jpeg,image/jpg" style="display: none;">
+  <div class="page-header">
+    <a href="index.html" class="btn-back">← 戻る</a>
+    <h1>📎 PDF結合ツール</h1>
   </div>
+  <main>
+    <div id="drop-area" class="drop-zone">
+      <p>ここにPDFまたは画像（PNG/JPEG）をドラッグ＆ドロップ<br>（クリックして選択）</p>
+      <input type="file" id="file-input" multiple accept=".pdf,image/png,image/jpeg,image/jpg" style="display:none;">
+    </div>
 
-  <div class="controls">
-    <button id="sort-button">名前順 (A-Z)</button>
-    <button id="reverse-sort-button">名前逆順 (Z-A)</button>
-    <button id="clear-button">リストをクリア</button>
-  </div>
+    <div class="controls">
+      <button id="sort-button">名前順 (A-Z)</button>
+      <button id="reverse-sort-button">名前逆順 (Z-A)</button>
+      <button id="clear-button">リストをクリア</button>
+    </div>
 
-  <ul id="file-list"></ul>
+    <ul id="file-list"></ul>
 
-  <div class="controls">
-    <input type="text" id="filename-input" value="結合ファイル" placeholder="出力ファイル名">
-    <button id="output-button">PDFを結合してダウンロード</button>
-  </div>
+    <div class="controls">
+      <input type="text" id="filename-input" value="結合ファイル" placeholder="出力ファイル名">
+      <button id="output-button">📥 PDFを結合してダウンロード</button>
+    </div>
+  </main>
 
   <div id="loading-overlay">
     <div class="spinner"></div>
     <div id="status-text">処理中...</div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  
   <script>
     const { PDFDocument } = PDFLib;
-    
     const dropArea = document.getElementById('drop-area');
     const fileInput = document.getElementById('file-input');
     const fileListEl = document.getElementById('file-list');
@@ -143,72 +115,37 @@
     const filenameInput = document.getElementById('filename-input');
     const loadingOverlay = document.getElementById('loading-overlay');
     const statusText = document.getElementById('status-text');
-
     let fileMap = new Map();
 
-    new Sortable(fileListEl, {
-      animation: 150,
-      ghostClass: 'sortable-ghost'
-    });
+    new Sortable(fileListEl, { animation: 150 });
 
-    // --- イベントリスナー ---
-
-    // 1. ドラッグ＆ドロップ
     dropArea.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-
-    dropArea.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropArea.classList.add('highlight');
-    });
+    fileInput.addEventListener('change', e => handleFiles(e.target.files));
+    dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('highlight'); });
     dropArea.addEventListener('dragleave', () => dropArea.classList.remove('highlight'));
-    dropArea.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropArea.classList.remove('highlight');
+    dropArea.addEventListener('drop', e => {
+      e.preventDefault(); dropArea.classList.remove('highlight');
       handleFiles(e.dataTransfer.files);
     });
-
-    // 2. クリップボード貼り付け (Ctrl+V) 対応
-    document.addEventListener('paste', (e) => {
-      // クリップボード内のファイルを取得
-      const items = e.clipboardData.files;
-      
-      // ファイルが含まれている場合のみ処理
-      if (items.length > 0) {
-        e.preventDefault(); // デフォルトの貼り付け動作(テキストなど)を防止
-        
-        // ユーザーへのフィードバック用（一瞬ハイライト）
+    document.addEventListener('paste', e => {
+      if (e.clipboardData.files.length > 0) {
+        e.preventDefault();
         dropArea.classList.add('highlight');
         setTimeout(() => dropArea.classList.remove('highlight'), 200);
-
-        handleFiles(items);
+        handleFiles(e.clipboardData.files);
       }
     });
 
-    // ボタン操作
     document.getElementById('sort-button').addEventListener('click', () => sortFiles(false));
     document.getElementById('reverse-sort-button').addEventListener('click', () => sortFiles(true));
-    document.getElementById('clear-button').addEventListener('click', () => {
-      fileMap.clear();
-      fileListEl.innerHTML = '';
-    });
+    document.getElementById('clear-button').addEventListener('click', () => { fileMap.clear(); fileListEl.innerHTML = ''; });
     outputButton.addEventListener('click', mergePDFs);
 
-
-    // --- メインロジック ---
-
     function handleFiles(files) {
-      // クリップボードからのデータもFileリスト形式なので同様に扱える
-      const validFiles = Array.from(files).filter(file => 
-        file.type === 'application/pdf' || file.type.startsWith('image/')
-      );
-
-      if (validFiles.length === 0) return;
-
-      validFiles.forEach(file => {
-        const id = Math.random().toString(36).substring(2, 15);
-        // クリップボード経由の画像（スクショ等）はファイル名が "image.png" 等になる場合があるため
-        // 重複しても問題ないようにID管理しています
+      const valid = Array.from(files).filter(f => f.type === 'application/pdf' || f.type.startsWith('image/'));
+      if (!valid.length) return;
+      valid.forEach(file => {
+        const id = Math.random().toString(36).substring(2, 12);
         fileMap.set(id, file);
         addFileToUI(id, file.name, file.size);
       });
@@ -216,122 +153,71 @@
 
     function addFileToUI(id, name, size) {
       const li = document.createElement('li');
-      li.setAttribute('data-id', id);
-      const sizeStr = size > 1024 * 1024 
-        ? (size / (1024 * 1024)).toFixed(1) + ' MB' 
-        : (size / 1024).toFixed(0) + ' KB';
-      
-      li.innerHTML = `
-        <span>${name}</span>
-        <span style="font-size: 0.8em; color: #666;">${sizeStr}</span>
-      `;
-      
-      const deleteBtn = document.createElement('span');
-      deleteBtn.innerHTML = ' &times; ';
-      deleteBtn.style.cursor = 'pointer';
-      deleteBtn.style.color = 'red';
-      deleteBtn.style.marginLeft = '10px';
-      deleteBtn.onclick = (e) => {
-        e.stopPropagation();
-        fileMap.delete(id);
-        li.remove();
-      };
-      
-      li.appendChild(deleteBtn);
+      li.dataset.id = id;
+      const sizeStr = size > 1048576 ? (size / 1048576).toFixed(1) + ' MB' : (size / 1024).toFixed(0) + ' KB';
+      li.innerHTML = `<span>${name}</span><span class="file-size">${sizeStr}</span>`;
+      const del = document.createElement('button');
+      del.className = 'btn-remove'; del.textContent = '×';
+      del.onclick = e => { e.stopPropagation(); fileMap.delete(id); li.remove(); };
+      li.appendChild(del);
       fileListEl.appendChild(li);
     }
 
     function sortFiles(reverse) {
       const items = Array.from(fileListEl.children);
       items.sort((a, b) => {
-        const nameA = fileMap.get(a.getAttribute('data-id')).name.toLowerCase();
-        const nameB = fileMap.get(b.getAttribute('data-id')).name.toLowerCase();
-        return reverse ? nameB.localeCompare(nameA) : nameA.localeCompare(nameB);
+        const na = fileMap.get(a.dataset.id)?.name.toLowerCase() ?? '';
+        const nb = fileMap.get(b.dataset.id)?.name.toLowerCase() ?? '';
+        return reverse ? nb.localeCompare(na) : na.localeCompare(nb);
       });
       fileListEl.innerHTML = '';
       items.forEach(li => fileListEl.appendChild(li));
     }
 
     async function mergePDFs() {
-      const listItems = fileListEl.children;
-      if (listItems.length === 0) {
-        alert("ファイルが選択されていません");
-        return;
-      }
-
+      const items = fileListEl.children;
+      if (!items.length) { alert('ファイルが選択されていません'); return; }
       showLoading(true);
-      
       try {
-        const mergedPdf = await PDFDocument.create();
-        const totalFiles = listItems.length;
-
-        for (let i = 0; i < totalFiles; i++) {
-          const li = listItems[i];
-          const id = li.getAttribute('data-id');
-          const file = fileMap.get(id);
-
-          updateStatus(`${i + 1} / ${totalFiles} を処理中: ${file.name}`);
+        const merged = await PDFDocument.create();
+        const total = items.length;
+        for (let i = 0; i < total; i++) {
+          const file = fileMap.get(items[i].dataset.id);
+          updateStatus(`${i+1} / ${total} 処理中: ${file.name}`);
           await new Promise(r => setTimeout(r, 0));
-
           try {
-            const arrayBuffer = await file.arrayBuffer();
-
+            const buf = await file.arrayBuffer();
             if (file.type === 'application/pdf') {
-              const pdf = await PDFDocument.load(arrayBuffer);
-              const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-              copiedPages.forEach(page => mergedPdf.addPage(page));
-            
-            } else if (file.type.startsWith('image/')) {
-              let pdfImage;
-              if (file.type === 'image/jpeg' || file.type === 'image/jpg') {
-                pdfImage = await mergedPdf.embedJpg(arrayBuffer);
-              } else if (file.type === 'image/png') {
-                pdfImage = await mergedPdf.embedPng(arrayBuffer);
-              } else {
-                console.warn(`未対応の画像形式スキップ: ${file.name}`);
-                continue;
-              }
-
-              const { width, height } = pdfImage;
-              const page = mergedPdf.addPage([width, height]);
-              page.drawImage(pdfImage, { x: 0, y: 0, width: width, height: height });
+              const pdf = await PDFDocument.load(buf);
+              const pages = await merged.copyPages(pdf, pdf.getPageIndices());
+              pages.forEach(p => merged.addPage(p));
+            } else {
+              let img;
+              if (file.type === 'image/jpeg' || file.type === 'image/jpg') img = await merged.embedJpg(buf);
+              else if (file.type === 'image/png') img = await merged.embedPng(buf);
+              else continue;
+              const { width, height } = img;
+              const page = merged.addPage([width, height]);
+              page.drawImage(img, { x: 0, y: 0, width, height });
             }
-          } catch (err) {
-            console.error(`ファイルエラー (${file.name}):`, err);
-          }
+          } catch (e) { console.error(`エラー (${file.name}):`, e); }
         }
-
-        updateStatus('PDFを生成中...');
-        const mergedArrayBuffer = await mergedPdf.save();
-        downloadPDF(mergedArrayBuffer, filenameInput.value || 'combined');
-
-      } catch (error) {
-        console.error(error);
-        alert('エラーが発生しました: ' + error.message);
-      } finally {
-        showLoading(false);
-      }
+        updateStatus('PDF生成中...');
+        const bytes = await merged.save();
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filenameInput.value || '結合ファイル'}.pdf`;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        alert('エラーが発生しました: ' + e.message);
+      } finally { showLoading(false); }
     }
 
-    function downloadPDF(buffer, filename) {
-      const blob = new Blob([buffer], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${filename}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }
-
-    function showLoading(show) {
-      loadingOverlay.style.display = show ? 'flex' : 'none';
-    }
-
-    function updateStatus(msg) {
-      statusText.textContent = msg;
-    }
+    function showLoading(show) { loadingOverlay.style.display = show ? 'flex' : 'none'; }
+    function updateStatus(msg) { statusText.textContent = msg; }
   </script>
 </body>
 </html>
