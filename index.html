@@ -9,337 +9,771 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #667eea;
-      --secondary: #764ba2;
-      --accent: #f093fb;
-      --success: #4facfe;
-      --dark: #1a1a2e;
-      --card-bg: rgba(255,255,255,0.92);
-      --radius: 16px;
+      --c1: #667eea; --c2: #764ba2; --c3: #f093fb; --c4: #4facfe;
+      --c5: #00f2fe; --c6: #43e97b; --c7: #f7971e;
     }
-
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     html { scroll-behavior: smooth; }
-
     body {
       font-family: 'Noto Sans JP', sans-serif;
-      background: var(--dark);
-      color: #333;
+      background: #060818;
+      color: #fff;
       min-height: 100vh;
       overflow-x: hidden;
+      cursor: none;
     }
 
-    /* ── Animated background ─────────────────────────────── */
-    .bg-canvas {
-      position: fixed; inset: 0; z-index: 0; overflow: hidden;
-      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    /* ─── Custom cursor ──────────────────────────────────── */
+    #cursor {
+      position: fixed; width: 14px; height: 14px; border-radius: 50%;
+      background: radial-gradient(circle, #fff, var(--c1));
+      pointer-events: none; z-index: 99999;
+      transform: translate(-50%,-50%);
+      transition: width .15s, height .15s, background .3s;
+      mix-blend-mode: screen;
     }
-    .orb {
-      position: absolute; border-radius: 50%;
-      filter: blur(80px); opacity: 0.45; animation: float infinite ease-in-out alternate;
+    #cursor-ring {
+      position: fixed; width: 40px; height: 40px; border-radius: 50%;
+      border: 2px solid rgba(102,126,234,0.6);
+      pointer-events: none; z-index: 99998;
+      transform: translate(-50%,-50%);
+      transition: width .3s, height .3s, border-color .3s, transform .08s;
     }
-    .orb-1 { width: 520px; height: 520px; background: #667eea; top: -140px; left: -180px; animation-duration: 8s; }
-    .orb-2 { width: 380px; height: 380px; background: #f093fb; bottom: -80px; right: -100px; animation-duration: 10s; }
-    .orb-3 { width: 260px; height: 260px; background: #4facfe; top: 40%; left: 55%; animation-duration: 7s; }
-    @keyframes float {
-      0% { transform: translate(0, 0) scale(1); }
-      100% { transform: translate(30px, 40px) scale(1.08); }
-    }
+    body:hover #cursor { width: 16px; height: 16px; }
 
-    /* Grid dots */
-    .grid-overlay {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none;
-      background-image:
-        radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
-      background-size: 36px 36px;
+    /* ─── Intro splash ───────────────────────────────────── */
+    #intro {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #060818;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px;
+      animation: introOut 0.6s 1.8s cubic-bezier(.77,0,.18,1) forwards;
     }
-
-    /* ── Page wrapper ────────────────────────────────────── */
-    .page {
-      position: relative; z-index: 1;
-      max-width: 680px; margin: 0 auto;
-      padding: 40px 20px 60px;
+    @keyframes introOut {
+      to { opacity: 0; pointer-events: none; transform: scale(1.06); }
     }
-
-    /* ── Hero header ─────────────────────────────────────── */
-    .hero {
-      text-align: center;
-      margin-bottom: 40px;
-      animation: heroIn 0.8s cubic-bezier(.22,.61,.36,1) both;
-    }
-    @keyframes heroIn {
-      from { opacity: 0; transform: translateY(-24px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .hero-badge {
-      display: inline-block;
-      background: linear-gradient(90deg, rgba(102,126,234,0.25), rgba(240,147,251,0.25));
-      border: 1px solid rgba(102,126,234,0.5);
-      color: #b4c1ff;
-      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em;
-      padding: 5px 14px; border-radius: 100px; margin-bottom: 18px;
-      text-transform: uppercase;
-    }
-
-    .hero h1 {
-      font-size: clamp(2rem, 6vw, 2.8rem);
-      font-weight: 900;
-      line-height: 1.15;
-      background: linear-gradient(90deg, #fff 0%, #c4bbff 40%, #f093fb 100%);
+    .intro-logo {
+      font-size: 3rem; font-weight: 900;
+      background: linear-gradient(90deg, var(--c1), var(--c3), var(--c4));
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
+      animation: logoPulse 1.8s ease-in-out infinite alternate, glitch 3s infinite;
+    }
+    @keyframes logoPulse { 0%{opacity:.6} 100%{opacity:1} }
+    .intro-bar {
+      width: 200px; height: 3px; border-radius: 99px;
+      background: rgba(255,255,255,0.1); overflow: hidden;
+    }
+    .intro-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--c1), var(--c3));
+      animation: barFill 1.7s cubic-bezier(.4,0,.2,1) forwards;
+    }
+    @keyframes barFill { from { width: 0 } to { width: 100% } }
+
+    /* ─── Canvas (stars + particles) ────────────────────── */
+    #bg-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    }
+
+    /* ─── Aurora background ──────────────────────────────── */
+    .aurora {
+      position: fixed; z-index: 0; border-radius: 50%;
+      filter: blur(110px); pointer-events: none;
+    }
+    .aurora-1 {
+      width: 800px; height: 600px;
+      background: radial-gradient(ellipse, rgba(102,126,234,.35) 0%, transparent 70%);
+      top: -200px; left: -300px;
+      animation: auFloat1 12s ease-in-out infinite alternate;
+    }
+    .aurora-2 {
+      width: 700px; height: 700px;
+      background: radial-gradient(ellipse, rgba(240,147,251,.3) 0%, transparent 70%);
+      bottom: -250px; right: -250px;
+      animation: auFloat2 9s ease-in-out infinite alternate;
+    }
+    .aurora-3 {
+      width: 500px; height: 400px;
+      background: radial-gradient(ellipse, rgba(79,172,254,.25) 0%, transparent 70%);
+      top: 40%; left: 50%;
+      animation: auFloat3 15s ease-in-out infinite alternate;
+    }
+    @keyframes auFloat1 { to { transform: translate(80px,60px) scale(1.1); } }
+    @keyframes auFloat2 { to { transform: translate(-60px,80px) scale(0.9); } }
+    @keyframes auFloat3 { to { transform: translate(-80px,-60px) scale(1.15); } }
+
+    /* ─── Glitch keyframes ───────────────────────────────── */
+    @keyframes glitch {
+      0%,100% { text-shadow: none; }
+      2% { text-shadow: 3px 0 0 rgba(255,0,128,.8), -3px 0 0 rgba(0,255,255,.8); transform: skewX(-1deg); }
+      4% { text-shadow: none; transform: none; }
+      50% { text-shadow: 2px 0 0 rgba(255,0,128,.5), -2px 0 0 rgba(0,255,255,.5); transform: skewX(.5deg); }
+      52% { text-shadow: none; transform: none; }
+    }
+
+    /* ─── Page ───────────────────────────────────────────── */
+    .page {
+      position: relative; z-index: 1;
+      max-width: 700px; margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+
+    /* ─── Hero ───────────────────────────────────────────── */
+    .hero { text-align: center; margin-bottom: 44px; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: linear-gradient(90deg, rgba(102,126,234,.2), rgba(240,147,251,.2));
+      border: 1px solid rgba(102,126,234,.5);
+      color: #c4bbff; font-size: .72rem; font-weight: 700;
+      letter-spacing: .14em; text-transform: uppercase;
+      padding: 5px 14px; border-radius: 99px; margin-bottom: 20px;
+      animation: badgeIn .7s .4s both;
+      position: relative; overflow: hidden;
+    }
+    .hero-badge::before {
+      content: '';
+      position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+      animation: badgeShine 3s 2s infinite;
+    }
+    @keyframes badgeIn { from { opacity:0; transform: scale(.85); } to { opacity:1; transform: scale(1); } }
+    @keyframes badgeShine { 0%{left:-100%} 100%{left:200%} }
+
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #43e97b;
+      box-shadow: 0 0 8px #43e97b;
+      animation: blink 1.2s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.7)} }
+
+    .hero h1 {
+      font-size: clamp(2.2rem,7vw,3.2rem);
+      font-weight: 900; line-height: 1.1;
+      background: linear-gradient(90deg, #fff 0%, #c4bbff 40%, #f093fb 75%, #4facfe 100%);
+      background-size: 200%;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       margin-bottom: 12px;
+      animation: heroIn .8s .6s both, gradientShift 4s 2s ease-in-out infinite alternate, glitch 6s 3s infinite;
     }
+    @keyframes heroIn { from{opacity:0;transform:translateY(-28px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes gradientShift { 0%{background-position:0%} 100%{background-position:100%} }
 
-    .hero p {
-      color: rgba(255,255,255,0.45);
-      font-size: 0.92rem;
+    .hero-sub {
+      color: rgba(255,255,255,.4); font-size: .92rem;
+      animation: heroIn .8s .8s both;
+      display: inline-block;
     }
+    .cursor-blink {
+      display: inline-block;
+      border-right: 2px solid rgba(255,255,255,0.7);
+      animation: blink2 .9s infinite;
+      line-height: 1;
+    }
+    @keyframes blink2 { 0%,100%{opacity:1} 50%{opacity:0} }
 
-    /* ── Section label ───────────────────────────────────── */
+    /* ─── Floating stats ─────────────────────────────────── */
+    .stats-row {
+      display: flex; justify-content: center; gap: 24px; flex-wrap: wrap;
+      margin-bottom: 36px;
+      animation: heroIn .8s 1s both;
+    }
+    .stat-chip {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px; padding: 10px 18px; text-align: center;
+      backdrop-filter: blur(10px);
+      transition: transform .25s, box-shadow .25s;
+    }
+    .stat-chip:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(102,126,234,.25); }
+    .stat-num {
+      font-size: 1.4rem; font-weight: 900;
+      background: linear-gradient(135deg, var(--c4), var(--c3));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .stat-label { font-size: .72rem; color: rgba(255,255,255,.35); margin-top: 1px; }
+
+    /* ─── Section label ──────────────────────────────────── */
     .section-label {
-      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em;
-      text-transform: uppercase; color: rgba(255,255,255,0.35);
-      margin: 28px 0 12px 4px;
+      font-size: .72rem; font-weight: 700; letter-spacing: .14em;
+      text-transform: uppercase; color: rgba(255,255,255,.3);
+      margin: 30px 0 12px 4px;
       display: flex; align-items: center; gap: 10px;
+      animation: fadeSlide .5s both;
     }
     .section-label::after {
       content: ''; flex: 1; height: 1px;
-      background: linear-gradient(90deg, rgba(255,255,255,0.12), transparent);
+      background: linear-gradient(90deg, rgba(255,255,255,.15), transparent);
     }
+    @keyframes fadeSlide { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
 
-    /* ── App Grid ────────────────────────────────────────── */
+    /* ─── App grid ───────────────────────────────────────── */
     .app-grid { display: flex; flex-direction: column; gap: 10px; }
 
-    /* ── App Card ────────────────────────────────────────── */
+    /* ─── App Card ───────────────────────────────────────── */
     .app-card {
       display: flex; align-items: center; gap: 16px;
-      text-decoration: none;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: var(--radius);
-      padding: 16px 20px;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      color: #fff;
-      transition: background 0.25s, border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+      text-decoration: none; color: #fff;
+      background: rgba(255,255,255,.055);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px; padding: 15px 20px;
+      backdrop-filter: blur(14px);
       position: relative; overflow: hidden;
-
-      /* Stagger loaded via --i */
+      transition: background .25s, border-color .25s, transform .2s, box-shadow .25s;
       opacity: 0;
-      animation: cardIn 0.55s cubic-bezier(.22,.61,.36,1) both;
-      animation-delay: calc(var(--i) * 60ms + 200ms);
+      animation: cardIn .55s cubic-bezier(.22,.61,.36,1) both;
+      animation-delay: calc(var(--i) * 55ms + 300ms);
+      /* 3D tilt setup */
+      transform-style: preserve-3d;
     }
     @keyframes cardIn {
-      from { opacity: 0; transform: translateY(20px) scale(0.97); }
-      to   { opacity: 1; transform: translateY(0)    scale(1); }
+      from { opacity:0; transform: translateY(22px) scale(.97); }
+      to   { opacity:1; transform: translateY(0)   scale(1); }
     }
 
+    /* Animated rainbow border on hover */
     .app-card::before {
       content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(135deg, rgba(102,126,234,0.0) 0%, rgba(240,147,251,0.0) 100%);
-      transition: background 0.3s;
+      position: absolute; inset: -2px;
+      border-radius: 18px;
+      background: linear-gradient(var(--angle, 0deg),
+        var(--c1),var(--c3),var(--c4),var(--c6),var(--c7),var(--c1));
+      background-size: 200%;
+      opacity: 0;
+      z-index: -1;
+      transition: opacity .3s;
     }
+    .app-card:hover { --angle: 0deg; }
     .app-card:hover::before {
-      background: linear-gradient(135deg, rgba(102,126,234,0.15) 0%, rgba(240,147,251,0.12) 100%);
+      opacity: 1;
+      animation: rotateBorder 2s linear infinite;
     }
-    .app-card:hover {
-      background: rgba(255,255,255,0.11);
-      border-color: rgba(180,160,255,0.4);
-      transform: translateX(6px);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.06);
+    @keyframes rotateBorder {
+      to { --angle: 360deg; }
     }
-    .app-card:active { transform: translateX(3px) scale(0.99); }
+    @property --angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
 
-    /* Shine sweep on hover */
+    /* Shine sweep */
     .app-card::after {
       content: '';
-      position: absolute; top: 0; left: -80%;
-      width: 60%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+      position: absolute; top: -50%; left: -80%;
+      width: 50%; height: 200%;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,.08), transparent);
       transform: skewX(-20deg);
-      transition: left 0.5s;
+      transition: left .55s ease;
     }
-    .app-card:hover::after { left: 130%; }
+    .app-card:hover::after { left: 140%; }
 
+    .app-card:hover {
+      background: rgba(255,255,255,.09);
+      border-color: rgba(255,255,255,.01);
+      box-shadow: 0 10px 40px rgba(0,0,0,.35), 0 0 30px rgba(102,126,234,.12);
+    }
+
+    /* Ripple on click */
+    .app-card .ripple {
+      position: absolute; border-radius: 50%;
+      background: rgba(255,255,255,.18);
+      transform: scale(0); pointer-events: none;
+      animation: rippleAnim .6s linear;
+    }
+    @keyframes rippleAnim { to { transform: scale(4); opacity: 0; } }
+
+    /* Icon */
     .app-icon {
-      font-size: 1.6rem; line-height: 1;
-      width: 46px; height: 46px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.1);
-      flex-shrink: 0;
-      transition: transform 0.3s;
+      font-size: 1.65rem; width: 48px; height: 48px; border-radius: 13px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.1);
+      transition: transform .35s cubic-bezier(.34,1.56,.64,1), background .3s, box-shadow .3s;
+      position: relative; z-index: 1;
     }
-    .app-card:hover .app-icon { transform: scale(1.15) rotate(-5deg); }
-
-    .app-info { flex: 1; min-width: 0; }
-    .app-name {
-      font-size: 0.95rem; font-weight: 700;
-      color: #fff; line-height: 1.3;
-    }
-    .app-desc {
-      font-size: 0.78rem; color: rgba(255,255,255,0.4);
-      margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    .app-card:hover .app-icon {
+      transform: scale(1.2) rotate(-8deg);
+      background: rgba(102,126,234,.25);
+      box-shadow: 0 0 16px rgba(102,126,234,.5);
     }
 
+    /* Info */
+    .app-info { flex: 1; min-width: 0; position: relative; z-index: 1; }
+    .app-name { font-size: .95rem; font-weight: 700; line-height: 1.3; }
+    .app-desc { font-size: .77rem; color: rgba(255,255,255,.35); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Animated arrow */
     .app-arrow {
-      font-size: 1.1rem; color: rgba(255,255,255,0.2);
-      transition: color 0.25s, transform 0.25s;
-      flex-shrink: 0;
+      font-size: 1.3rem; color: rgba(255,255,255,.18);
+      transition: color .25s, transform .25s;
+      position: relative; z-index: 1; flex-shrink: 0;
+      animation: none;
     }
-    .app-card:hover .app-arrow { color: rgba(180,160,255,0.8); transform: translateX(4px); }
+    .app-card:hover .app-arrow {
+      color: var(--c3);
+      transform: translateX(6px);
+      animation: arrowPing .4s ease;
+    }
+    @keyframes arrowPing {
+      0%   { transform: translateX(0); }
+      50%  { transform: translateX(10px); }
+      100% { transform: translateX(6px); }
+    }
 
-    /* ── Footer ──────────────────────────────────────────── */
+    /* ─── Floating action button ──────────────────────────── */
+    .fab {
+      position: fixed; bottom: 28px; right: 28px; z-index: 200;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--c1), var(--c2));
+      box-shadow: 0 6px 24px rgba(102,126,234,.5);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; cursor: pointer;
+      animation: fabBounce 2s ease-in-out infinite, fabIn 1s 2.2s both;
+      border: none; color: #fff;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .fab:hover { transform: scale(1.15) rotate(10deg); box-shadow: 0 12px 36px rgba(102,126,234,.65); }
+    @keyframes fabBounce {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    @keyframes fabIn { from{opacity:0;transform:scale(0)} to{opacity:1;transform:scale(1)} }
+
+    /* ─── Footer ─────────────────────────────────────────── */
     .footer {
-      text-align: center; margin-top: 48px;
-      color: rgba(255,255,255,0.18); font-size: 0.78rem;
-      animation: heroIn 1s 0.8s both;
+      text-align: center; margin-top: 56px;
+      color: rgba(255,255,255,.15); font-size: .76rem;
+      animation: heroIn 1s 1.4s both;
+    }
+    .footer span {
+      display: inline-block;
+      animation: rotateEmoji 6s linear infinite;
+    }
+    @keyframes rotateEmoji { to { transform: rotate(360deg); } }
+
+    /* ─── Scroll reveal ──────────────────────────────────── */
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity .55s, transform .55s; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ─── Scrollbar ──────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 99px; }
+
+    /* ─── Particles (sparkle cursor trail) ───────────────── */
+    .sparkle {
+      position: fixed; border-radius: 50%; pointer-events: none;
+      z-index: 99990; mix-blend-mode: screen;
+      animation: sparkleAnim .8s forwards;
+    }
+    @keyframes sparkleAnim {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0) translateY(-20px); }
     }
 
-    /* ── Scrollbar ───────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
+    /* ─── Neon count badge ───────────────────────────────── */
+    .neon-badge {
+      display: inline-block;
+      background: rgba(79,172,254,.12);
+      border: 1px solid rgba(79,172,254,.4);
+      color: var(--c4);
+      font-size: .68rem; font-weight: 700;
+      padding: 1px 8px; border-radius: 99px; margin-left: 6px;
+      box-shadow: 0 0 8px rgba(79,172,254,.35);
+      animation: neonPulse 2s ease-in-out infinite alternate;
+    }
+    @keyframes neonPulse {
+      0% { box-shadow: 0 0 6px rgba(79,172,254,.3); }
+      100% { box-shadow: 0 0 14px rgba(79,172,254,.7), 0 0 28px rgba(79,172,254,.3); }
+    }
+
+    /* ─── Progress bar shimmer for section headers ────────── */
+    .shimmer-bar {
+      height: 2px; border-radius: 99px; margin: 0 0 4px;
+      background: linear-gradient(90deg, var(--c1) 0%, var(--c3) 50%, var(--c4) 100%);
+      background-size: 200%;
+      animation: shimmerMove 2.5s linear infinite;
+    }
+    @keyframes shimmerMove { 0%{background-position:0%} 100%{background-position:200%} }
   </style>
 </head>
 <body>
-  <div class="bg-canvas">
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="orb orb-3"></div>
+
+<!-- Intro splash -->
+<div id="intro">
+  <div class="intro-logo">App&nbsp;Dashboard</div>
+  <div class="intro-bar"><div class="intro-bar-fill"></div></div>
+  <div style="font-size:.78rem;color:rgba(255,255,255,.3);margin-top:4px;">Loading tools...</div>
+</div>
+
+<!-- Custom cursor -->
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- Aurora BG -->
+<div class="aurora aurora-1"></div>
+<div class="aurora aurora-2"></div>
+<div class="aurora aurora-3"></div>
+
+<!-- Particle canvas -->
+<canvas id="bg-canvas"></canvas>
+
+<!-- FAB -->
+<button class="fab" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<div class="page">
+  <!-- Hero -->
+  <header class="hero">
+    <div class="hero-badge">
+      <span class="live-dot"></span>
+      ✦ 社内ツール
+    </div>
+    <h1>App Dashboard</h1>
+    <p class="hero-sub" id="typing-sub"></p>
+  </header>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-chip reveal">
+      <div class="stat-num" id="stat-tools">0</div>
+      <div class="stat-label">ツール数</div>
+    </div>
+    <div class="stat-chip reveal">
+      <div class="stat-num" id="stat-cats">0</div>
+      <div class="stat-label">カテゴリ</div>
+    </div>
+    <div class="stat-chip reveal">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">ローカル処理</div>
+    </div>
   </div>
-  <div class="grid-overlay"></div>
 
-  <div class="page">
-    <header class="hero">
-      <div class="hero-badge">✦ 社内ツール</div>
-      <h1>App Dashboard</h1>
-      <p>PDF・画像処理のユーティリティツール集</p>
-    </header>
-
-    <div class="section-label">📄 PDF処理</div>
-    <div class="app-grid">
-      <a href="bokasi_and_merge.html" class="app-card" style="--i:0">
-        <div class="app-icon">🌫️</div>
-        <div class="app-info">
-          <div class="app-name">画像ぼかし・PDF結合</div>
-          <div class="app-desc">画像のぼかし加工と複数ファイルのPDF結合</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-      <a href="rotate_and_split_pdf.html" class="app-card" style="--i:1">
-        <div class="app-icon">🔄</div>
-        <div class="app-info">
-          <div class="app-name">PDF回転・分割</div>
-          <div class="app-desc">ページ単位の回転と任意位置での分割</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-      <a href="merge_pdf.html" class="app-card" style="--i:2">
-        <div class="app-icon">📎</div>
-        <div class="app-info">
-          <div class="app-name">PDF結合</div>
-          <div class="app-desc">複数のPDF・画像ファイルを1つのPDFに結合</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-      <a href="get_filename_and_page.html" class="app-card" style="--i:3">
-        <div class="app-icon">📊</div>
-        <div class="app-info">
-          <div class="app-name">PDFの枚数取得</div>
-          <div class="app-desc">ファイル名とページ数を一覧表示・コピー</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-      <a href="convert_pdf_to_jpeg.html" class="app-card" style="--i:4">
-        <div class="app-icon">🖼️</div>
-        <div class="app-info">
-          <div class="app-name">PDFを画像に変換</div>
-          <div class="app-desc">PDFの各ページをPNG画像として書き出す</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-    </div>
-
-    <div class="section-label">🖼️ 画像処理</div>
-    <div class="app-grid">
-      <a href="price.html" class="app-card" style="--i:5">
-        <div class="app-icon">💲</div>
-        <div class="app-info">
-          <div class="app-name">価格並べ替え</div>
-          <div class="app-desc">画像のドラッグ&ドロップ並べ替えとリネーム</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-      <a href="sample_png_from_pdf.html" class="app-card" style="--i:6">
-        <div class="app-icon">🔲</div>
-        <div class="app-info">
-          <div class="app-name">SAMPLEサムネイル作成</div>
-          <div class="app-desc">PDF→正方形・SAMPLE透かし入り画像を生成</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-      <a href="add_text_at_top_right_left.html" class="app-card" style="--i:7">
-        <div class="app-icon">✏️</div>
-        <div class="app-info">
-          <div class="app-name">右上・左上にテキスト追加</div>
-          <div class="app-desc">画像の指定位置に赤字テキストを入れる</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-      <a href="convert_jpeg_to_pdf.html" class="app-card" style="--i:8">
-        <div class="app-icon">📄</div>
-        <div class="app-info">
-          <div class="app-name">画像をPDFに変換</div>
-          <div class="app-desc">JPEG・PNGを1枚または複数まとめてPDF化</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-      <a href="seihoukei.html" class="app-card" style="--i:9">
-        <div class="app-icon">⬛</div>
-        <div class="app-info">
-          <div class="app-name">画像を正方形にする</div>
-          <div class="app-desc">余白追加またはトリミングで1:1に変換</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-      <a href="sample.html" class="app-card" style="--i:10">
-        <div class="app-icon">🖋️</div>
-        <div class="app-info">
-          <div class="app-name">SAMPLE透かし追加</div>
-          <div class="app-desc">画像・PDFに赤い斜め「SAMPLE」を追加</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-      <a href="add_name_of_document.html" class="app-card" style="--i:11">
-        <div class="app-icon">🏷️</div>
-        <div class="app-info">
-          <div class="app-name">画像にファイル名を記載</div>
-          <div class="app-desc">ファイル名を抽出して画像上部に赤字で追加</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-    </div>
-
-    <div class="section-label">📦 その他</div>
-    <div class="app-grid">
-      <a href="oneforma_zaiko.html" class="app-card" style="--i:12">
-        <div class="app-icon">📦</div>
-        <div class="app-info">
-          <div class="app-name">OneForma在庫</div>
-          <div class="app-desc">翻訳在庫数の確認</div>
-        </div>
-        <div class="app-arrow">›</div>
-      </a>
-    </div>
-
-    <footer class="footer">
-      社内専用ツール — All tools run locally in your browser.
-    </footer>
+  <!-- PDF Tools -->
+  <div class="section-label reveal">📄 PDF処理 <span class="neon-badge">5</span></div>
+  <div class="shimmer-bar reveal" style="animation-delay:.1s"></div>
+  <div class="app-grid">
+    <a href="bokasi_and_merge.html" class="app-card" style="--i:0" data-tilt>
+      <div class="app-icon">🌫️</div>
+      <div class="app-info">
+        <div class="app-name">画像ぼかし・PDF結合</div>
+        <div class="app-desc">画像のぼかし加工と複数ファイルのPDF結合</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+    <a href="rotate_and_split_pdf.html" class="app-card" style="--i:1" data-tilt>
+      <div class="app-icon">🔄</div>
+      <div class="app-info">
+        <div class="app-name">PDF回転・分割</div>
+        <div class="app-desc">ページ単位の回転と任意位置での分割</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+    <a href="merge_pdf.html" class="app-card" style="--i:2" data-tilt>
+      <div class="app-icon">📎</div>
+      <div class="app-info">
+        <div class="app-name">PDF結合（プレビュー付き）</div>
+        <div class="app-desc">サムネイルを見ながらドラッグで並べ替え・結合</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+    <a href="get_filename_and_page.html" class="app-card" style="--i:3" data-tilt>
+      <div class="app-icon">📊</div>
+      <div class="app-info">
+        <div class="app-name">PDFの枚数取得</div>
+        <div class="app-desc">ファイル名とページ数を一覧表示・コピー</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+    <a href="convert_pdf_to_jpeg.html" class="app-card" style="--i:4" data-tilt>
+      <div class="app-icon">🖼️</div>
+      <div class="app-info">
+        <div class="app-name">PDFを画像に変換</div>
+        <div class="app-desc">PDFの各ページをPNG画像として書き出す</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
   </div>
+
+  <!-- Image Tools -->
+  <div class="section-label reveal">🖼️ 画像処理 <span class="neon-badge">7</span></div>
+  <div class="shimmer-bar reveal"></div>
+  <div class="app-grid">
+    <a href="price.html" class="app-card" style="--i:5" data-tilt>
+      <div class="app-icon">💲</div>
+      <div class="app-info">
+        <div class="app-name">価格並べ替え</div>
+        <div class="app-desc">画像のドラッグ&amp;ドロップ並べ替えとリネーム</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+    <a href="sample_png_from_pdf.html" class="app-card" style="--i:6" data-tilt>
+      <div class="app-icon">🔲</div>
+      <div class="app-info">
+        <div class="app-name">SAMPLEサムネイル作成</div>
+        <div class="app-desc">PDF→正方形・SAMPLE透かし入り画像を生成</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+    <a href="add_text_at_top_right_left.html" class="app-card" style="--i:7" data-tilt>
+      <div class="app-icon">✏️</div>
+      <div class="app-info">
+        <div class="app-name">右上・左上にテキスト追加</div>
+        <div class="app-desc">画像の指定位置に赤字テキストを入れる</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+    <a href="convert_jpeg_to_pdf.html" class="app-card" style="--i:8" data-tilt>
+      <div class="app-icon">📄</div>
+      <div class="app-info">
+        <div class="app-name">画像をPDFに変換</div>
+        <div class="app-desc">JPEG・PNGを1枚または複数まとめてPDF化</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+    <a href="seihoukei.html" class="app-card" style="--i:9" data-tilt>
+      <div class="app-icon">⬛</div>
+      <div class="app-info">
+        <div class="app-name">画像を正方形にする</div>
+        <div class="app-desc">余白追加またはトリミングで1:1に変換</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+    <a href="sample.html" class="app-card" style="--i:10" data-tilt>
+      <div class="app-icon">🖋️</div>
+      <div class="app-info">
+        <div class="app-name">SAMPLE透かし追加</div>
+        <div class="app-desc">画像・PDFに赤い斜め「SAMPLE」を追加</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+    <a href="add_name_of_document.html" class="app-card" style="--i:11" data-tilt>
+      <div class="app-icon">🏷️</div>
+      <div class="app-info">
+        <div class="app-name">画像にファイル名を記載</div>
+        <div class="app-desc">ファイル名を抽出して画像上部に赤字で追加</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+  </div>
+
+  <!-- Other -->
+  <div class="section-label reveal">📦 その他 <span class="neon-badge">1</span></div>
+  <div class="shimmer-bar reveal"></div>
+  <div class="app-grid">
+    <a href="oneforma_zaiko.html" class="app-card" style="--i:12" data-tilt>
+      <div class="app-icon">📦</div>
+      <div class="app-info">
+        <div class="app-name">OneForma在庫</div>
+        <div class="app-desc">翻訳在庫数の確認</div>
+      </div>
+      <div class="app-arrow">›</div>
+    </a>
+  </div>
+
+  <footer class="footer">
+    <span>✦</span> 社内専用ツール — All tools run locally in your browser. <span>✦</span>
+  </footer>
+</div>
+
+<script>
+/* ── Canvas: stars + meteor shower ─────────────────────── */
+(function(){
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+
+  let W, H;
+  function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const STARS = Array.from({length:160}, () => ({
+    x: Math.random() * 9999,
+    y: Math.random() * 9999,
+    r: Math.random() * 1.4 + .2,
+    a: Math.random(),
+    speed: Math.random() * .4 + .1,
+    phase: Math.random() * Math.PI * 2,
+  }));
+
+  const METEORS = [];
+  function spawnMeteor(){
+    METEORS.push({ x: Math.random() * W, y: -20, vx: 3 + Math.random()*4, vy: 4 + Math.random()*4, len: 80 + Math.random()*80, life: 1 });
+  }
+  setInterval(spawnMeteor, 2200);
+
+  let t = 0;
+  (function loop(){
+    requestAnimationFrame(loop);
+    ctx.clearRect(0,0,W,H);
+    t += .008;
+
+    // stars
+    STARS.forEach(s => {
+      const alpha = (.4 + .6 * Math.sin(t * s.speed + s.phase)) * s.a;
+      ctx.beginPath();
+      ctx.arc(s.x % W, s.y % H, s.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.fill();
+    });
+
+    // meteors
+    for(let i = METEORS.length - 1; i >= 0; i--){
+      const m = METEORS[i];
+      m.x += m.vx; m.y += m.vy; m.life -= .022;
+      if(m.life <= 0 || m.y > H + 50){ METEORS.splice(i,1); continue; }
+      const grad = ctx.createLinearGradient(m.x, m.y, m.x - m.vx/6*m.len, m.y - m.vy/6*m.len);
+      grad.addColorStop(0, `rgba(255,255,255,${m.life * .9})`);
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.beginPath();
+      ctx.moveTo(m.x, m.y);
+      ctx.lineTo(m.x - m.vx/6*m.len, m.y - m.vy/6*m.len);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  })();
+})();
+
+/* ── Custom cursor ──────────────────────────────────────── */
+(function(){
+  const cursor = document.getElementById('cursor');
+  const ring   = document.getElementById('cursor-ring');
+  let mx = 0, my = 0, rx = 0, ry = 0;
+  document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+  (function loop(){
+    requestAnimationFrame(loop);
+    rx += (mx - rx) * 0.1;
+    ry += (my - ry) * 0.1;
+    cursor.style.left = mx + 'px'; cursor.style.top = my + 'px';
+    ring.style.left   = rx + 'px'; ring.style.top  = ry + 'px';
+  })();
+
+  // Scale ring on hovering links
+  document.querySelectorAll('a,.app-card').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      ring.style.width  = '60px'; ring.style.height = '60px';
+      ring.style.borderColor = 'rgba(240,147,251,.7)';
+    });
+    el.addEventListener('mouseleave', () => {
+      ring.style.width  = '40px'; ring.style.height = '40px';
+      ring.style.borderColor = 'rgba(102,126,234,.6)';
+    });
+  });
+})();
+
+/* ── Sparkle cursor trail ───────────────────────────────── */
+(function(){
+  const colors = ['#667eea','#f093fb','#4facfe','#43e97b','#f7971e','#00f2fe','#fff'];
+  document.addEventListener('mousemove', e => {
+    if(Math.random() > .4) return; // not every frame
+    const s = document.createElement('div');
+    s.className = 'sparkle';
+    const size = 4 + Math.random() * 8;
+    s.style.cssText = `
+      left:${e.clientX}px; top:${e.clientY}px;
+      width:${size}px; height:${size}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      transform:translate(${(Math.random()-.5)*16}px,${(Math.random()-.5)*16}px);
+    `;
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 800);
+  });
+})();
+
+/* ── Card ripple + tilt ─────────────────────────────────── */
+document.querySelectorAll('.app-card[data-tilt]').forEach(card => {
+  // Ripple
+  card.addEventListener('click', function(e){
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    const rect = this.getBoundingClientRect();
+    const max = Math.max(rect.width, rect.height);
+    r.style.cssText = `width:${max}px;height:${max}px;left:${e.clientX-rect.left-max/2}px;top:${e.clientY-rect.top-max/2}px`;
+    this.appendChild(r);
+    setTimeout(() => r.remove(), 620);
+  });
+
+  // 3D tilt
+  card.addEventListener('mousemove', function(e){
+    const rect = this.getBoundingClientRect();
+    const cx = rect.left + rect.width  / 2;
+    const cy = rect.top  + rect.height / 2;
+    const dx = (e.clientX - cx) / (rect.width  / 2);
+    const dy = (e.clientY - cy) / (rect.height / 2);
+    this.style.transform = `perspective(600px) rotateY(${dx * 5}deg) rotateX(${-dy * 4}deg) translateY(-2px)`;
+  });
+  card.addEventListener('mouseleave', function(){
+    this.style.transform = '';
+  });
+});
+
+/* ── Typing subtitle ────────────────────────────────────── */
+(function(){
+  const el = document.getElementById('typing-sub');
+  const msgs = [
+    'PDF・画像処理のユーティリティツール集',
+    'ブラウザ完結・サーバー不要',
+    'すべてローカルで安全に処理',
+  ];
+  let msgI = 0, charI = 0, deleting = false;
+  el.innerHTML = '<span class="cursor-blink">&nbsp;</span>';
+  function tick(){
+    const msg = msgs[msgI];
+    if(!deleting){
+      charI++;
+      el.innerHTML = msg.slice(0, charI) + '<span class="cursor-blink">|</span>';
+      if(charI === msg.length){ deleting = true; setTimeout(tick, 2200); return; }
+      setTimeout(tick, 60);
+    } else {
+      charI--;
+      el.innerHTML = msg.slice(0, charI) + '<span class="cursor-blink">|</span>';
+      if(charI === 0){ deleting = false; msgI = (msgI + 1) % msgs.length; setTimeout(tick, 400); return; }
+      setTimeout(tick, 28);
+    }
+  }
+  setTimeout(tick, 1800);
+})();
+
+/* ── Count-up numbers ───────────────────────────────────── */
+function countUp(el, target, duration){
+  let start = 0, step = target / (duration / 16);
+  const timer = setInterval(() => {
+    start = Math.min(start + step, target);
+    el.textContent = Math.floor(start);
+    if(start >= target) clearInterval(timer);
+  }, 16);
+}
+setTimeout(() => {
+  countUp(document.getElementById('stat-tools'), 13, 1200);
+  countUp(document.getElementById('stat-cats'),  3,  900);
+}, 2000);
+
+/* ── Scroll reveal (IntersectionObserver) ─────────────── */
+const revealObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('visible'); revealObs.unobserve(e.target); } });
+}, { threshold: .15 });
+document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+/* ── Mouse parallax on auroras ────────────────────────── */
+(function(){
+  document.addEventListener('mousemove', e => {
+    const rx = (e.clientX / window.innerWidth  - .5) * 30;
+    const ry = (e.clientY / window.innerHeight - .5) * 30;
+    document.querySelector('.aurora-1').style.transform = `translate(${rx*.6}px,${ry*.6}px)`;
+    document.querySelector('.aurora-2').style.transform = `translate(${-rx*.5}px,${-ry*.5}px)`;
+    document.querySelector('.aurora-3').style.transform = `translate(${rx*.35}px,${ry*.35}px)`;
+  });
+})();
+
+/* ── Card entrance: re-trigger on tab focus ────────────── */
+document.addEventListener('visibilitychange', () => {
+  if(!document.hidden){
+    document.querySelectorAll('.app-card').forEach(c => {
+      c.style.animation = 'none';
+      void c.offsetWidth;
+      c.style.animation = '';
+    });
+  }
+});
+</script>
 </body>
 </html>

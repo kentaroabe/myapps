@@ -1,1 +1,0 @@
-https://kentaroabe.github.io/myapps/

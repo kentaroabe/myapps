@@ -1,2 +1,1 @@
-index.htmlから各ファイルへのリンクがある。
-aa
+https://kentaroabe.github.io/myapps/
