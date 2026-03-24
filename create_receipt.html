@@ -5,8 +5,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>B2B 領収書生成</title>
-    <!-- html2pdf.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- html2canvas + jsPDF (direct, more reliable than html2pdf.js on mobile) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -271,45 +272,79 @@
                 </div>
             `;
 
-            const opt = {
-                margin: 0,
-                filename: `${date}_領収書_${issuer}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 3, useCORS: true, logging: false },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
+            const filename = `${date}_領収書_${issuer}.pdf`;
 
-            // Inject into real DOM (invisible) so html2canvas can capture it
+            // Inject into DOM at current scroll position so mobile browsers render it
             const wrapper = document.createElement('div');
-            wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;width:210mm;background:#fff;';
+            wrapper.style.cssText = [
+                'position:absolute',
+                `top:${window.scrollY}px`,
+                'left:0',
+                'width:794px',         // ~A4 width at 96dpi
+                'background:#ffffff',
+                'opacity:0.01',        // near invisible but still rendered
+                'pointer-events:none',
+                'z-index:-1',
+            ].join(';');
             wrapper.innerHTML = html;
             document.body.appendChild(wrapper);
 
             try {
+                status.style.display = 'block';
+                status.textContent = 'PDFを生成しています...';
+
+                // Capture
+                const canvas = await html2canvas(wrapper, {
+                    scale: 3,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff',
+                    width: 794,
+                    height: wrapper.scrollHeight,
+                    windowWidth: 794,
+                    scrollX: 0,
+                    scrollY: -window.scrollY
+                });
+
+                // Build PDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+                const pageW = pdf.internal.pageSize.getWidth();
+                const pageH = pdf.internal.pageSize.getHeight();
+                const imgH = pageW * canvas.height / canvas.width;
+                const imgData = canvas.toDataURL('image/jpeg', 0.96);
+
+                // If content is taller than one page, paginate
+                let yOffset = 0;
+                let remaining = imgH;
+                while (remaining > 0) {
+                    if (yOffset > 0) pdf.addPage();
+                    const slice = Math.min(pageH, remaining);
+                    pdf.addImage(imgData, 'JPEG', 0, -yOffset, pageW, imgH);
+                    yOffset += pageH;
+                    remaining -= pageH;
+                }
+
                 if (mode === 'save') {
-                    status.style.display = 'block';
-                    status.textContent = 'PDFを生成しています...';
-                    await html2pdf().set(opt).from(wrapper).save();
+                    pdf.save(filename);
                     status.style.display = 'none';
                 } else {
-                    status.style.display = 'block';
-                    status.textContent = 'PDFを生成しています...';
-                    const blob = await html2pdf().set(opt).from(wrapper).output('blob');
-                    const file = new File([blob], opt.filename, { type: 'application/pdf' });
+                    const blob = pdf.output('blob');
+                    const file = new File([blob], filename, { type: 'application/pdf' });
 
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        status.textContent = '共有メニューを開いています...';
                         try {
-                            status.textContent = '共有メニューを開いています...';
                             await navigator.share({
                                 files: [file],
                                 title: '領収書',
                                 text: `${client}様 領収書`
                             });
                         } catch (err) {
-                            console.error('Share failed', err);
+                            console.error('Share cancelled or failed', err);
                         }
                     } else {
-                        alert('このブラウザはファイル共有に対応していません。保存ボタンを使用してください。');
+                        alert('このブラウザはファイル共有に対応していません。保存ボタンをお使いください。');
                     }
                     status.style.display = 'none';
                 }
