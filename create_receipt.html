@@ -187,6 +187,14 @@
         // Init Date
         document.getElementById('date').value = new Date().toISOString().split('T')[0];
 
+        // URLパラメーターで自動入力
+        // 例: ?client=株式会社○○&date=2026-03-24&amount=55000&item=業務委託料&issuer=山田太郎
+        const params = new URLSearchParams(window.location.search);
+        const paramMap = { client: 'client', date: 'date', amount: 'amount', item: 'item', issuer: 'issuer', address: 'address' };
+        for (const [param, id] of Object.entries(paramMap)) {
+            if (params.has(param)) document.getElementById(id).value = params.get(param);
+        }
+
         // Check for Web Share API
         if (navigator.share) {
             document.getElementById('shareBtn').style.display = 'block';
