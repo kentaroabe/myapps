@@ -4,8 +4,19 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B2B 領収書生成</title>
+    <!-- html2pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,34 +24,27 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: var(--color-background-tertiary);
-            padding: 0;
-            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #e2e8f0; /* Darker background for contrast */
+            color: var(--text);
+            padding: 20px;
+            line-height: 1.5;
         }
 
         .container {
-            max-width: 100%;
-            width: 100%;
-            min-height: 100vh;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card {
-            background: var(--color-background-primary);
-            border-radius: var(--border-radius-lg);
-            border: 0.5px solid var(--color-border-tertiary);
-            padding: 20px;
-            flex: 1;
+            max-width: 500px;
+            margin: 40px auto;
+            background: #ffffff; /* Explicitly white card */
+            padding: 32px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.1);
         }
 
         h1 {
-            font-size: 24px;
-            font-weight: 600;
-            color: var(--color-text-primary);
+            font-size: 20px;
+            font-weight: 700;
             margin-bottom: 24px;
+            text-align: center;
         }
 
         .form-group {
@@ -49,246 +53,255 @@
 
         label {
             display: block;
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--color-text-primary);
-            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-muted);
         }
 
-        input,
-        textarea {
+        input, textarea {
             width: 100%;
-            padding: 12px;
+            padding: 12px 16px;
+            border: 2px solid #cbd5e1; /* Thicker, more visible border */
+            border-radius: 8px;
             font-size: 16px;
-            border: 0.5px solid var(--color-border-tertiary);
-            border-radius: var(--border-radius-md);
             font-family: inherit;
-            color: var(--color-text-primary);
-            background: var(--color-background-primary);
+            background: #f8fafc; /* Slight tint to see box */
+            transition: all 0.2s;
         }
 
-        input:focus,
-        textarea:focus {
+        input:focus {
             outline: none;
-            border-color: var(--color-border-primary);
-            box-shadow: 0 0 0 3px var(--color-background-info);
+            border-color: var(--primary);
+            background: #fff;
         }
 
-        textarea {
-            resize: vertical;
-            min-height: 80px;
+        /* Essential validation style */
+        input:required:placeholder-shown,
+        textarea:required:placeholder-shown {
+            border-color: #ef4444; /* Red border if empty and required */
+            background-color: #fef2f2;
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
         }
 
         button {
             width: 100%;
-            padding: 14px;
-            font-size: 16px;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 15px;
             font-weight: 600;
-            color: var(--color-text-primary);
-            background: var(--color-background-primary);
-            border: 0.5px solid var(--color-border-secondary);
-            border-radius: var(--border-radius-md);
             cursor: pointer;
-            margin-top: 8px;
-            transition: all 0.2s;
+            border: none;
+            transition: transform 0.1s, opacity 0.2s;
         }
 
-        button:active {
-            transform: scale(0.98);
-            background: var(--color-background-secondary);
+        button:active { transform: scale(0.98); }
+
+        .btn-download {
+            background: var(--primary);
+            color: white;
         }
 
-        .preview {
-            margin-top: 24px;
+        .btn-share {
+            background: #06c755; /* LINE Green */
+            color: white;
+            display: none; /* Only show on mobile if supported */
+        }
+
+        .preview-box {
+            margin-top: 30px;
             padding: 16px;
-            background: var(--color-background-secondary);
-            border-radius: var(--border-radius-md);
-            font-size: 13px;
-            color: var(--color-text-secondary);
-            line-height: 1.6;
+            background: #f1f5f9;
+            border-radius: 12px;
+            font-size: 12px;
+            white-space: pre-wrap;
+            color: var(--text-muted);
         }
 
-        .preview strong {
-            color: var(--color-text-primary);
-            display: block;
-            margin-top: 8px;
-            margin-bottom: 4px;
-        }
-
-        .amount-display {
-            font-size: 20px;
-            font-weight: 600;
-            color: var(--color-text-info);
-            margin-top: 12px;
+        .preview-box h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <div class="card">
-            <h1>領収書生成</h1>
+        <h1>領収書生成 (B2B)</h1>
 
-            <form onsubmit="generatePDF(event)">
-                <div class="form-group">
-                    <label for="shop">店名</label>
-                    <input type="text" id="shop" placeholder="○○店" />
-                </div>
+        <div class="form-group">
+            <label>宛名 (会社名等) <span style="color:#ef4444">*</span></label>
+            <input type="text" id="client" placeholder="株式会社○○ 御中" required>
+        </div>
 
-                <div class="form-group">
-                    <label for="date">日付</label>
-                    <input type="date" id="date" />
-                </div>
+        <div class="form-group">
+            <label>発行日 <span style="color:#ef4444">*</span></label>
+            <input type="date" id="date" required>
+        </div>
 
-                <div class="form-group">
-                    <label for="item">品名</label>
-                    <input type="text" id="item" placeholder="商品A" />
-                </div>
+        <div class="form-group">
+            <label>金額 (¥ 税込) <span style="color:#ef4444">*</span></label>
+            <input type="number" id="amount" placeholder="金額を入力してください" required>
+        </div>
 
-                <div class="form-group">
-                    <label for="amount">金額（円）</label>
-                    <input type="number" id="amount" placeholder="10000" min="0" step="100" />
-                    <div class="amount-display" id="amountDisplay">¥0</div>
-                </div>
+        <div class="form-group">
+            <label>ただし書き</label>
+            <input type="text" id="item" value="業務委託料">
+        </div>
 
-                <div class="form-group">
-                    <label for="notes">摘要（オプション）</label>
-                    <textarea id="notes" placeholder="商品代金"></textarea>
-                </div>
+        <div class="form-group">
+            <label>発行者 (あなた / 会社) <span style="color:#ef4444">*</span></label>
+            <input type="text" id="issuer" placeholder="あなたの氏名または屋号" required>
+        </div>
 
-                <button type="submit">PDF ダウンロード</button>
+        <div class="form-group">
+            <label>住所・連絡先 (任意)</label>
+            <textarea id="address" rows="2" placeholder="東京都..."></textarea>
+        </div>
 
-                <div class="preview">
-                    <strong>プレビュー</strong>
-                    <div id="previewText"></div>
-                </div>
-            </form>
+        <div class="btn-group">
+            <button id="shareBtn" class="btn-share" onclick="handleGenerate('share')">LINE / 他のアプリで送る</button>
+            <button class="btn-download" onclick="handleGenerate('save')">PDFを保存 (ダウンロード)</button>
+        </div>
+
+        <div id="statusMsg" style="text-align:center; font-size:12px; margin-top:10px; color:var(--primary); display:none;">生成中...</div>
+
+        <div class="preview-box">
+            <h3>Preview</h3>
+            <div id="previewText"></div>
         </div>
     </div>
 
+    <!-- Generated Content (Hidden) -->
+    <div id="pdfContent" style="display:none;"></div>
+
     <script>
-        const inputs = document.querySelectorAll('#shop, #date, #item, #amount, #notes');
-        inputs.forEach(input => {
-            input.addEventListener('change', updatePreview);
-            input.addEventListener('input', updatePreview);
+        // Init Date
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+        // Check for Web Share API
+        if (navigator.share) {
+            document.getElementById('shareBtn').style.display = 'block';
+        }
+
+        const fields = ['client', 'date', 'amount', 'item', 'issuer', 'address'];
+        fields.forEach(id => {
+            document.getElementById(id).addEventListener('input', updatePreview);
         });
 
         function updatePreview() {
-            const shop = document.getElementById('shop').value || '店名';
-            const date = document.getElementById('date').value || '未設定';
-            const item = document.getElementById('item').value || '商品';
-            const amount = parseInt(document.getElementById('amount').value) || 0;
-
-            document.getElementById('amountDisplay').textContent = '¥' + amount.toLocaleString('ja-JP');
-
-            const preview = `
-${shop}
-${date} 発行
-${item} × 1
-合計：¥${amount.toLocaleString('ja-JP')}
-  `.trim();
-
-            document.getElementById('previewText').textContent = preview;
+            const client = document.getElementById('client').value || '(宛名なし)';
+            const amount = parseInt(document.getElementById('amount').value || 0).toLocaleString();
+            const item = document.getElementById('item').value;
+            const text = `${client}
+金額：¥${amount} (税込)
+但し：${item}
+発行：${document.getElementById('issuer').value || '未入力'}`;
+            document.getElementById('previewText').textContent = text;
         }
 
-        function generatePDF(event) {
-            event.preventDefault();
+        async function handleGenerate(mode) {
+            // Validation Check
+            const requiredFields = document.querySelectorAll('input[required]');
+            let isValid = true;
+            requiredFields.forEach(f => {
+                if (!f.value) {
+                    isValid = false;
+                    f.focus(); // Focus first invalid
+                }
+            });
 
-            const shop = document.getElementById('shop').value || '店名未入力';
-            const date = document.getElementById('date').value || new Date().toISOString().split('T')[0];
-            const item = document.getElementById('item').value || '商品';
-            const amount = parseInt(document.getElementById('amount').value) || 0;
-            const notes = document.getElementById('notes').value || '';
+            if (!isValid) {
+                alert('必須項目を入力してください（赤枠の箇所）。');
+                return;
+            }
+
+            const status = document.getElementById('statusMsg');
+
+            const client = document.getElementById('client').value || '無記名';
+            const date = document.getElementById('date').value;
+// ... (rest of the local variables)
+            const amount = parseInt(document.getElementById('amount').value || 0);
+            const item = document.getElementById('item').value;
+            const issuer = document.getElementById('issuer').value;
+            const address = document.getElementById('address').value;
 
             const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: 'MS Mincho', serif; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; border: 2px solid #000; padding: 40px; }
-        .header { text-align: center; margin-bottom: 40px; }
-        .title { font-size: 32px; font-weight: bold; margin-bottom: 20px; }
-        .shop { font-size: 14px; margin-bottom: 30px; }
-        .date { margin-bottom: 30px; font-size: 14px; }
-        .items { margin-bottom: 30px; }
-        table { width: 100%; border-collapse: collapse; }
-        th { border-bottom: 1px solid #000; padding: 8px; text-align: left; font-weight: bold; }
-        td { padding: 12px 8px; border-bottom: 1px solid #000; }
-        .amount-cell { text-align: right; }
-        .total { margin-top: 20px; text-align: right; font-size: 18px; font-weight: bold; }
-        .notes { margin-top: 30px; font-size: 12px; }
-        .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #666; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="title">領 収 書</div>
-        </div>
-        <div class="shop">
-          <strong>${shop}</strong>
-        </div>
-        <div class="date">
-          <strong>発行日：${date}</strong>
-        </div>
-        <div class="items">
-          <table>
-            <thead>
-              <tr>
-                <th>品名</th>
-                <th>数量</th>
-                <th style="text-align: right;">金額</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>${item}</td>
-                <td>1</td>
-                <td class="amount-cell">¥${amount.toLocaleString('ja-JP')}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="total">合計：¥${amount.toLocaleString('ja-JP')}</div>
-        </div>
-        ${notes ? `<div class="notes"><strong>摘要：</strong>${notes}</div>` : ''}
-        <div class="footer">
-          <p>このたびはご利用ありがとうございました。</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+                <div style="font-family: 'Hiragino Kaku Gothic Pro', 'Meiryo', sans-serif; padding: 40px; color: #333;">
+                    <div style="text-align: center; border-bottom: 2px solid #333; margin-bottom: 40px;">
+                        <h1 style="font-size: 32px; letter-spacing: 0.5em; margin-bottom: 10px;">領収書</h1>
+                    </div>
+                    
+                    <div style="font-size: 18px; margin-bottom: 30px;">
+                        <span style="border-bottom: 1px solid #333; padding-bottom: 2px;">${client} 様</span>
+                    </div>
 
-            const options = {
+                    <div style="text-align: center; background: #f8f8f8; padding: 20px; border: 1px solid #ddd; margin-bottom: 40px;">
+                        <div style="font-size: 14px; margin-bottom: 10px;">金額 (税込)</div>
+                        <div style="font-size: 36px; font-weight: bold;">¥ ${amount.toLocaleString()} -</div>
+                    </div>
+
+                    <p style="margin-bottom: 40px;">但し、${item}として正に領収いたしました。</p>
+
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                        <div style="font-size: 14px;">
+                            日付：${date}
+                        </div>
+                        <div style="text-align: right; line-height: 1.6;">
+                            <div style="font-size: 18px; font-weight: bold;">${issuer}</div>
+                            <div style="font-size: 12px; white-space: pre-wrap;">${address}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const opt = {
                 margin: 0,
-                filename: `receipt_${date}.pdf`,
+                filename: `${date}_領収書_${issuer}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
+                html2canvas: { scale: 3, useCORS: true },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            html2pdf().set(options).from(html).save();
+            if (mode === 'save') {
+                await html2pdf().set(opt).from(html).save();
+                status.style.display = 'none';
+            } else {
+                // Generate Blob
+                const worker = html2pdf().set(opt).from(html).toPdf().output('blob');
+                worker.then(async (blob) => {
+                    const file = new File([blob], opt.filename, { type: 'application/pdf' });
+                    
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            status.textContent = '共有メニューを開いています...';
+                            await navigator.share({
+                                files: [file],
+                                title: '領収書',
+                                text: `${client}様 領収書`
+                            });
+                        } catch (err) {
+                            console.error('Share failed', err);
+                        } finally {
+                            status.style.display = 'none';
+                        }
+                    } else {
+                        status.style.display = 'none';
+                        alert('このブラウザはファイル共有に対応していません。保存ボタンを使用してください。');
+                    }
+                });
+            }
         }
 
-        // URLパラメーターで自動入力
-        const params = new URLSearchParams(window.location.search);
-        if (params.has('shop')) document.getElementById('shop').value = params.get('shop');
-        if (params.has('date')) document.getElementById('date').value = params.get('date');
-        if (params.has('item')) document.getElementById('item').value = params.get('item');
-        if (params.has('amount')) document.getElementById('amount').value = params.get('amount');
-        if (params.has('notes')) document.getElementById('notes').value = params.get('notes');
-
-        // 初期プレビュー表示
         updatePreview();
-
-        // 日付のデフォルト値を今日にする
-        if (!document.getElementById('date').value) {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('date').value = today;
-            updatePreview();
-        }
     </script>
 </body>
 
