@@ -7,7 +7,8 @@
   <title>社内アプリ一覧 ✨ Electrical Parade</title>
   <meta name="robots" content="noindex">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;900&family=Grenze+Gotisch:wght@400;700&family=Fira+Code:wght@400;700&family=EB+Garamond:wght@700;800&display=swap" rel="stylesheet">
   <style>
     *,
     *::before,
@@ -27,7 +28,7 @@
       font-family: 'Noto Sans JP', sans-serif;
       min-height: 100vh;
       overflow-x: hidden;
-      cursor: none;
+      transition: background 0.5s ease, color 0.5s ease;
     }
 
     /* ── Canvas layers ─────────────────────────────────── */
@@ -45,7 +46,7 @@
       pointer-events: none;
     }
 
-    /* ── Custom cursor ─────────────────────────────────── */
+    /* ── Common Styles ────────────────────────────────── */
     #cur {
       position: fixed;
       width: 12px;
@@ -55,8 +56,50 @@
       pointer-events: none;
       z-index: 9999;
       transform: translate(-50%, -50%);
-      box-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 40px #0af;
       mix-blend-mode: screen;
+      transition: background 0.3s;
+    }
+
+    .theme-switcher {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10000;
+      display: flex;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 8px;
+      border-radius: 50px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .theme-switcher button {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.2rem;
+      transition: transform 0.3s, background 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .theme-switcher button:hover {
+      transform: scale(1.2);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* ── Theme: Electrical Parade ─────────────────────── */
+    .theme-electrical {
+      background: #000;
+    }
+    .theme-electrical #cur {
+      box-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 40px #0af;
     }
 
     /* ── Page wrapper ─────────────────────────────────── */
@@ -644,16 +687,253 @@
       animation: fwFly var(--fd, 1s) ease-out forwards;
     }
 
-    @keyframes fwFly {
-      0% {
-        opacity: 1;
-        transform: translate(0, 0) scale(1);
-      }
+    /* ── Theme: Harry Potter ───────────────────────── */
+    .theme-potter {
+      background: #1a1a2e; /* Deep navy/charcoal */
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(26, 26, 46, 0.8), rgba(15, 15, 25, 1)),
+        url('https://www.transparenttextures.com/patterns/dark-leather.png');
+      font-family: 'Grenze Gotisch', serif;
+      color: #e2c08d; /* Antique Gold */
+    }
 
-      100% {
-        opacity: 0;
-        transform: translate(var(--fx, 0), var(--fy, 0)) scale(0);
-      }
+    .theme-potter #cur {
+      background: #ffd700;
+      box-shadow: 0 0 15px #ffd700, 0 0 30px #ffaa00;
+    }
+
+    .theme-potter .ep-title {
+      font-family: 'Grenze Gotisch', serif !important;
+      color: #e2c08d !important;
+      text-shadow: 0 0 10px rgba(226, 192, 141, 0.5), 0 0 20px rgba(226, 192, 141, 0.3) !important;
+      animation: none !important;
+      -webkit-text-stroke: 0 !important;
+    }
+
+    .theme-potter .ep-subtitle {
+      font-family: 'Grenze Gotisch', serif;
+      color: #8a7b6a;
+    }
+
+    .theme-potter .app-card {
+      background: rgba(46, 46, 74, 0.4);
+      border: 1px solid rgba(226, 192, 141, 0.2);
+      border-radius: 4px;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+    }
+    .theme-potter .app-card::before, .theme-potter .app-card::after { display: none; }
+    
+    .theme-potter .app-card:hover {
+      background: rgba(226, 192, 141, 0.1);
+      border-color: #e2c08d;
+      transform: translateY(-4px);
+    }
+
+    .theme-potter .app-name { color: #e2c08d; }
+    .theme-potter .app-desc { color: rgba(226, 192, 141, 0.6); }
+
+    .theme-potter .stat-chip {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid #e2c08d;
+    }
+    .theme-potter .stat-chip::before { display: none; }
+    .theme-potter .stat-num { color: #e2c08d; text-shadow: none; }
+
+    .theme-potter .parade-floor, .theme-potter .dot-strip { display: none; }
+
+    /* Magical Floating Elements (Candles) */
+    .candle {
+      position: fixed;
+      width: 12px;
+      height: 40px;
+      background: #fdf5e6;
+      border-radius: 2px;
+      z-index: 0;
+      box-shadow: inset -2px 0 5px rgba(0,0,0,0.2);
+      animation: floatCandle var(--d, 10s) linear infinite;
+      opacity: 0.8;
+    }
+    .candle::after {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 8px;
+      height: 12px;
+      background: #ffaa00;
+      border-radius: 50% 50% 20% 20%;
+      box-shadow: 0 0 10px #ffaa00, 0 0 20px #ff4400;
+      animation: flicker 0.1s infinite alternate;
+    }
+    @keyframes floatCandle {
+      from { transform: translateY(110vh) rotate(var(--r, 0deg)); }
+      to { transform: translateY(-20vh) rotate(var(--r, 0deg)); }
+    }
+    @keyframes flicker {
+      from { opacity: 0.8; transform: translateX(-50%) scale(0.9); }
+      to { opacity: 1; transform: translateX(-50%) scale(1.1); }
+    }
+
+    /* ── Theme: Cyber Matrix ────────────────────────── */
+    .theme-cyber {
+      background: #000;
+      font-family: 'Fira Code', monospace;
+    }
+    .theme-cyber #cur {
+      background: #0f0;
+      box-shadow: 0 0 10px #0f0, 0 0 20px #0f0;
+    }
+    .theme-cyber .ep-title {
+      font-family: 'Fira Code', monospace !important;
+      color: #0f0 !important;
+      text-shadow: 0 0 5px #0f0, 0 0 10px #0f0 !important;
+      animation: glitch 1s infinite alternate !important;
+      -webkit-text-stroke: 0 !important;
+    }
+    @keyframes glitch {
+      0% { transform: skew(0deg); }
+      20% { transform: skew(2deg); opacity: 0.8; }
+      40% { transform: skew(-2deg); }
+      60% { transform: skew(1deg); }
+      100% { transform: skew(0deg); }
+    }
+    .theme-cyber .app-card {
+      background: rgba(0, 20, 0, 0.8);
+      border: 1px solid #0f0;
+      border-radius: 0;
+    }
+    .theme-cyber .app-card::before, .theme-cyber .app-card::after { display: none; }
+    .theme-cyber .app-card:hover {
+      background: #0f0;
+      color: #000;
+    }
+    .theme-cyber .app-card:hover .app-name, 
+    .theme-cyber .app-card:hover .app-desc,
+    .theme-cyber .app-card:hover .app-arrow { color: #000 !important; }
+
+    .theme-cyber .stat-chip { border-radius: 0; border: 1px solid #0f0; background: transparent; }
+    .theme-cyber .stat-chip::before { display: none; }
+    .theme-cyber .stat-num { color: #0f0; }
+
+    .theme-cyber .parade-floor, .theme-cyber .dot-strip { display: none; }
+
+    /* ── Theme: One Piece ──────────────────────────── */
+    .theme-onepiece {
+      background: #0077be; /* Ocean Blue */
+      background-image: 
+        radial-gradient(circle at 50% 10%, rgba(255, 255, 200, 0.4), transparent 60%),
+        linear-gradient(to bottom, #0077be 0%, #005682 100%);
+      font-family: 'EB Garamond', serif;
+      color: #fff;
+    }
+    .theme-onepiece .page::before {
+      content: '🏴‍☠️';
+      position: fixed;
+      font-size: 40vw;
+      opacity: 0.03;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: -1;
+    }
+    .theme-onepiece .ep-title {
+      font-family: 'EB Garamond', serif !important;
+      color: #ffd700 !important;
+      text-shadow: 2px 2px 0px #8b4513, 4px 4px 15px rgba(0,0,0,0.5) !important;
+      animation: none !important;
+      -webkit-text-stroke: 0 !important;
+    }
+    .theme-onepiece .app-card {
+      background: rgba(255, 255, 255, 0.95);
+      color: #333;
+      border: 3px solid #8b4513;
+      border-radius: 2px;
+      box-shadow: 5px 5px 0px #4d260b;
+    }
+    .theme-onepiece .app-card:hover {
+      background: #fff;
+      transform: translate(-2px, -2px);
+      box-shadow: 7px 7px 0px #4d260b;
+    }
+    .theme-onepiece .app-card::before, .theme-onepiece .app-card::after { display: none; }
+    .theme-onepiece .app-name { color: #8b4513; font-weight: 800; }
+    .theme-onepiece .app-desc { color: #555; }
+    .theme-onepiece .app-arrow { color: #8b4513; }
+    .theme-onepiece .section-label { color: #fff !important; --gc: #fff; }
+    .theme-onepiece .parade-floor, .theme-onepiece .dot-strip { display: none; }
+
+    /* ── Theme: Demon Slayer ───────────────────────── */
+    .theme-kimetsu {
+      background: #111;
+      background-image: 
+        linear-gradient(45deg, #00b37d 25%, transparent 25%, transparent 75%, #00b37d 75%, #00b37d), 
+        linear-gradient(45deg, #00b37d 25%, #111 25%, #111 75%, #00b37d 75%, #00b37d);
+      background-size: 60px 60px;
+      background-position: 0 0, 30px 30px;
+      background-attachment: fixed;
+      color: #fff;
+      font-family: 'Noto Serif JP', serif;
+    }
+    .theme-kimetsu .page {
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(5px);
+      padding-top: 60px;
+      border-left: 2px solid #ff66cc;
+      border-right: 2px solid #ff66cc;
+    }
+    .theme-kimetsu .ep-title {
+      font-family: 'Noto Serif JP', serif !important;
+      font-weight: 900 !important;
+      color: #fff !important;
+      text-shadow: 
+        0 0 10px #ff66cc,
+        0 0 20px #ff66cc !important;
+      animation: none !important;
+      letter-spacing: 0.2em;
+    }
+    .theme-kimetsu .app-card {
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(255, 102, 204, 0.5);
+      position: relative;
+    }
+    .theme-kimetsu .app-card::before, .theme-kimetsu .app-card::after { display: none; }
+    .theme-kimetsu .app-card:hover {
+      background: rgba(255, 102, 204, 0.1);
+      border-color: #ff66cc;
+    }
+    .theme-kimetsu .app-card:hover::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: -100%;
+      width: 300%;
+      height: 2px;
+      background: #fff;
+      box-shadow: 0 0 15px #fff, 0 0 30px #00ccff;
+      transform: translateY(-50%) rotate(-15deg);
+      animation: slash 0.3s ease-out forwards;
+      display: block;
+      z-index: 10;
+    }
+    @keyframes slash {
+      to { left: 100%; opacity: 0; }
+    }
+
+    .theme-kimetsu .parade-floor, .theme-kimetsu .dot-strip { display: none; }
+
+    /* Sakura Petals */
+    .sakura {
+      position: fixed;
+      background: #ffb7c5;
+      border-radius: 100% 0 100% 0;
+      z-index: 1;
+      pointer-events: none;
+      animation: fall var(--d) linear infinite;
+    }
+    @keyframes fall {
+      0% { transform: translateY(-10vh) translateX(0) rotate(0); opacity: 1; }
+      100% { transform: translateY(110vh) translateX(var(--tx)) rotate(720deg); opacity: 0; }
     }
   </style>
 </head>
@@ -662,6 +942,15 @@
   <canvas id="canvas-bg"></canvas>
   <canvas id="canvas-fore"></canvas>
   <div id="cur"></div>
+
+  <!-- Theme Switcher -->
+  <div class="theme-switcher">
+    <button onclick="setTheme('electrical')" title="Electrical Parade">✨</button>
+    <button onclick="setTheme('potter')" title="Harry Potter">⚡</button>
+    <button onclick="setTheme('cyber')" title="Cyber Matrix">📟</button>
+    <button onclick="setTheme('onepiece')" title="One Piece">🏴‍☠️</button>
+    <button onclick="setTheme('kimetsu')" title="Demon Slayer">⚔️</button>
+  </div>
 
   <div class="page">
     <!-- Top dot strip -->
@@ -827,6 +1116,48 @@
 
   <script>
     /* ═══════════════════════════════════════════════════════
+       -1. THEME ENGINE
+    ══════════════════════════════════════════════════════ */
+    let currentTheme = localStorage.getItem('app-theme') || 'electrical';
+    
+    function setTheme(theme) {
+      document.body.classList.remove('theme-electrical', 'theme-potter', 'theme-cyber');
+      document.body.classList.add('theme-' + theme);
+      currentTheme = theme;
+      localStorage.setItem('app-theme', theme);
+      
+      // Update Title & Subtitle based on theme
+      const title = document.querySelector('.ep-title');
+      const subtitle = document.querySelector('.ep-subtitle');
+      if (theme === 'electrical') {
+        title.innerHTML = '✨ App Dashboard ✨';
+        subtitle.innerHTML = '〜 Electrical Parade Edition 〜';
+      } else if (theme === 'potter') {
+        title.innerHTML = '📜 Forbidden Archives 📜';
+        subtitle.innerHTML = '〜 Magical Mystery Edition 〜';
+        spawnCandles();
+      } else if (theme === 'cyber') {
+        title.innerHTML = 'SYSTEM: [DASHBOARD]';
+        subtitle.innerHTML = '〜 [MATRIX_MODE_ACTIVE] 〜';
+      } else if (theme === 'onepiece') {
+        title.innerHTML = '🌊 Grand Line Dashboard 🌊';
+        subtitle.innerHTML = '〜 Pirate Adventure Edition 〜';
+      } else if (theme === 'kimetsu') {
+        title.innerHTML = '⚔️ 鬼殺隊 ダッシュボード ⚔️';
+        subtitle.innerHTML = '〜 Demon Slayer Edition 〜';
+        spawnSakura();
+      }
+
+      // Hide/Show Canvases based on theme
+      document.getElementById('canvas-bg').style.display = (theme === 'electrical' || theme === 'cyber') ? 'block' : 'none';
+      document.getElementById('canvas-fore').style.display = (theme === 'electrical') ? 'block' : 'none';
+
+      // Clean up special elements
+      if (theme !== 'potter') document.querySelectorAll('.candle').forEach(c => c.remove());
+      if (theme !== 'kimetsu') document.querySelectorAll('.sakura').forEach(s => s.remove());
+    }
+
+    /* ═══════════════════════════════════════════════════════
        0.  PALETTE
     ══════════════════════════════════════════════════════ */
     const COLORS = ['#ff00cc', '#ffcc00', '#00ffcc', '#00aaff', '#ff6600', '#aa00ff', '#00ff88', '#ff4488', '#44ffee', '#ffaa00'];
@@ -907,57 +1238,73 @@
       let t = 0;
       (function loop() {
         requestAnimationFrame(loop);
+        if (currentTheme === 'potter') return;
         ctx.clearRect(0, 0, W, H);
-        t += .012;
-        waveX = (waveX + 1.5) % W;
 
-        /* Draw LED dots */
-        grid.forEach(d => {
-          const dist = Math.abs(d.x - waveX);
-          const waveBoost = Math.max(0, 1 - dist / 160) * 1.6;
-          const alpha = .12 + .45 * Math.abs(Math.sin(t * d.speed + d.phase)) + waveBoost * .25;
-          const r = d.baseR * (1 + waveBoost * 1.2);
-          ctx.beginPath();
-          ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
-          ctx.fillStyle = d.color;
-          ctx.globalAlpha = Math.min(alpha, .95);
-          ctx.fill();
-          /* Glow */
-          if (alpha > .4) {
+        if (currentTheme === 'electrical') {
+          t += .012;
+          waveX = (waveX + 1.5) % W;
+
+          /* Draw LED dots */
+          grid.forEach(d => {
+            const dist = Math.abs(d.x - waveX);
+            const waveBoost = Math.max(0, 1 - dist / 160) * 1.6;
+            const alpha = .12 + .45 * Math.abs(Math.sin(t * d.speed + d.phase)) + waveBoost * .25;
+            const r = d.baseR * (1 + waveBoost * 1.2);
             ctx.beginPath();
-            ctx.arc(d.x, d.y, r * 3.5, 0, Math.PI * 2);
-            const grd = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, r * 3.5);
-            grd.addColorStop(0, d.color + '55');
-            grd.addColorStop(1, d.color + '00');
-            ctx.fillStyle = grd;
-            ctx.globalAlpha = alpha * .5;
+            ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
+            ctx.fillStyle = d.color;
+            ctx.globalAlpha = Math.min(alpha, .95);
             ctx.fill();
+            /* Glow */
+            if (alpha > .4) {
+              ctx.beginPath();
+              ctx.arc(d.x, d.y, r * 3.5, 0, Math.PI * 2);
+              const grd = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, r * 3.5);
+              grd.addColorStop(0, d.color + '55');
+              grd.addColorStop(1, d.color + '00');
+              ctx.fillStyle = grd;
+              ctx.globalAlpha = alpha * .5;
+              ctx.fill();
+            }
+          });
+          ctx.globalAlpha = 1;
+
+          /* Meteors */
+          for (let i = meteors.length - 1; i >= 0; i--) {
+            const m = meteors[i];
+            m.x += m.vx; m.y += m.vy; m.life -= .018;
+            if (m.life <= 0 || m.y > H + 60) { meteors.splice(i, 1); continue; }
+            const grd = ctx.createLinearGradient(m.x, m.y, m.x - m.vx * 8, m.y - m.vy * 8);
+            grd.addColorStop(0, m.color);
+            grd.addColorStop(.5, m.color + '88');
+            grd.addColorStop(1, 'transparent');
+            ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx * 10, m.y - m.vy * 10);
+            ctx.strokeStyle = grd; ctx.lineWidth = 2 * m.life + .5; ctx.globalAlpha = m.life;
+            ctx.stroke(); ctx.globalAlpha = 1;
           }
-        });
-        ctx.globalAlpha = 1;
 
-        /* Meteors */
-        for (let i = meteors.length - 1; i >= 0; i--) {
-          const m = meteors[i];
-          m.x += m.vx; m.y += m.vy; m.life -= .018;
-          if (m.life <= 0 || m.y > H + 60) { meteors.splice(i, 1); continue; }
-          const grd = ctx.createLinearGradient(m.x, m.y, m.x - m.vx * 8, m.y - m.vy * 8);
-          grd.addColorStop(0, m.color);
-          grd.addColorStop(.5, m.color + '88');
-          grd.addColorStop(1, 'transparent');
-          ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx * 10, m.y - m.vy * 10);
-          ctx.strokeStyle = grd; ctx.lineWidth = 2 * m.life + .5; ctx.globalAlpha = m.life;
-          ctx.stroke(); ctx.globalAlpha = 1;
-        }
-
-        /* Pulse rings */
-        for (let i = rings.length - 1; i >= 0; i--) {
-          const rg = rings[i];
-          rg.r += 2.5; rg.life -= .018;
-          if (rg.life <= 0 || rg.r > rg.maxR) { rings.splice(i, 1); continue; }
-          ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r, 0, Math.PI * 2);
-          ctx.strokeStyle = rg.color; ctx.lineWidth = 1.5;
-          ctx.globalAlpha = rg.life * .4; ctx.stroke(); ctx.globalAlpha = 1;
+          /* Pulse rings */
+          for (let i = rings.length - 1; i >= 0; i--) {
+            const rg = rings[i];
+            rg.r += 2.5; rg.life -= .018;
+            if (rg.life <= 0 || rg.r > rg.maxR) { rings.splice(i, 1); continue; }
+            ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r, 0, Math.PI * 2);
+            ctx.strokeStyle = rg.color; ctx.lineWidth = 1.5;
+            ctx.globalAlpha = rg.life * .4; ctx.stroke(); ctx.globalAlpha = 1;
+          }
+        } else if (currentTheme === 'cyber') {
+          // Matrix Rain
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+          ctx.fillRect(0, 0, W, H);
+          ctx.fillStyle = '#0f0';
+          ctx.font = '15px monospace';
+          grid.forEach(d => {
+            const char = String.fromCharCode(0x30A0 + Math.random() * 96);
+            ctx.fillText(char, d.x, d.y);
+            if (d.y > H && Math.random() > 0.975) d.y = 0;
+            else d.y += 20;
+          });
         }
       })();
     })();
@@ -991,6 +1338,10 @@
 
       (function loop() {
         requestAnimationFrame(loop);
+        if (currentTheme !== 'electrical') {
+          ctx.clearRect(0, 0, W, H);
+          return;
+        }
         ctx.clearRect(0, 0, W, H);
         for (let i = fwParticles.length - 1; i >= 0; i--) {
           const p = fwParticles[i];
@@ -1012,12 +1363,12 @@
       const cur = document.getElementById('cur');
       document.addEventListener('mousemove', e => {
         cur.style.left = e.clientX + 'px'; cur.style.top = e.clientY + 'px';
-        cur.style.background = rndColor();
-        if (Math.random() > .45) return;
+        const color = currentTheme === 'potter' ? '#ffd700' : (currentTheme === 'cyber' ? '#0f0' : rndColor());
+        cur.style.background = color;
+        if (Math.random() > 0.45 || currentTheme !== 'electrical') return;
         const s = document.createElement('div');
         s.className = 'sp';
         const size = 5 + Math.random() * 9;
-        const color = rndColor();
         const tx = (Math.random() - .5) * 40;
         const ty = -20 - Math.random() * 30;
         s.style.cssText = `
@@ -1112,8 +1463,8 @@
     /* ═══════════════════════════════════════════════════════
        8.  PERIODIC AUTO-FIREWORK (random positions)
     ══════════════════════════════════════════════════════ */
-    // done in fore-canvas section above, but also add some to DOM
     setInterval(() => {
+      if (currentTheme !== 'electrical') return;
       const count = 22;
       const x = Math.random() * window.innerWidth;
       const y = 80 + Math.random() * window.innerHeight * .4;
@@ -1136,6 +1487,41 @@
         setTimeout(() => p.remove(), 1600);
       }
     }, 3000);
+
+    /* ═══════════════════════════════════════════════════════
+       9.  THEME SPECIFIC EFFECTS (Candles, Matrix)
+    ══════════════════════════════════════════════════════ */
+    function spawnCandles() {
+      if (document.querySelectorAll('.candle').length > 0) return;
+      for (let i = 0; i < 20; i++) {
+        const c = document.createElement('div');
+        c.className = 'candle';
+        c.style.left = Math.random() * 100 + 'vw';
+        c.style.top = Math.random() * 100 + 'vh';
+        c.style.setProperty('--d', 5 + Math.random() * 10 + 's');
+        c.style.setProperty('--r', (Math.random() - 0.5) * 20 + 'deg');
+        document.body.appendChild(c);
+      }
+    }
+
+    function spawnSakura() {
+      if (document.querySelectorAll('.sakura').length > 0) return;
+      for (let i = 0; i < 30; i++) {
+        const s = document.createElement('div');
+        s.className = 'sakura';
+        const size = 10 + Math.random() * 15;
+        s.style.width = size + 'px';
+        s.style.height = (size * 0.7) + 'px';
+        s.style.left = Math.random() * 100 + 'vw';
+        s.style.top = -20 + 'px';
+        s.style.setProperty('--d', 5 + Math.random() * 10 + 's');
+        s.style.setProperty('--tx', (Math.random() - 0.5) * 200 + 'px');
+        document.body.appendChild(s);
+      }
+    }
+
+    // Initialize theme
+    setTheme(currentTheme);
   </script>
 </body>
 
