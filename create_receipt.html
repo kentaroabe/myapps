@@ -267,19 +267,28 @@
                 margin: 0,
                 filename: `${date}_領収書_${issuer}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 3, useCORS: true },
+                html2canvas: { scale: 3, useCORS: true, logging: false },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            if (mode === 'save') {
-                await html2pdf().set(opt).from(html).save();
-                status.style.display = 'none';
-            } else {
-                // Generate Blob
-                const worker = html2pdf().set(opt).from(html).toPdf().output('blob');
-                worker.then(async (blob) => {
+            // Inject into real DOM (invisible) so html2canvas can capture it
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;width:210mm;background:#fff;';
+            wrapper.innerHTML = html;
+            document.body.appendChild(wrapper);
+
+            try {
+                if (mode === 'save') {
+                    status.style.display = 'block';
+                    status.textContent = 'PDFを生成しています...';
+                    await html2pdf().set(opt).from(wrapper).save();
+                    status.style.display = 'none';
+                } else {
+                    status.style.display = 'block';
+                    status.textContent = 'PDFを生成しています...';
+                    const blob = await html2pdf().set(opt).from(wrapper).output('blob');
                     const file = new File([blob], opt.filename, { type: 'application/pdf' });
-                    
+
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         try {
                             status.textContent = '共有メニューを開いています...';
@@ -290,14 +299,14 @@
                             });
                         } catch (err) {
                             console.error('Share failed', err);
-                        } finally {
-                            status.style.display = 'none';
                         }
                     } else {
-                        status.style.display = 'none';
                         alert('このブラウザはファイル共有に対応していません。保存ボタンを使用してください。');
                     }
-                });
+                    status.style.display = 'none';
+                }
+            } finally {
+                document.body.removeChild(wrapper);
             }
         }
 
