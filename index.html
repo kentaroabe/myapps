@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,8 +9,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
 
     body {
       background: #000;
@@ -20,22 +31,40 @@
     }
 
     /* ── Canvas layers ─────────────────────────────────── */
-    #canvas-bg   { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
-    #canvas-fore { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+    #canvas-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    #canvas-fore {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
 
     /* ── Custom cursor ─────────────────────────────────── */
     #cur {
-      position: fixed; width: 12px; height: 12px; border-radius: 50%;
-      background: #fff; pointer-events: none; z-index: 9999;
-      transform: translate(-50%,-50%);
+      position: fixed;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
       box-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 40px #0af;
       mix-blend-mode: screen;
     }
 
     /* ── Page wrapper ─────────────────────────────────── */
     .page {
-      position: relative; z-index: 1;
-      max-width: 740px; margin: 0 auto;
+      position: relative;
+      z-index: 1;
+      max-width: 740px;
+      margin: 0 auto;
       padding: 40px 20px 160px;
     }
 
@@ -48,19 +77,35 @@
 
     /* Dot strip (chasing lights strip) */
     .dot-strip {
-      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
       margin: 12px 0;
       padding: 6px 0;
     }
+
     .dot {
-      width: 10px; height: 10px; border-radius: 50%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
       background: #fff;
       box-shadow: 0 0 6px currentColor, 0 0 12px currentColor;
       animation: dotChase var(--dur, 2s) var(--delay, 0s) linear infinite;
     }
+
     @keyframes dotChase {
-      0%,100% { opacity: .15; transform: scale(.6); }
-      50%      { opacity: 1;   transform: scale(1.3); }
+
+      0%,
+      100% {
+        opacity: .15;
+        transform: scale(.6);
+      }
+
+      50% {
+        opacity: 1;
+        transform: scale(1.3);
+      }
     }
 
     /* ── Title ─────────────────────────────────────────── */
@@ -73,259 +118,546 @@
       margin: 18px 0 8px;
       position: relative;
       animation: titleColor 3s linear infinite;
-      -webkit-text-stroke: 1px rgba(255,255,255,.2);
+      -webkit-text-stroke: 1px rgba(255, 255, 255, .2);
     }
+
     @keyframes titleColor {
-      0%   { color: #ff00cc; text-shadow: 0 0 20px #ff00cc, 0 0 50px #ff00cc; }
-      16%  { color: #ffcc00; text-shadow: 0 0 20px #ffcc00, 0 0 50px #ffcc00; }
-      33%  { color: #00ffcc; text-shadow: 0 0 20px #00ffcc, 0 0 50px #00ffcc; }
-      50%  { color: #00aaff; text-shadow: 0 0 20px #00aaff, 0 0 50px #00aaff; }
-      66%  { color: #ff6600; text-shadow: 0 0 20px #ff6600, 0 0 50px #ff6600; }
-      83%  { color: #aa00ff; text-shadow: 0 0 20px #aa00ff, 0 0 50px #aa00ff; }
-      100% { color: #ff00cc; text-shadow: 0 0 20px #ff00cc, 0 0 50px #ff00cc; }
+      0% {
+        color: #ff00cc;
+        text-shadow: 0 0 20px #ff00cc, 0 0 50px #ff00cc;
+      }
+
+      16% {
+        color: #ffcc00;
+        text-shadow: 0 0 20px #ffcc00, 0 0 50px #ffcc00;
+      }
+
+      33% {
+        color: #00ffcc;
+        text-shadow: 0 0 20px #00ffcc, 0 0 50px #00ffcc;
+      }
+
+      50% {
+        color: #00aaff;
+        text-shadow: 0 0 20px #00aaff, 0 0 50px #00aaff;
+      }
+
+      66% {
+        color: #ff6600;
+        text-shadow: 0 0 20px #ff6600, 0 0 50px #ff6600;
+      }
+
+      83% {
+        color: #aa00ff;
+        text-shadow: 0 0 20px #aa00ff, 0 0 50px #aa00ff;
+      }
+
+      100% {
+        color: #ff00cc;
+        text-shadow: 0 0 20px #ff00cc, 0 0 50px #ff00cc;
+      }
     }
 
     .ep-subtitle {
-      text-align: center; font-size: .82rem; font-weight: 700;
-      letter-spacing: .22em; text-transform: uppercase;
-      color: rgba(255,255,255,.45); margin-bottom: 28px;
+      text-align: center;
+      font-size: .82rem;
+      font-weight: 700;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, .45);
+      margin-bottom: 28px;
     }
 
     /* ── Stat chips ─────────────────────────────────────── */
     .stats-row {
-      display: flex; justify-content: center; gap: 16px; flex-wrap: wrap;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
       margin-bottom: 32px;
     }
+
     .stat-chip {
-      text-align: center; padding: 10px 20px;
-      background: rgba(255,255,255,.03);
-      border-radius: 12px; position: relative;
+      text-align: center;
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, .03);
+      border-radius: 12px;
+      position: relative;
       overflow: hidden;
     }
+
     .stat-chip::before {
       content: '';
-      position: absolute; inset: 0;
+      position: absolute;
+      inset: 0;
       border-radius: 12px;
       border: 2px solid transparent;
-      background: linear-gradient(#000,#000) padding-box,
-                  conic-gradient(from var(--sa, 0deg), #ff00cc, #ffcc00, #00ffcc, #00aaff, #ff6600, #aa00ff, #ff00cc) border-box;
+      background: linear-gradient(#000, #000) padding-box,
+        conic-gradient(from var(--sa, 0deg), #ff00cc, #ffcc00, #00ffcc, #00aaff, #ff6600, #aa00ff, #ff00cc) border-box;
       animation: borderSpin var(--bsd, 3s) linear infinite;
     }
-    @property --sa { syntax:'<angle>'; initial-value:0deg; inherits:false; }
-    @keyframes borderSpin { to { --sa: 360deg; } }
+
+    @property --sa {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+
+    @keyframes borderSpin {
+      to {
+        --sa: 360deg;
+      }
+    }
 
     .stat-num {
-      font-size: 1.5rem; font-weight: 900; color: #ffcc00;
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: #ffcc00;
       text-shadow: 0 0 12px #ffcc00, 0 0 24px #ffcc00;
     }
-    .stat-label { font-size: .7rem; color: rgba(255,255,255,.4); margin-top: 2px; }
+
+    .stat-label {
+      font-size: .7rem;
+      color: rgba(255, 255, 255, .4);
+      margin-top: 2px;
+    }
 
     /* ── Section label ──────────────────────────────────── */
     .section-row {
-      display: flex; align-items: center; gap: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
       margin: 28px 0 10px 0;
     }
+
     .section-label {
-      font-size: .72rem; font-weight: 900; letter-spacing: .18em;
-      text-transform: uppercase; white-space: nowrap;
-      padding: 4px 14px; border-radius: 99px;
-      position: relative; z-index: 0;
+      font-size: .72rem;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      padding: 4px 14px;
+      border-radius: 99px;
+      position: relative;
+      z-index: 0;
       animation: sectionGlow 2s ease-in-out infinite alternate;
     }
-    .section-label.pdf   { color: #00ccff; --gc: #00ccff; }
-    .section-label.img   { color: #ff66cc; --gc: #ff66cc; }
-    .section-label.other { color: #ffcc00; --gc: #ffcc00; }
+
+    .section-label.pdf {
+      color: #00ccff;
+      --gc: #00ccff;
+    }
+
+    .section-label.img {
+      color: #ff66cc;
+      --gc: #ff66cc;
+    }
+
+    .section-label.other {
+      color: #ffcc00;
+      --gc: #ffcc00;
+    }
+
     @keyframes sectionGlow {
-      from { text-shadow: 0 0 8px var(--gc), 0 0 20px var(--gc); }
-      to   { text-shadow: 0 0 16px var(--gc), 0 0 40px var(--gc), 0 0 60px var(--gc); }
+      from {
+        text-shadow: 0 0 8px var(--gc), 0 0 20px var(--gc);
+      }
+
+      to {
+        text-shadow: 0 0 16px var(--gc), 0 0 40px var(--gc), 0 0 60px var(--gc);
+      }
     }
+
     .section-line {
-      flex: 1; height: 2px; border-radius: 99px; position: relative; overflow: hidden;
+      flex: 1;
+      height: 2px;
+      border-radius: 99px;
+      position: relative;
+      overflow: hidden;
     }
+
     .section-line::after {
       content: '';
-      position: absolute; top: 0; left: -100%; width: 40%; height: 100%;
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 40%;
+      height: 100%;
       background: linear-gradient(90deg, transparent, #fff, transparent);
       animation: lineChase 2s linear infinite;
     }
-    .section-line.pdf   { background: rgba(0,204,255,.25); }
-    .section-line.img   { background: rgba(255,102,204,.25); }
-    .section-line.other { background: rgba(255,204,0,.25); }
-    @keyframes lineChase { to { left: 160%; } }
+
+    .section-line.pdf {
+      background: rgba(0, 204, 255, .25);
+    }
+
+    .section-line.img {
+      background: rgba(255, 102, 204, .25);
+    }
+
+    .section-line.other {
+      background: rgba(255, 204, 0, .25);
+    }
+
+    @keyframes lineChase {
+      to {
+        left: 160%;
+      }
+    }
 
     .section-badge {
-      font-size: .68rem; font-weight: 900;
-      padding: 2px 9px; border-radius: 99px;
-      background: rgba(255,255,255,.08); white-space: nowrap;
+      font-size: .68rem;
+      font-weight: 900;
+      padding: 2px 9px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, .08);
+      white-space: nowrap;
     }
 
     /* ── App grid ───────────────────────────────────────── */
-    .app-grid { display: flex; flex-direction: column; gap: 10px; }
+    .app-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
 
     /* ── App card ───────────────────────────────────────── */
     .app-card {
-      display: flex; align-items: center; gap: 15px;
-      text-decoration: none; color: #fff;
-      background: rgba(255,255,255,.03);
-      border-radius: 14px; padding: 14px 18px;
-      position: relative; overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      text-decoration: none;
+      color: #fff;
+      background: rgba(255, 255, 255, .03);
+      border-radius: 14px;
+      padding: 14px 18px;
+      position: relative;
+      overflow: hidden;
       transition: background .2s, transform .2s;
       opacity: 0;
-      animation: cardIn .5s cubic-bezier(.22,.61,.36,1) both;
+      animation: cardIn .5s cubic-bezier(.22, .61, .36, 1) both;
       animation-delay: calc(var(--i) * 50ms + 400ms);
     }
+
     @keyframes cardIn {
-      from { opacity:0; transform: translateY(18px); }
-      to   { opacity:1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(18px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     /* Spinning LED border */
     .app-card::before {
       content: '';
-      position: absolute; inset: 0;
+      position: absolute;
+      inset: 0;
       border-radius: 14px;
       border: 1.5px solid transparent;
-      background: linear-gradient(#000814,#000814) padding-box,
-                  conic-gradient(from var(--ca, 0deg), transparent 60%, var(--cc, #ff00cc) 80%, transparent 100%) border-box;
+      background: linear-gradient(#000814, #000814) padding-box,
+        conic-gradient(from var(--ca, 0deg), transparent 60%, var(--cc, #ff00cc) 80%, transparent 100%) border-box;
       transition: opacity .3s;
     }
-    @keyframes spinBorder { to { --ca: 360deg; } }
-    .app-card:hover::before { animation: spinBorder 1.2s linear infinite; }
-    @property --ca { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+
+    @keyframes spinBorder {
+      to {
+        --ca: 360deg;
+      }
+    }
+
+    .app-card:hover::before {
+      animation: spinBorder 1.2s linear infinite;
+    }
+
+    @property --ca {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
 
     /* Shimmer sweep */
     .app-card::after {
       content: '';
-      position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
-      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.06) 50%, transparent 100%);
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, .06) 50%, transparent 100%);
       transition: left .5s;
     }
-    .app-card:hover::after { left: 100%; }
+
+    .app-card:hover::after {
+      left: 100%;
+    }
 
     .app-card:hover {
-      background: rgba(255,255,255,.07);
+      background: rgba(255, 255, 255, .07);
       transform: translateX(8px);
     }
 
     .app-icon {
-      font-size: 1.6rem; width: 46px; height: 46px; border-radius: 11px;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-      background: rgba(255,255,255,.06);
-      transition: transform .3s cubic-bezier(.34,1.56,.64,1), filter .3s;
-      position: relative; z-index: 1;
+      font-size: 1.6rem;
+      width: 46px;
+      height: 46px;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, .06);
+      transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), filter .3s;
+      position: relative;
+      z-index: 1;
     }
+
     .app-card:hover .app-icon {
       transform: scale(1.25) rotate(-8deg);
       filter: drop-shadow(0 0 8px var(--cc, #ff00cc));
     }
 
-    .app-info { flex: 1; min-width: 0; position: relative; z-index: 1; }
+    .app-info {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      z-index: 1;
+    }
+
     .app-name {
-      font-size: .93rem; font-weight: 700; line-height: 1.3; color: #fff;
+      font-size: .93rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #fff;
       transition: color .25s;
     }
-    .app-card:hover .app-name { color: var(--cc, #ff00cc); text-shadow: 0 0 12px var(--cc, #ff00cc); }
-    .app-desc { font-size: .76rem; color: rgba(255,255,255,.3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .app-card:hover .app-name {
+      color: var(--cc, #ff00cc);
+      text-shadow: 0 0 12px var(--cc, #ff00cc);
+    }
+
+    .app-desc {
+      font-size: .76rem;
+      color: rgba(255, 255, 255, .3);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     .app-arrow {
-      font-size: 1.2rem; color: rgba(255,255,255,.15); flex-shrink: 0;
-      position: relative; z-index: 1;
+      font-size: 1.2rem;
+      color: rgba(255, 255, 255, .15);
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
       transition: color .25s, transform .25s;
     }
-    .app-card:hover .app-arrow { color: var(--cc,#ff00cc); transform: translateX(6px); }
+
+    .app-card:hover .app-arrow {
+      color: var(--cc, #ff00cc);
+      transform: translateX(6px);
+    }
 
     /* Each card gets a unique color class from JS */
-    .cc-pink   { --cc: #ff00cc; }
-    .cc-cyan   { --cc: #00ffcc; }
-    .cc-blue   { --cc: #00aaff; }
-    .cc-gold   { --cc: #ffcc00; }
-    .cc-orange { --cc: #ff6600; }
-    .cc-purple { --cc: #aa00ff; }
-    .cc-green  { --cc: #00ff88; }
+    .cc-pink {
+      --cc: #ff00cc;
+    }
+
+    .cc-cyan {
+      --cc: #00ffcc;
+    }
+
+    .cc-blue {
+      --cc: #00aaff;
+    }
+
+    .cc-gold {
+      --cc: #ffcc00;
+    }
+
+    .cc-orange {
+      --cc: #ff6600;
+    }
+
+    .cc-purple {
+      --cc: #aa00ff;
+    }
+
+    .cc-green {
+      --cc: #00ff88;
+    }
 
     /* ── Parade floor (bottom parade strip) ─────────────── */
     .parade-floor {
-      position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
-      height: 56px; background: #000;
-      border-top: 2px solid rgba(255,255,255,.08);
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      height: 56px;
+      background: #000;
+      border-top: 2px solid rgba(255, 255, 255, .08);
       overflow: hidden;
     }
+
     /* Marching ants border at top of parade floor */
     .parade-floor::before {
       content: '';
-      position: absolute; top: -3px; left: 0; right: 0; height: 4px;
-      background: repeating-linear-gradient(
-        90deg,
-        #ff00cc 0px, #ff00cc 12px,
-        #ffcc00 12px, #ffcc00 24px,
-        #00ffcc 24px, #00ffcc 36px,
-        #00aaff 36px, #00aaff 48px,
-        #ff6600 48px, #ff6600 60px,
-        #aa00ff 60px, #aa00ff 72px
-      );
+      position: absolute;
+      top: -3px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: repeating-linear-gradient(90deg,
+          #ff00cc 0px, #ff00cc 12px,
+          #ffcc00 12px, #ffcc00 24px,
+          #00ffcc 24px, #00ffcc 36px,
+          #00aaff 36px, #00aaff 48px,
+          #ff6600 48px, #ff6600 60px,
+          #aa00ff 60px, #aa00ff 72px);
       background-size: 144px 4px;
       animation: marchingAnts 1.2s linear infinite;
     }
-    @keyframes marchingAnts { to { background-position: 144px 0; } }
+
+    @keyframes marchingAnts {
+      to {
+        background-position: 144px 0;
+      }
+    }
 
     .floats-track {
-      display: flex; align-items: center; height: 100%;
+      display: flex;
+      align-items: center;
+      height: 100%;
       white-space: nowrap;
       animation: floatsScroll 18s linear infinite;
       width: max-content;
     }
-    .floats-track.track2 { animation-duration: 24s; animation-direction: reverse; animation-delay: -9s; }
 
-    @keyframes floatsScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .floats-track.track2 {
+      animation-duration: 24s;
+      animation-direction: reverse;
+      animation-delay: -9s;
+    }
+
+    @keyframes floatsScroll {
+      from {
+        transform: translateX(0);
+      }
+
+      to {
+        transform: translateX(-50%);
+      }
+    }
 
     .float-item {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 0 24px; font-size: 1.4rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 24px;
+      font-size: 1.4rem;
       animation: floatBob 2s ease-in-out infinite alternate;
       animation-delay: var(--fb, 0s);
     }
-    @keyframes floatBob { 0%{transform:translateY(0)} 100%{transform:translateY(-6px)} }
+
+    @keyframes floatBob {
+      0% {
+        transform: translateY(0)
+      }
+
+      100% {
+        transform: translateY(-6px)
+      }
+    }
+
     .float-item .fl-label {
-      font-size: .62rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-      color: rgba(255,255,255,.35); white-space: nowrap;
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, .35);
+      white-space: nowrap;
     }
 
     /* ── Ripple ─────────────────────────────────────────── */
     .ripple {
-      position: absolute; border-radius: 50%; pointer-events: none;
-      background: rgba(255,255,255,.15);
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      background: rgba(255, 255, 255, .15);
       transform: scale(0);
       animation: rippleAnim .7s linear;
     }
-    @keyframes rippleAnim { to { transform: scale(5); opacity: 0; } }
+
+    @keyframes rippleAnim {
+      to {
+        transform: scale(5);
+        opacity: 0;
+      }
+    }
 
     /* ── Scrollbar ──────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 99px; }
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .1);
+      border-radius: 99px;
+    }
 
     /* ── Sparkles ───────────────────────────────────────── */
     .sp {
-      position: fixed; border-radius: 50%; pointer-events: none;
-      z-index: 9990; mix-blend-mode: screen;
-      animation: spAnim var(--sd,.8s) forwards;
+      position: fixed;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9990;
+      mix-blend-mode: screen;
+      animation: spAnim var(--sd, .8s) forwards;
     }
+
     @keyframes spAnim {
-      0%   { opacity:1; transform:scale(1) translate(0,0); }
-      100% { opacity:0; transform:scale(0) translate(var(--tx,0px), var(--ty,-30px)); }
+      0% {
+        opacity: 1;
+        transform: scale(1) translate(0, 0);
+      }
+
+      100% {
+        opacity: 0;
+        transform: scale(0) translate(var(--tx, 0px), var(--ty, -30px));
+      }
     }
 
     /* ── Firework burst ─────────────────────────────────── */
     .fw-particle {
-      position: fixed; width: 4px; height: 4px; border-radius: 50%;
-      pointer-events: none; z-index: 9985;
-      animation: fwFly var(--fd,1s) ease-out forwards;
+      position: fixed;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9985;
+      animation: fwFly var(--fd, 1s) ease-out forwards;
     }
+
     @keyframes fwFly {
-      0%   { opacity:1; transform:translate(0,0) scale(1); }
-      100% { opacity:0; transform:translate(var(--fx,0),var(--fy,0)) scale(0); }
+      0% {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translate(var(--fx, 0), var(--fy, 0)) scale(0);
+      }
     }
   </style>
 </head>
+
 <body>
   <canvas id="canvas-bg"></canvas>
   <canvas id="canvas-fore"></canvas>
@@ -365,27 +697,42 @@
     <div class="app-grid">
       <a href="bokasi_and_merge.html" class="app-card cc-cyan" style="--i:0">
         <div class="app-icon">🌫️</div>
-        <div class="app-info"><div class="app-name">画像ぼかし・PDF結合</div><div class="app-desc">画像のぼかし加工と複数ファイルのPDF結合</div></div>
+        <div class="app-info">
+          <div class="app-name">画像ぼかし・PDF結合</div>
+          <div class="app-desc">画像のぼかし加工と複数ファイルのPDF結合</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
       <a href="rotate_and_split_pdf.html" class="app-card cc-blue" style="--i:1">
         <div class="app-icon">🔄</div>
-        <div class="app-info"><div class="app-name">PDF回転・分割</div><div class="app-desc">ページ単位の回転と任意位置での分割</div></div>
+        <div class="app-info">
+          <div class="app-name">PDF回転・分割</div>
+          <div class="app-desc">ページ単位の回転と任意位置での分割</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
       <a href="merge_pdf.html" class="app-card cc-pink" style="--i:2">
         <div class="app-icon">📎</div>
-        <div class="app-info"><div class="app-name">PDF結合（プレビュー付き）</div><div class="app-desc">サムネイルを見ながらドラッグで並べ替え・結合</div></div>
+        <div class="app-info">
+          <div class="app-name">PDF結合（プレビュー付き）</div>
+          <div class="app-desc">サムネイルを見ながらドラッグで並べ替え・結合</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
       <a href="get_filename_and_page.html" class="app-card cc-purple" style="--i:3">
         <div class="app-icon">📊</div>
-        <div class="app-info"><div class="app-name">PDFの枚数取得</div><div class="app-desc">ファイル名とページ数を一覧表示・コピー</div></div>
+        <div class="app-info">
+          <div class="app-name">PDFの枚数取得</div>
+          <div class="app-desc">ファイル名とページ数を一覧表示・コピー</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
       <a href="convert_pdf_to_jpeg.html" class="app-card cc-orange" style="--i:4">
         <div class="app-icon">🖼️</div>
-        <div class="app-info"><div class="app-name">PDFを画像に変換</div><div class="app-desc">PDFの各ページをPNG画像として書き出す</div></div>
+        <div class="app-info">
+          <div class="app-name">PDFを画像に変換</div>
+          <div class="app-desc">PDFの各ページをPNG画像として書き出す</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
     </div>
@@ -399,37 +746,58 @@
     <div class="app-grid">
       <a href="price.html" class="app-card cc-gold" style="--i:5">
         <div class="app-icon">💲</div>
-        <div class="app-info"><div class="app-name">価格並べ替え</div><div class="app-desc">ドラッグ&amp;ドロップで並べ替えとリネーム</div></div>
+        <div class="app-info">
+          <div class="app-name">価格並べ替え</div>
+          <div class="app-desc">ドラッグ&amp;ドロップで並べ替えとリネーム</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
       <a href="sample_png_from_pdf.html" class="app-card cc-green" style="--i:6">
         <div class="app-icon">🔲</div>
-        <div class="app-info"><div class="app-name">SAMPLEサムネイル作成</div><div class="app-desc">PDF→正方形・SAMPLE透かし入り画像を生成</div></div>
+        <div class="app-info">
+          <div class="app-name">SAMPLEサムネイル作成</div>
+          <div class="app-desc">PDF→正方形・SAMPLE透かし入り画像を生成</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
       <a href="add_text_at_top_right_left.html" class="app-card cc-cyan" style="--i:7">
         <div class="app-icon">✏️</div>
-        <div class="app-info"><div class="app-name">右上・左上にテキスト追加</div><div class="app-desc">画像の指定位置に赤字テキストを入れる</div></div>
+        <div class="app-info">
+          <div class="app-name">右上・左上にテキスト追加</div>
+          <div class="app-desc">画像の指定位置に赤字テキストを入れる</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
       <a href="convert_jpeg_to_pdf.html" class="app-card cc-pink" style="--i:8">
         <div class="app-icon">📄</div>
-        <div class="app-info"><div class="app-name">画像をPDFに変換</div><div class="app-desc">JPEG・PNGを1枚または複数まとめてPDF化</div></div>
+        <div class="app-info">
+          <div class="app-name">画像をPDFに変換</div>
+          <div class="app-desc">JPEG・PNGを1枚または複数まとめてPDF化</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
       <a href="seihoukei.html" class="app-card cc-blue" style="--i:9">
         <div class="app-icon">⬛</div>
-        <div class="app-info"><div class="app-name">画像を正方形にする</div><div class="app-desc">余白追加またはトリミングで1:1に変換</div></div>
+        <div class="app-info">
+          <div class="app-name">画像を正方形にする</div>
+          <div class="app-desc">余白追加またはトリミングで1:1に変換</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
       <a href="sample.html" class="app-card cc-orange" style="--i:10">
         <div class="app-icon">🖋️</div>
-        <div class="app-info"><div class="app-name">SAMPLE透かし追加</div><div class="app-desc">画像・PDFに赤い斜め「SAMPLE」を追加</div></div>
+        <div class="app-info">
+          <div class="app-name">SAMPLE透かし追加</div>
+          <div class="app-desc">画像・PDFに赤い斜め「SAMPLE」を追加</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
       <a href="add_name_of_document.html" class="app-card cc-purple" style="--i:11">
         <div class="app-icon">🏷️</div>
-        <div class="app-info"><div class="app-name">画像にファイル名を記載</div><div class="app-desc">ファイル名を抽出して画像上部に赤字で追加</div></div>
+        <div class="app-info">
+          <div class="app-name">画像にファイル名を記載</div>
+          <div class="app-desc">ファイル名を抽出して画像上部に赤字で追加</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
     </div>
@@ -443,7 +811,10 @@
     <div class="app-grid">
       <a href="oneforma_zaiko.html" class="app-card cc-gold" style="--i:12">
         <div class="app-icon">📦</div>
-        <div class="app-info"><div class="app-name">OneForma在庫</div><div class="app-desc">翻訳在庫数の確認</div></div>
+        <div class="app-info">
+          <div class="app-name">OneForma在庫</div>
+          <div class="app-desc">翻訳在庫数の確認</div>
+        </div>
         <div class="app-arrow">›</div>
       </a>
     </div>
@@ -455,316 +826,317 @@
   </div>
 
   <script>
-  /* ═══════════════════════════════════════════════════════
-     0.  PALETTE
-  ══════════════════════════════════════════════════════ */
-  const COLORS = ['#ff00cc','#ffcc00','#00ffcc','#00aaff','#ff6600','#aa00ff','#00ff88','#ff4488','#44ffee','#ffaa00'];
-  const rndColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
+    /* ═══════════════════════════════════════════════════════
+       0.  PALETTE
+    ══════════════════════════════════════════════════════ */
+    const COLORS = ['#ff00cc', '#ffcc00', '#00ffcc', '#00aaff', '#ff6600', '#aa00ff', '#00ff88', '#ff4488', '#44ffee', '#ffaa00'];
+    const rndColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
 
-  /* ═══════════════════════════════════════════════════════
-     1.  DOT STRIPS (top/bottom decorative dots)
-  ══════════════════════════════════════════════════════ */
-  function makeDots(containerId, count) {
-    const c = document.getElementById(containerId);
-    for (let i = 0; i < count; i++) {
-      const d = document.createElement('div');
-      d.className = 'dot';
-      const color = COLORS[i % COLORS.length];
-      d.style.cssText = `color:${color}; --dur:${1.2 + (i%6)*.18}s; --delay:${-(i*.09)}s; background:${color};`;
-      c.appendChild(d);
+    /* ═══════════════════════════════════════════════════════
+       1.  DOT STRIPS (top/bottom decorative dots)
+    ══════════════════════════════════════════════════════ */
+    function makeDots(containerId, count) {
+      const c = document.getElementById(containerId);
+      for (let i = 0; i < count; i++) {
+        const d = document.createElement('div');
+        d.className = 'dot';
+        const color = COLORS[i % COLORS.length];
+        d.style.cssText = `color:${color}; --dur:${1.2 + (i % 6) * .18}s; --delay:${-(i * .09)}s; background:${color};`;
+        c.appendChild(d);
+      }
     }
-  }
-  makeDots('top-dots', 52);
-  makeDots('bottom-dots', 52);
+    makeDots('top-dots', 52);
+    makeDots('bottom-dots', 52);
 
-  /* ═══════════════════════════════════════════════════════
-     2.  BG CANVAS — LED dot grid + meteors + pulse rings
-  ══════════════════════════════════════════════════════ */
-  (function () {
-    const canvas = document.getElementById('canvas-bg');
-    const ctx = canvas.getContext('2d');
-    let W, H;
-    const resize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; buildGrid(); };
+    /* ═══════════════════════════════════════════════════════
+       2.  BG CANVAS — LED dot grid + meteors + pulse rings
+    ══════════════════════════════════════════════════════ */
+    (function () {
+      const canvas = document.getElementById('canvas-bg');
+      const ctx = canvas.getContext('2d');
+      let W, H;
+      const resize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; buildGrid(); };
 
-    /* LED dot grid */
-    let grid = [];
-    const SPACING = 38;
-    function buildGrid() {
-      grid = [];
-      const cols = Math.ceil(W / SPACING) + 1;
-      const rows = Math.ceil(H / SPACING) + 1;
-      for (let r = 0; r <= rows; r++) {
-        for (let c = 0; c <= cols; c++) {
-          grid.push({
-            x: c * SPACING,
-            y: r * SPACING,
-            phase: Math.random() * Math.PI * 2,
-            speed: .4 + Math.random() * .8,
-            baseR: .8 + Math.random() * 1.2,
-            color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      /* LED dot grid */
+      let grid = [];
+      const SPACING = 38;
+      function buildGrid() {
+        grid = [];
+        const cols = Math.ceil(W / SPACING) + 1;
+        const rows = Math.ceil(H / SPACING) + 1;
+        for (let r = 0; r <= rows; r++) {
+          for (let c = 0; c <= cols; c++) {
+            grid.push({
+              x: c * SPACING,
+              y: r * SPACING,
+              phase: Math.random() * Math.PI * 2,
+              speed: .4 + Math.random() * .8,
+              baseR: .8 + Math.random() * 1.2,
+              color: COLORS[Math.floor(Math.random() * COLORS.length)],
+            });
+          }
+        }
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      /* Color wave across all dots */
+      let waveX = 0;
+
+      /* Meteors */
+      const meteors = [];
+      function spawnMeteor() {
+        meteors.push({
+          x: Math.random() * W, y: -20,
+          vx: (3 + Math.random() * 5) * (Math.random() < .5 ? 1 : -1),
+          vy: 3 + Math.random() * 4,
+          len: 60 + Math.random() * 120,
+          color: rndColor(),
+          life: 1,
+        });
+      }
+      setInterval(spawnMeteor, 1400);
+
+      /* Pulse rings (random expand/fade) */
+      const rings = [];
+      function spawnRing() {
+        rings.push({ x: Math.random() * W, y: Math.random() * H, r: 0, maxR: 80 + Math.random() * 100, color: rndColor(), life: 1 });
+      }
+      setInterval(spawnRing, 1800);
+
+      let t = 0;
+      (function loop() {
+        requestAnimationFrame(loop);
+        ctx.clearRect(0, 0, W, H);
+        t += .012;
+        waveX = (waveX + 1.5) % W;
+
+        /* Draw LED dots */
+        grid.forEach(d => {
+          const dist = Math.abs(d.x - waveX);
+          const waveBoost = Math.max(0, 1 - dist / 160) * 1.6;
+          const alpha = .12 + .45 * Math.abs(Math.sin(t * d.speed + d.phase)) + waveBoost * .25;
+          const r = d.baseR * (1 + waveBoost * 1.2);
+          ctx.beginPath();
+          ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
+          ctx.fillStyle = d.color;
+          ctx.globalAlpha = Math.min(alpha, .95);
+          ctx.fill();
+          /* Glow */
+          if (alpha > .4) {
+            ctx.beginPath();
+            ctx.arc(d.x, d.y, r * 3.5, 0, Math.PI * 2);
+            const grd = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, r * 3.5);
+            grd.addColorStop(0, d.color + '55');
+            grd.addColorStop(1, d.color + '00');
+            ctx.fillStyle = grd;
+            ctx.globalAlpha = alpha * .5;
+            ctx.fill();
+          }
+        });
+        ctx.globalAlpha = 1;
+
+        /* Meteors */
+        for (let i = meteors.length - 1; i >= 0; i--) {
+          const m = meteors[i];
+          m.x += m.vx; m.y += m.vy; m.life -= .018;
+          if (m.life <= 0 || m.y > H + 60) { meteors.splice(i, 1); continue; }
+          const grd = ctx.createLinearGradient(m.x, m.y, m.x - m.vx * 8, m.y - m.vy * 8);
+          grd.addColorStop(0, m.color);
+          grd.addColorStop(.5, m.color + '88');
+          grd.addColorStop(1, 'transparent');
+          ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx * 10, m.y - m.vy * 10);
+          ctx.strokeStyle = grd; ctx.lineWidth = 2 * m.life + .5; ctx.globalAlpha = m.life;
+          ctx.stroke(); ctx.globalAlpha = 1;
+        }
+
+        /* Pulse rings */
+        for (let i = rings.length - 1; i >= 0; i--) {
+          const rg = rings[i];
+          rg.r += 2.5; rg.life -= .018;
+          if (rg.life <= 0 || rg.r > rg.maxR) { rings.splice(i, 1); continue; }
+          ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r, 0, Math.PI * 2);
+          ctx.strokeStyle = rg.color; ctx.lineWidth = 1.5;
+          ctx.globalAlpha = rg.life * .4; ctx.stroke(); ctx.globalAlpha = 1;
+        }
+      })();
+    })();
+
+    /* ═══════════════════════════════════════════════════════
+       3.  FORE CANVAS — fireworks
+    ══════════════════════════════════════════════════════ */
+    (function () {
+      const canvas = document.getElementById('canvas-fore');
+      const ctx = canvas.getContext('2d');
+      let W, H;
+      const resize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
+      resize(); window.addEventListener('resize', resize);
+
+      const fwParticles = [];
+      function explode(x, y) {
+        const color = rndColor();
+        const count = 28 + Math.floor(Math.random() * 20);
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2;
+          const speed = 2 + Math.random() * 5;
+          fwParticles.push({
+            x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+            color, life: 1, r: 2 + Math.random() * 2,
           });
         }
       }
-    }
-    resize();
-    window.addEventListener('resize', resize);
+      setInterval(() => {
+        if (Math.random() < .5) explode(Math.random() * W, Math.random() * H * .6);
+      }, 2200);
 
-    /* Color wave across all dots */
-    let waveX = 0;
-
-    /* Meteors */
-    const meteors = [];
-    function spawnMeteor() {
-      meteors.push({
-        x: Math.random() * W, y: -20,
-        vx: (3 + Math.random() * 5) * (Math.random() < .5 ? 1 : -1),
-        vy: 3 + Math.random() * 4,
-        len: 60 + Math.random() * 120,
-        color: rndColor(),
-        life: 1,
-      });
-    }
-    setInterval(spawnMeteor, 1400);
-
-    /* Pulse rings (random expand/fade) */
-    const rings = [];
-    function spawnRing() {
-      rings.push({ x: Math.random() * W, y: Math.random() * H, r: 0, maxR: 80 + Math.random() * 100, color: rndColor(), life: 1 });
-    }
-    setInterval(spawnRing, 1800);
-
-    let t = 0;
-    (function loop() {
-      requestAnimationFrame(loop);
-      ctx.clearRect(0, 0, W, H);
-      t += .012;
-      waveX = (waveX + 1.5) % W;
-
-      /* Draw LED dots */
-      grid.forEach(d => {
-        const dist = Math.abs(d.x - waveX);
-        const waveBoost = Math.max(0, 1 - dist / 160) * 1.6;
-        const alpha = .12 + .45 * Math.abs(Math.sin(t * d.speed + d.phase)) + waveBoost * .25;
-        const r = d.baseR * (1 + waveBoost * 1.2);
-        ctx.beginPath();
-        ctx.arc(d.x, d.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = d.color;
-        ctx.globalAlpha = Math.min(alpha, .95);
-        ctx.fill();
-        /* Glow */
-        if (alpha > .4) {
-          ctx.beginPath();
-          ctx.arc(d.x, d.y, r * 3.5, 0, Math.PI * 2);
-          const grd = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, r * 3.5);
-          grd.addColorStop(0, d.color + '55');
-          grd.addColorStop(1, d.color + '00');
-          ctx.fillStyle = grd;
-          ctx.globalAlpha = alpha * .5;
+      (function loop() {
+        requestAnimationFrame(loop);
+        ctx.clearRect(0, 0, W, H);
+        for (let i = fwParticles.length - 1; i >= 0; i--) {
+          const p = fwParticles[i];
+          p.x += p.vx; p.y += p.vy; p.vy += .05;
+          p.life -= .022; p.vx *= .97; p.vy *= .97;
+          if (p.life <= 0) { fwParticles.splice(i, 1); continue; }
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+          ctx.fillStyle = p.color; ctx.globalAlpha = p.life * p.life;
           ctx.fill();
+          ctx.globalAlpha = 1;
         }
-      });
-      ctx.globalAlpha = 1;
-
-      /* Meteors */
-      for (let i = meteors.length - 1; i >= 0; i--) {
-        const m = meteors[i];
-        m.x += m.vx; m.y += m.vy; m.life -= .018;
-        if (m.life <= 0 || m.y > H + 60) { meteors.splice(i, 1); continue; }
-        const grd = ctx.createLinearGradient(m.x, m.y, m.x - m.vx * 8, m.y - m.vy * 8);
-        grd.addColorStop(0, m.color);
-        grd.addColorStop(.5, m.color + '88');
-        grd.addColorStop(1, 'transparent');
-        ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx * 10, m.y - m.vy * 10);
-        ctx.strokeStyle = grd; ctx.lineWidth = 2 * m.life + .5; ctx.globalAlpha = m.life;
-        ctx.stroke(); ctx.globalAlpha = 1;
-      }
-
-      /* Pulse rings */
-      for (let i = rings.length - 1; i >= 0; i--) {
-        const rg = rings[i];
-        rg.r += 2.5; rg.life -= .018;
-        if (rg.life <= 0 || rg.r > rg.maxR) { rings.splice(i, 1); continue; }
-        ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r, 0, Math.PI * 2);
-        ctx.strokeStyle = rg.color; ctx.lineWidth = 1.5;
-        ctx.globalAlpha = rg.life * .4; ctx.stroke(); ctx.globalAlpha = 1;
-      }
+      })();
     })();
-  })();
 
-  /* ═══════════════════════════════════════════════════════
-     3.  FORE CANVAS — fireworks
-  ══════════════════════════════════════════════════════ */
-  (function () {
-    const canvas = document.getElementById('canvas-fore');
-    const ctx = canvas.getContext('2d');
-    let W, H;
-    const resize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
-    resize(); window.addEventListener('resize', resize);
-
-    const fwParticles = [];
-    function explode(x, y) {
-      const color = rndColor();
-      const count = 28 + Math.floor(Math.random() * 20);
-      for (let i = 0; i < count; i++) {
-        const angle = (i / count) * Math.PI * 2;
-        const speed = 2 + Math.random() * 5;
-        fwParticles.push({
-          x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-          color, life: 1, r: 2 + Math.random() * 2,
-        });
-      }
-    }
-    setInterval(() => {
-      if (Math.random() < .5) explode(Math.random() * W, Math.random() * H * .6);
-    }, 2200);
-
-    (function loop() {
-      requestAnimationFrame(loop);
-      ctx.clearRect(0, 0, W, H);
-      for (let i = fwParticles.length - 1; i >= 0; i--) {
-        const p = fwParticles[i];
-        p.x += p.vx; p.y += p.vy; p.vy += .05;
-        p.life -= .022; p.vx *= .97; p.vy *= .97;
-        if (p.life <= 0) { fwParticles.splice(i, 1); continue; }
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
-        ctx.fillStyle = p.color; ctx.globalAlpha = p.life * p.life;
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-    })();
-  })();
-
-  /* ═══════════════════════════════════════════════════════
-     4.  CUSTOM CURSOR with sparkle trail
-  ══════════════════════════════════════════════════════ */
-  (function () {
-    const cur = document.getElementById('cur');
-    document.addEventListener('mousemove', e => {
-      cur.style.left = e.clientX + 'px'; cur.style.top = e.clientY + 'px';
-      cur.style.background = rndColor();
-      if (Math.random() > .45) return;
-      const s = document.createElement('div');
-      s.className = 'sp';
-      const size = 5 + Math.random() * 9;
-      const color = rndColor();
-      const tx = (Math.random() - .5) * 40;
-      const ty = -20 - Math.random() * 30;
-      s.style.cssText = `
+    /* ═══════════════════════════════════════════════════════
+       4.  CUSTOM CURSOR with sparkle trail
+    ══════════════════════════════════════════════════════ */
+    (function () {
+      const cur = document.getElementById('cur');
+      document.addEventListener('mousemove', e => {
+        cur.style.left = e.clientX + 'px'; cur.style.top = e.clientY + 'px';
+        cur.style.background = rndColor();
+        if (Math.random() > .45) return;
+        const s = document.createElement('div');
+        s.className = 'sp';
+        const size = 5 + Math.random() * 9;
+        const color = rndColor();
+        const tx = (Math.random() - .5) * 40;
+        const ty = -20 - Math.random() * 30;
+        s.style.cssText = `
         left:${e.clientX}px; top:${e.clientY}px;
         width:${size}px; height:${size}px;
         background:${color};
-        box-shadow:0 0 ${size*1.5}px ${color};
-        --sd:${.5+Math.random()*.6}s;
+        box-shadow:0 0 ${size * 1.5}px ${color};
+        --sd:${.5 + Math.random() * .6}s;
         --tx:${tx}px; --ty:${ty}px;
         transform:translate(-50%,-50%);
       `;
-      document.body.appendChild(s);
-      setTimeout(() => s.remove(), 1200);
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), 1200);
+      });
+    })();
+
+    /* ═══════════════════════════════════════════════════════
+       5.  CARD — ripple + click firework burst
+    ══════════════════════════════════════════════════════ */
+    document.querySelectorAll('.app-card').forEach(card => {
+      card.addEventListener('click', function (e) {
+        /* ripple */
+        const r = document.createElement('span');
+        r.className = 'ripple';
+        const rect = this.getBoundingClientRect();
+        const max = Math.max(rect.width, rect.height);
+        r.style.cssText = `width:${max}px;height:${max}px;left:${e.clientX - rect.left - max / 2}px;top:${e.clientY - rect.top - max / 2}px`;
+        this.appendChild(r);
+        setTimeout(() => r.remove(), 700);
+
+        /* mini firework */
+        const count = 18;
+        for (let i = 0; i < count; i++) {
+          const p = document.createElement('div');
+          p.className = 'fw-particle';
+          const angle = (i / count) * Math.PI * 2;
+          const dist = 40 + Math.random() * 80;
+          const color = rndColor();
+          p.style.cssText = `
+          left:${e.clientX}px; top:${e.clientY}px;
+          background:${color};
+          box-shadow:0 0 6px ${color};
+          --fx:${Math.cos(angle) * dist}px;
+          --fy:${Math.sin(angle) * dist}px;
+          --fd:${.6 + Math.random() * .5}s;
+        `;
+          document.body.appendChild(p);
+          setTimeout(() => p.remove(), 1200);
+        }
+      });
     });
-  })();
 
-  /* ═══════════════════════════════════════════════════════
-     5.  CARD — ripple + click firework burst
-  ══════════════════════════════════════════════════════ */
-  document.querySelectorAll('.app-card').forEach(card => {
-    card.addEventListener('click', function (e) {
-      /* ripple */
-      const r = document.createElement('span');
-      r.className = 'ripple';
-      const rect = this.getBoundingClientRect();
-      const max = Math.max(rect.width, rect.height);
-      r.style.cssText = `width:${max}px;height:${max}px;left:${e.clientX-rect.left-max/2}px;top:${e.clientY-rect.top-max/2}px`;
-      this.appendChild(r);
-      setTimeout(() => r.remove(), 700);
+    /* ═══════════════════════════════════════════════════════
+       6.  PARADE FLOOR FLOATS
+    ══════════════════════════════════════════════════════ */
+    (function () {
+      const emojis = [
+        ['🎠', 'メリーゴーランド'], ['✨', 'キラキラ'], ['🌟', 'スター'], ['🎡', '観覧車'],
+        ['🦄', 'ユニコーン'], ['🎪', 'サーカス'], ['🌈', 'レインボー'], ['🎆', '花火'],
+        ['🎇', '線香花火'], ['🏰', 'お城'], ['🦋', 'バタフライ'], ['🎭', 'マスク'],
+        ['💎', 'ダイヤ'], ['🔮', 'クリスタル'], ['🌙', 'ムーン'], ['⭐', 'スター'],
+        ['🎵', 'ミュージック'], ['🎶', 'ノート'], ['🎠', 'メリーゴーランド'], ['✨', 'キラキラ'],
+        ['🌟', 'スター'], ['🎡', '観覧車'], ['🦄', 'ユニコーン'], ['🎪', 'サーカス'],
+      ];
+      const track = document.getElementById('track1');
+      // Duplicate for seamless scroll
+      [...emojis, ...emojis].forEach((item, i) => {
+        const el = document.createElement('div');
+        el.className = 'float-item';
+        el.style.setProperty('--fb', `${(i % 7) * .3}s`);
+        el.innerHTML = `<span>${item[0]}</span><span class="fl-label">${item[1]}</span>`;
+        track.appendChild(el);
+      });
+    })();
 
-      /* mini firework */
-      const count = 18;
+    /* ═══════════════════════════════════════════════════════
+       7.  COUNT-UP
+    ══════════════════════════════════════════════════════ */
+    function countUp(el, target, dur) {
+      let v = 0, step = target / (dur / 16);
+      const t = setInterval(() => {
+        v = Math.min(v + step, target);
+        el.textContent = Math.floor(v);
+        if (v >= target) clearInterval(t);
+      }, 16);
+    }
+    setTimeout(() => {
+      countUp(document.getElementById('s1'), 13, 1400);
+      countUp(document.getElementById('s2'), 3, 900);
+    }, 600);
+
+    /* ═══════════════════════════════════════════════════════
+       8.  PERIODIC AUTO-FIREWORK (random positions)
+    ══════════════════════════════════════════════════════ */
+    // done in fore-canvas section above, but also add some to DOM
+    setInterval(() => {
+      const count = 22;
+      const x = Math.random() * window.innerWidth;
+      const y = 80 + Math.random() * window.innerHeight * .4;
       for (let i = 0; i < count; i++) {
         const p = document.createElement('div');
         p.className = 'fw-particle';
         const angle = (i / count) * Math.PI * 2;
-        const dist = 40 + Math.random() * 80;
+        const dist = 50 + Math.random() * 100;
         const color = rndColor();
         p.style.cssText = `
-          left:${e.clientX}px; top:${e.clientY}px;
-          background:${color};
-          box-shadow:0 0 6px ${color};
-          --fx:${Math.cos(angle)*dist}px;
-          --fy:${Math.sin(angle)*dist}px;
-          --fd:${.6+Math.random()*.5}s;
-        `;
-        document.body.appendChild(p);
-        setTimeout(() => p.remove(), 1200);
-      }
-    });
-  });
-
-  /* ═══════════════════════════════════════════════════════
-     6.  PARADE FLOOR FLOATS
-  ══════════════════════════════════════════════════════ */
-  (function () {
-    const emojis = [
-      ['🎠','メリーゴーランド'], ['✨','キラキラ'], ['🌟','スター'], ['🎡','観覧車'],
-      ['🦄','ユニコーン'], ['🎪','サーカス'], ['🌈','レインボー'], ['🎆','花火'],
-      ['🎇','線香花火'], ['🏰','お城'], ['🦋','バタフライ'], ['🎭','マスク'],
-      ['💎','ダイヤ'], ['🔮','クリスタル'], ['🌙','ムーン'], ['⭐','スター'],
-      ['🎵','ミュージック'], ['🎶','ノート'], ['🎠','メリーゴーランド'], ['✨','キラキラ'],
-      ['🌟','スター'], ['🎡','観覧車'], ['🦄','ユニコーン'], ['🎪','サーカス'],
-    ];
-    const track = document.getElementById('track1');
-    // Duplicate for seamless scroll
-    [...emojis, ...emojis].forEach((item, i) => {
-      const el = document.createElement('div');
-      el.className = 'float-item';
-      el.style.setProperty('--fb', `${(i % 7) * .3}s`);
-      el.innerHTML = `<span>${item[0]}</span><span class="fl-label">${item[1]}</span>`;
-      track.appendChild(el);
-    });
-  })();
-
-  /* ═══════════════════════════════════════════════════════
-     7.  COUNT-UP
-  ══════════════════════════════════════════════════════ */
-  function countUp(el, target, dur) {
-    let v = 0, step = target / (dur / 16);
-    const t = setInterval(() => {
-      v = Math.min(v + step, target);
-      el.textContent = Math.floor(v);
-      if (v >= target) clearInterval(t);
-    }, 16);
-  }
-  setTimeout(() => {
-    countUp(document.getElementById('s1'), 13, 1400);
-    countUp(document.getElementById('s2'), 3, 900);
-  }, 600);
-
-  /* ═══════════════════════════════════════════════════════
-     8.  PERIODIC AUTO-FIREWORK (random positions)
-  ══════════════════════════════════════════════════════ */
-  // done in fore-canvas section above, but also add some to DOM
-  setInterval(() => {
-    const count = 22;
-    const x = Math.random() * window.innerWidth;
-    const y = 80 + Math.random() * window.innerHeight * .4;
-    for (let i = 0; i < count; i++) {
-      const p = document.createElement('div');
-      p.className = 'fw-particle';
-      const angle = (i / count) * Math.PI * 2;
-      const dist = 50 + Math.random() * 100;
-      const color = rndColor();
-      p.style.cssText = `
         left:${x}px; top:${y}px;
         background:${color};
         box-shadow:0 0 8px ${color};
         width:5px; height:5px;
-        --fx:${Math.cos(angle)*dist}px;
-        --fy:${Math.sin(angle)*dist}px;
-        --fd:${.8+Math.random()*.7}s;
+        --fx:${Math.cos(angle) * dist}px;
+        --fy:${Math.sin(angle) * dist}px;
+        --fd:${.8 + Math.random() * .7}s;
       `;
-      document.body.appendChild(p);
-      setTimeout(() => p.remove(), 1600);
-    }
-  }, 3000);
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 1600);
+      }
+    }, 3000);
   </script>
 </body>
+
 </html>
