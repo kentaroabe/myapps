@@ -210,14 +210,6 @@ table.md-tbl tr:hover td { background: #f8fafc; }
 <body>
 <div class="container">
 
-<!-- file:// CORS warning (shown dynamically) -->
-<div id="corsWarning" class="hidden" style="
-  background:#fef3c7; border:1px solid #fbbf24; border-radius:10px;
-  padding:12px 18px; margin-bottom:16px; font-size:13px; line-height:1.7; color:#92400e;">
-  ⚠️ <strong>このファイルは file:// で直接開かれています</strong>　ChatGPT・Gemini はこのまま動作します。<br>
-  Claude を使うには「ローカルプロキシを使用」をオンにし、<code>claude-proxy.py</code> を起動してください。
-</div>
-
 <!-- Header -->
 <div class="header">
   <h1>翻訳チェッカー</h1>
@@ -268,21 +260,11 @@ table.md-tbl tr:hover td { background: #f8fafc; }
           <option value="claude-haiku-4-5">claude-haiku-4-5（軽量・高速）</option>
           <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022（旧）</option>
         </select>
-        <!-- Proxy toggle -->
-        <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);">
-            <input type="checkbox" id="useProxy" onchange="toggleProxyField(); saveSettings();" style="width:auto;accent-color:var(--claude);">
-            プロキシを使用（CORS回避）
-          </label>
-          <div id="proxyFieldWrap" class="hidden" style="margin-top:8px;">
-            <label>プロキシURL</label>
-            <input type="text" id="proxyUrl" value="http://localhost:3001" oninput="saveSettings()" placeholder="https://claude-proxy.xxx.workers.dev または http://localhost:3001">
-            <div id="proxyHint" style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">
-              <strong>Cloudflare Worker（推奨）</strong>: worker.js をデプロイしてそのURLを入力<br>
-              <strong>ローカル</strong>: <code>python claude-proxy.py</code> を起動して <code>http://localhost:3001</code>
-            </div>
-          </div>
-        </div>
+        <!-- Proxy (hidden – managed by CLOUD_PROXY_URL) -->
+        <input type="hidden" id="useProxy" value="true">
+        <input type="hidden" id="proxyUrl" value="">
+        <div id="proxyFieldWrap" class="hidden"></div>
+        <div id="proxyHint"></div>
       </div>
 
       <div class="api-card">
@@ -303,11 +285,8 @@ table.md-tbl tr:hover td { background: #f8fafc; }
 
     </div>
     <div class="info-box">
-      ※ APIキーはブラウザのlocalStorageに保存されます（このページ内のみ）。<br>
-      ※ <strong>ChatGPT・Gemini</strong> はブラウザから直接呼び出せます。<br>
-      ※ <strong>Claude</strong> はAnthropicのCORSポリシーにより直接呼び出しが失敗する場合があります。<br>
-      　→ 同梱の <code>claude-proxy.py</code> を起動し「ローカルプロキシを使用」をオンにしてください。<br>
-      ※ 少なくとも1つのAPIキーがあれば動作しますが、3つすべて設定すると相互検証が行えます。
+      ※ APIキーはブラウザのlocalStorageに保存されます。&nbsp;
+      ※ 少なくとも1つのAPIキーがあれば動作します。3つ設定すると相互検証が行えます。
     </div>
   </div>
 </div>
@@ -316,26 +295,39 @@ table.md-tbl tr:hover td { background: #f8fafc; }
 <div class="card">
   <div class="card-header"><span class="icon">📄</span> PDFアップロード・設定</div>
 
+  <!-- 翻訳方向 -->
+  <div style="display:flex;align-items:center;gap:20px;margin-bottom:18px;padding:12px 16px;background:#f8fafc;border:1px solid var(--border);border-radius:9px;">
+    <span style="font-size:13px;font-weight:700;white-space:nowrap;">翻訳方向</span>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;font-weight:600;text-transform:none;letter-spacing:0;margin:0;">
+      <input type="radio" name="direction" value="jp-en" checked onchange="updateDirectionUI()" style="width:auto;accent-color:var(--primary);">
+      🇯🇵 日本語 → 英語 🇬🇧
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;font-weight:600;text-transform:none;letter-spacing:0;margin:0;">
+      <input type="radio" name="direction" value="en-jp" onchange="updateDirectionUI()" style="width:auto;accent-color:var(--primary);">
+      🇬🇧 英語 → 日本語 🇯🇵
+    </label>
+  </div>
+
   <div class="pdf-row">
     <div>
-      <label>日本語PDF（原文）</label>
+      <label id="srcLabel">日本語PDF（原文）</label>
       <div class="upload-zone" id="jpZone"
            ondragover="onDragOver(event,'jpZone')" ondragleave="onDragLeave(event,'jpZone')" ondrop="onDrop(event,'jp')">
         <input type="file" accept=".pdf" id="jpFile" onchange="onFileSelect(event,'jp')">
-        <div class="upload-icon">🇯🇵</div>
-        <div class="upload-title">日本語PDFをドロップ</div>
+        <div class="upload-icon" id="srcIcon">🇯🇵</div>
+        <div class="upload-title" id="srcTitle">日本語PDFをドロップ</div>
         <div class="upload-hint">またはクリックして選択</div>
         <div class="upload-name hidden" id="jpName"></div>
       </div>
       <div class="char-count hidden" id="jpCount"></div>
     </div>
     <div>
-      <label>英語PDF（翻訳文）</label>
+      <label id="tgtLabel">英語PDF（翻訳文）</label>
       <div class="upload-zone" id="enZone"
            ondragover="onDragOver(event,'enZone')" ondragleave="onDragLeave(event,'enZone')" ondrop="onDrop(event,'en')">
         <input type="file" accept=".pdf" id="enFile" onchange="onFileSelect(event,'en')">
-        <div class="upload-icon">🇬🇧</div>
-        <div class="upload-title">英語PDFをドロップ</div>
+        <div class="upload-icon" id="tgtIcon">🇬🇧</div>
+        <div class="upload-title" id="tgtTitle">英語PDFをドロップ</div>
         <div class="upload-hint">またはクリックして選択</div>
         <div class="upload-name hidden" id="enName"></div>
       </div>
@@ -472,18 +464,7 @@ function loadSettings() {
     if (VALID_MODELS[id] && !VALID_MODELS[id].includes(v)) return;
     document.getElementById(id).value = v;
   });
-  // CLOUD_PROXY_URL が設定されていれば常にそちらを優先（localStorageより上位）
-  if (CLOUD_PROXY_URL) {
-    document.getElementById('proxyUrl').value = CLOUD_PROXY_URL;
-    document.getElementById('useProxy').checked = true;
-    document.getElementById('proxyFieldWrap').classList.remove('hidden');
-    const hint = document.getElementById('proxyHint');
-    hint.innerHTML = `Cloudflare Worker プロキシを使用中: <code>${CLOUD_PROXY_URL}</code>`;
-  } else {
-    const useProxy = localStorage.getItem('tc_useProxy') === 'true';
-    document.getElementById('useProxy').checked = useProxy;
-    if (useProxy) document.getElementById('proxyFieldWrap').classList.remove('hidden');
-  }
+  // プロキシはCLOUD_PROXY_URLで直接管理するためUI操作不要
 }
 function saveSettings() {
   ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel','proxyUrl'].forEach(id => {
@@ -584,14 +565,12 @@ async function callGPT(system, user) {
 }
 
 async function callClaude(system, user) {
-  const key      = document.getElementById('anthropicKey').value.trim();
-  const model    = document.getElementById('anthropicModel').value;
-  const useProxy = document.getElementById('useProxy').checked;
-  const proxyUrl = (document.getElementById('proxyUrl').value || 'http://localhost:3001').replace(/\/$/, '');
+  const key   = document.getElementById('anthropicKey').value.trim();
+  const model = document.getElementById('anthropicModel').value;
   if (!key) throw new Error('Anthropic APIキーが未設定です');
 
-  const endpoint = useProxy
-    ? proxyUrl + '/v1/messages'
+  const endpoint = CLOUD_PROXY_URL
+    ? CLOUD_PROXY_URL.replace(/\/$/, '') + '/v1/messages'
     : 'https://api.anthropic.com/v1/messages';
 
   const headers = {
@@ -599,7 +578,7 @@ async function callClaude(system, user) {
     'x-api-key': key,
     'anthropic-version': '2023-06-01',
   };
-  if (!useProxy) headers['anthropic-dangerous-request-allow-browser'] = 'true';
+  if (!CLOUD_PROXY_URL) headers['anthropic-dangerous-request-allow-browser'] = 'true';
 
   let res;
   try {
@@ -609,18 +588,10 @@ async function callClaude(system, user) {
       body: JSON.stringify({ model, max_tokens: 4096, system, messages: [{ role: 'user', content: user }] })
     });
   } catch (networkErr) {
-    if (useProxy) {
-      throw new Error(
-        'プロキシ（' + proxyUrl + '）に接続できません。\n' +
-        'claude-proxy.py が起動しているか確認してください。\n' +
-        '起動方法: コマンドプロンプトで「python claude-proxy.py」を実行'
-      );
+    if (CLOUD_PROXY_URL) {
+      throw new Error('Cloudflare Worker プロキシへの接続に失敗しました。\nWorker が正しくデプロイされているか確認してください。\nURL: ' + CLOUD_PROXY_URL);
     }
-    throw new Error(
-      'Claude APIへの直接接続に失敗しました（CORS非対応）。\n' +
-      'Claude設定の「ローカルプロキシを使用」をオンにして、\n' +
-      'claude-proxy.py を起動してから再試行してください。'
-    );
+    throw new Error('Claude APIへの接続に失敗しました（ネットワークエラー）: ' + networkErr.message);
   }
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
@@ -659,61 +630,99 @@ async function callGemini(prompt) {
 // ─────────────────────────────────────────────
 // Prompt builders
 // ─────────────────────────────────────────────
-const SYS = `あなたは日英翻訳の専門チェッカーです。
-日本語原文と英語翻訳文を1文ずつ丁寧に照合し、翻訳ミス・改善点をすべて洗い出してください。
+// ─────────────────────────────────────────────
+// Direction helpers
+// ─────────────────────────────────────────────
+function getDir() {
+  return document.querySelector('input[name="direction"]:checked')?.value || 'jp-en';
+}
+
+function updateDirectionUI() {
+  const dir = getDir();
+  const isJpEn = dir === 'jp-en';
+  document.getElementById('srcLabel').textContent = isJpEn ? '日本語PDF（原文）'  : '英語PDF（原文）';
+  document.getElementById('tgtLabel').textContent = isJpEn ? '英語PDF（翻訳文）'  : '日本語PDF（翻訳文）';
+  document.getElementById('srcIcon').textContent  = isJpEn ? '🇯🇵' : '🇬🇧';
+  document.getElementById('tgtIcon').textContent  = isJpEn ? '🇬🇧' : '🇯🇵';
+  document.getElementById('srcTitle').textContent = isJpEn ? '日本語PDFをドロップ' : '英語PDFをドロップ';
+  document.getElementById('tgtTitle').textContent = isJpEn ? '英語PDFをドロップ'  : '日本語PDFをドロップ';
+}
+
+function getSys(dir) {
+  const isJpEn = dir === 'jp-en';
+  const src = isJpEn ? '日本語' : '英語';
+  const tgt = isJpEn ? '英語'   : '日本語';
+  return `あなたは${src}→${tgt}翻訳の専門チェッカーです。
+${src}原文と${tgt}翻訳文を1文ずつ丁寧に照合し、翻訳ミス・改善点をすべて洗い出してください。
 些細なミスも見逃さないよう、以下の観点を必ず確認してください：
 - 各文の意味が正確に伝わっているか
 - 固有名詞・専門用語が正しく訳されているか
 - 数字・日付・単位に誤りがないか
-- スペル・文法（冠詞・時制・単複数・語順）に誤りがないか
+- ${isJpEn ? 'スペル・文法（冠詞・時制・単複数・語順）' : '文法・表記（助詞・時制・敬語・送り仮名）'}に誤りがないか
 - 原文の文や語句が訳文から抜け落ちていないか
 - 同じ用語が文書全体で統一されているか
 - 文書の種類（契約書・技術文書等）にふさわしい文体か`;
+}
 
-const ERROR_TYPES = `【修正が必要】
+function getErrorTypes(dir) {
+  const isJpEn = dir === 'jp-en';
+  const spellLine = isJpEn
+    ? '③ スペルミス　　　… 英単語のスペルが誤っている'
+    : '③ 誤字・表記ミス　… 日本語の誤字・脱字・送り仮名・漢字の誤りがある';
+  const grammarLine = isJpEn
+    ? '④ 文法ミス　　　　… 時制・冠詞・単複数・語順等の英文法が誤っている'
+    : '④ 文法ミス　　　　… 助詞・時制・敬語・語順等の日本語文法が誤っている';
+  return `【修正が必要】
 ① 意味の誤訳　　　… 原文の意味が正しく伝わっていない
 ② 固有名詞ミス　　… 人名・地名・会社名・法令名等の翻訳が間違っている
-③ スペルミス　　　… 英単語のスペルが誤っている
-④ 文法ミス　　　　… 時制・冠詞・単複数・語順等の文法が誤っている
+${spellLine}
+${grammarLine}
 ⑤ 数字・単位ミス　… 数値・通貨・単位・日付等の翻訳が誤っている
 ⑥ 脱落・省略　　　… 原文の語句や文が翻訳から抜け落ちている
 ⑦ 用語の一貫性　　… 同じ原語が文書内で複数の訳語に揺れている
 【修正が望ましい】
 ⑧ 表現改善　　　　… 意味は通じるが、より自然・正確な表現がある
 ⑨ 文体・スタイル　… 文書の種類（契約書・論文・マニュアル等）に合った文体に改善できる`;
+}
 
-function buildP1(jp, en, nouns) {
-  return `日本語原文と英語翻訳文を照合して、翻訳ミスと改善点をすべて洗い出してください。
+function buildP1(src, tgt, nouns, dir) {
+  const isJpEn = dir === 'jp-en';
+  const srcLang = isJpEn ? '日本語' : '英語';
+  const tgtLang = isJpEn ? '英語'   : '日本語';
+  const ET = getErrorTypes(dir);
+  return `${srcLang}原文と${tgtLang}翻訳文を照合して、翻訳ミスと改善点をすべて洗い出してください。
 
 ## チェックの手順（必ず守ること）
-1. 日本語原文を1文ずつ読み、対応する英語翻訳文と照合する
-2. 各チェック項目（意味・固有名詞・スペル・文法・数字・脱落・用語統一・文体）を全文に対して確認する
+1. ${srcLang}原文を1文ずつ読み、対応する${tgtLang}翻訳文と照合する
+2. 各チェック項目（意味・固有名詞・${isJpEn ? 'スペル' : '誤字'}・文法・数字・脱落・用語統一・文体）を全文に対して確認する
 3. 軽微なミスも含めてすべて報告する（「問題なし」の判断は慎重に行う）
 4. 指摘が1件もない場合は「翻訳ミスは見つかりませんでした」と明示する
 
 ## 出力形式
-以下の表形式で出力してください。
-
 ページ数 | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 備考
 
 ## 誤りの種類（①〜⑨から最も当てはまるものを選択）
-${ERROR_TYPES}
+${ET}
 
 ## 固有名詞の翻訳方法
 ${nouns.trim() || '（特に指定なし）'}
 
 ---
-## 日本語原文
+## ${srcLang}原文
 
-${jp}
+${src}
 
 ---
-## 英語翻訳文
+## ${tgtLang}翻訳文
 
-${en}`;
+${tgt}`;
 }
 
-function buildP2(jp, en, nouns, myResult, others) {
+function buildP2(src, tgt, nouns, myResult, others, dir) {
+  const isJpEn = dir === 'jp-en';
+  const srcLang = isJpEn ? '日本語' : '英語';
+  const tgtLang = isJpEn ? '英語'   : '日本語';
+  const ET = getErrorTypes(dir);
   const othersText = Object.entries(others)
     .map(([name, r]) => `### ${name} の指摘内容\n${r}`)
     .join('\n\n');
@@ -739,20 +748,21 @@ ${nouns.trim() || '（特に指定なし）'}
 5. あなたが最初に見落としていた箇所も積極的に洗い直すこと
 
 誤りの種類は以下の①〜⑨から選んでください：
-${ERROR_TYPES}
+${ET}
 
 ページ数 | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 備考
 
 ---
-## 参考：日本語原文
-${jp.substring(0, 10000)}${jp.length > 10000 ? '\n（以下省略）' : ''}
+## 参考：${srcLang}原文
+${src.substring(0, 10000)}${src.length > 10000 ? '\n（以下省略）' : ''}
 
 ---
-## 参考：英語翻訳文
-${en.substring(0, 10000)}${en.length > 10000 ? '\n（以下省略）' : ''}`;
+## 参考：${tgtLang}翻訳文
+${tgt.substring(0, 10000)}${tgt.length > 10000 ? '\n（以下省略）' : ''}`;
 }
 
-function buildP3(p1, p2) {
+function buildP3(p1, p2, dir) {
+  const ET = getErrorTypes(dir);
   const parts = [];
   const names = { gpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini' };
   Object.keys(names).forEach(k => {
@@ -783,7 +793,7 @@ ${parts.join('\n\n---\n\n')}
 ページ数 | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 指摘AI数 | 備考
 
 誤りの種類は以下の①〜⑨から選んでください：
-${ERROR_TYPES}
+${ET}
 
 - 「指摘AI数」には同じ箇所を指摘したAIの数（1〜3）を記入
 - 複数AIが指摘した箇所は備考欄に「【重要】」と記載
@@ -905,6 +915,7 @@ async function startChecking() {
   const claudeKey = document.getElementById('anthropicKey').value.trim();
   const geminiKey = document.getElementById('geminiKey').value.trim();
   const nouns     = document.getElementById('properNouns').value;
+  const dir       = getDir();
 
   const ais = [];
   if (gptKey)    ais.push('gpt');
@@ -937,15 +948,16 @@ async function startChecking() {
     return;
   }
 
-  const p1Prompt = buildP1(S.jpText, S.enText, nouns);
+  const sys      = getSys(dir);
+  const p1Prompt = buildP1(S.jpText, S.enText, nouns, dir);
 
   // ── Phase 1 ───────────────────────────────
   ais.forEach(ai => { setProgress('p1-' + ai, 'running', 'チェック中...'); setLoading('p1-' + ai); });
 
   const p1Calls = {};
-  if (gptKey)    p1Calls.gpt    = callGPT(SYS, p1Prompt);
-  if (claudeKey) p1Calls.claude = callClaude(SYS, p1Prompt);
-  if (geminiKey) p1Calls.gemini = callGemini(SYS + '\n\n' + p1Prompt);
+  if (gptKey)    p1Calls.gpt    = callGPT(sys, p1Prompt);
+  if (claudeKey) p1Calls.claude = callClaude(sys, p1Prompt);
+  if (geminiKey) p1Calls.gemini = callGemini(sys + '\n\n' + p1Prompt);
 
   const p1Names = { gpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini' };
   await Promise.allSettled(
@@ -980,7 +992,7 @@ async function startChecking() {
       if (Object.keys(others).length > 0) {
         setProgress('p2-gpt', 'running', '相互検証中...');
         setLoading('p2-gpt');
-        p2Tasks.push(callGPT(SYS, buildP2(S.jpText, S.enText, nouns, S.p1.gpt, others))
+        p2Tasks.push(callGPT(sys, buildP2(S.jpText, S.enText, nouns, S.p1.gpt, others, dir))
           .then(r => { S.p2.gpt = r; setProgress('p2-gpt','done','完了'); setContent('p2-gpt', r); })
           .catch(err => { setProgress('p2-gpt','err','エラー'); setContent('p2-gpt', err.message, true); }));
       } else setProgress('p2-gpt','skip','スキップ（他のAI結果なし）');
@@ -993,7 +1005,7 @@ async function startChecking() {
       if (Object.keys(others).length > 0) {
         setProgress('p2-claude', 'running', '相互検証中...');
         setLoading('p2-claude');
-        p2Tasks.push(callClaude(SYS, buildP2(S.jpText, S.enText, nouns, S.p1.claude, others))
+        p2Tasks.push(callClaude(sys, buildP2(S.jpText, S.enText, nouns, S.p1.claude, others, dir))
           .then(r => { S.p2.claude = r; setProgress('p2-claude','done','完了'); setContent('p2-claude', r); })
           .catch(err => { setProgress('p2-claude','err','エラー'); setContent('p2-claude', err.message, true); }));
       } else setProgress('p2-claude','skip','スキップ（他のAI結果なし）');
@@ -1006,7 +1018,7 @@ async function startChecking() {
       if (Object.keys(others).length > 0) {
         setProgress('p2-gemini', 'running', '相互検証中...');
         setLoading('p2-gemini');
-        p2Tasks.push(callGemini(SYS + '\n\n' + buildP2(S.jpText, S.enText, nouns, S.p1.gemini, others))
+        p2Tasks.push(callGemini(sys + '\n\n' + buildP2(S.jpText, S.enText, nouns, S.p1.gemini, others, dir))
           .then(r => { S.p2.gemini = r; setProgress('p2-gemini','done','完了'); setContent('p2-gemini', r); })
           .catch(err => { setProgress('p2-gemini','err','エラー'); setContent('p2-gemini', err.message, true); }));
       } else setProgress('p2-gemini','skip','スキップ（他のAI結果なし）');
@@ -1022,7 +1034,7 @@ async function startChecking() {
   setLoading('p3-result');
 
   try {
-    const p3Prompt = buildP3(S.p1, S.p2);
+    const p3Prompt = buildP3(S.p1, S.p2, dir);
     let r;
     if (gptKey)         r = await callGPT(SYS, p3Prompt);
     else if (claudeKey) r = await callClaude(SYS, p3Prompt);
