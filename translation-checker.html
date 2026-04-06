@@ -461,14 +461,11 @@ function loadSettings() {
     const v = localStorage.getItem('tc_' + id);
     if (v) document.getElementById(id).value = v;
   });
-  // CLOUD_PROXY_URL が設定されていればデフォルトで自動適用
+  // CLOUD_PROXY_URL が設定されていれば常にそちらを優先（localStorageより上位）
   if (CLOUD_PROXY_URL) {
-    if (!document.getElementById('proxyUrl').value) {
-      document.getElementById('proxyUrl').value = CLOUD_PROXY_URL;
-    }
+    document.getElementById('proxyUrl').value = CLOUD_PROXY_URL;
     document.getElementById('useProxy').checked = true;
     document.getElementById('proxyFieldWrap').classList.remove('hidden');
-    // ローカルプロキシのヒントを非表示にしてクラウド用に変更
     const hint = document.getElementById('proxyHint');
     hint.innerHTML = `Cloudflare Worker プロキシを使用中: <code>${CLOUD_PROXY_URL}</code>`;
   } else {
