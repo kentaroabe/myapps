@@ -247,10 +247,10 @@ table.md-tbl tr:hover td { background: #f8fafc; }
         </div>
         <label>モデル</label>
         <select id="openaiModel" onchange="saveSettings()">
-          <option value="gpt-4o" selected>gpt-4o</option>
-          <option value="gpt-4o-mini">gpt-4o-mini</option>
-          <option value="gpt-4-turbo">gpt-4-turbo</option>
-          <option value="o3-mini">o3-mini</option>
+          <option value="gpt-5.4" selected>gpt-5.4（最新・推奨）</option>
+          <option value="gpt-5.4-mini">gpt-5.4-mini（軽量）</option>
+          <option value="gpt-5.4-nano">gpt-5.4-nano（高速・低コスト）</option>
+          <option value="gpt-4o">gpt-4o（旧）</option>
         </select>
       </div>
 
@@ -459,7 +459,7 @@ const S = {
 // ─────────────────────────────────────────────
 // モデルの有効な選択肢（廃止モデルが保存されていた場合にデフォルトへ戻す）
 const VALID_MODELS = {
-  openaiModel:    ['gpt-4o','gpt-4o-mini','gpt-4-turbo','o3-mini'],
+  openaiModel:    ['gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4o'],
   anthropicModel: ['claude-sonnet-4-6','claude-opus-4','claude-haiku-4-5','claude-3-5-sonnet-20241022'],
   geminiModel:    ['gemini-2.5-flash','gemini-2.5-pro','gemini-2.5-flash-lite','gemini-1.5-pro'],
 };
