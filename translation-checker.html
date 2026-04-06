@@ -263,9 +263,9 @@ table.md-tbl tr:hover td { background: #f8fafc; }
         </div>
         <label>モデル</label>
         <select id="anthropicModel" onchange="saveSettings()">
-          <option value="claude-3-5-sonnet-20241022" selected>claude-3-5-sonnet-20241022</option>
-          <option value="claude-3-7-sonnet-20250219">claude-3-7-sonnet-20250219</option>
-          <option value="claude-3-5-haiku-20241022">claude-3-5-haiku-20241022</option>
+          <option value="claude-3-7-sonnet-20250219" selected>claude-3-7-sonnet-20250219（推奨）</option>
+          <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022</option>
+          <option value="claude-3-5-haiku-20241022">claude-3-5-haiku-20241022（軽量）</option>
         </select>
         <!-- Proxy toggle -->
         <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
@@ -293,10 +293,10 @@ table.md-tbl tr:hover td { background: #f8fafc; }
         </div>
         <label>モデル</label>
         <select id="geminiModel" onchange="saveSettings()">
-          <option value="gemini-2.0-flash" selected>gemini-2.0-flash</option>
+          <option value="gemini-2.5-pro-preview-03-25" selected>gemini-2.5-pro-preview（推奨）</option>
+          <option value="gemini-2.0-flash-001">gemini-2.0-flash-001</option>
           <option value="gemini-1.5-pro">gemini-1.5-pro</option>
           <option value="gemini-1.5-flash">gemini-1.5-flash</option>
-          <option value="gemini-2.0-flash-thinking-exp">gemini-2.0-flash-thinking-exp</option>
         </select>
       </div>
 
@@ -456,10 +456,20 @@ const S = {
 // ─────────────────────────────────────────────
 // Settings persistence
 // ─────────────────────────────────────────────
+// モデルの有効な選択肢（廃止モデルが保存されていた場合にデフォルトへ戻す）
+const VALID_MODELS = {
+  openaiModel:    ['gpt-4o','gpt-4o-mini','gpt-4-turbo','o3-mini'],
+  anthropicModel: ['claude-3-7-sonnet-20250219','claude-3-5-sonnet-20241022','claude-3-5-haiku-20241022'],
+  geminiModel:    ['gemini-2.5-pro-preview-03-25','gemini-2.0-flash-001','gemini-1.5-pro','gemini-1.5-flash'],
+};
+
 function loadSettings() {
   ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel','proxyUrl'].forEach(id => {
     const v = localStorage.getItem('tc_' + id);
-    if (v) document.getElementById(id).value = v;
+    if (!v) return;
+    // モデル選択肢が廃止されていたらデフォルト（先頭）を使う
+    if (VALID_MODELS[id] && !VALID_MODELS[id].includes(v)) return;
+    document.getElementById(id).value = v;
   });
   // CLOUD_PROXY_URL が設定されていれば常にそちらを優先（localStorageより上位）
   if (CLOUD_PROXY_URL) {
