@@ -263,9 +263,10 @@ table.md-tbl tr:hover td { background: #f8fafc; }
         </div>
         <label>モデル</label>
         <select id="anthropicModel" onchange="saveSettings()">
-          <option value="claude-3-7-sonnet-20250219" selected>claude-3-7-sonnet-20250219（推奨）</option>
-          <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022</option>
-          <option value="claude-3-5-haiku-20241022">claude-3-5-haiku-20241022（軽量）</option>
+          <option value="claude-sonnet-4-6" selected>claude-sonnet-4-6（推奨）</option>
+          <option value="claude-opus-4">claude-opus-4（高精度）</option>
+          <option value="claude-haiku-4-5">claude-haiku-4-5（軽量・高速）</option>
+          <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet-20241022（旧）</option>
         </select>
         <!-- Proxy toggle -->
         <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
@@ -293,10 +294,10 @@ table.md-tbl tr:hover td { background: #f8fafc; }
         </div>
         <label>モデル</label>
         <select id="geminiModel" onchange="saveSettings()">
-          <option value="gemini-2.5-pro-preview-03-25" selected>gemini-2.5-pro-preview（推奨）</option>
-          <option value="gemini-2.0-flash-001">gemini-2.0-flash-001</option>
-          <option value="gemini-1.5-pro">gemini-1.5-pro</option>
-          <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+          <option value="gemini-2.5-flash" selected>gemini-2.5-flash（推奨）</option>
+          <option value="gemini-2.5-pro">gemini-2.5-pro（高精度）</option>
+          <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite（軽量）</option>
+          <option value="gemini-1.5-pro">gemini-1.5-pro（旧）</option>
         </select>
       </div>
 
@@ -459,8 +460,8 @@ const S = {
 // モデルの有効な選択肢（廃止モデルが保存されていた場合にデフォルトへ戻す）
 const VALID_MODELS = {
   openaiModel:    ['gpt-4o','gpt-4o-mini','gpt-4-turbo','o3-mini'],
-  anthropicModel: ['claude-3-7-sonnet-20250219','claude-3-5-sonnet-20241022','claude-3-5-haiku-20241022'],
-  geminiModel:    ['gemini-2.5-pro-preview-03-25','gemini-2.0-flash-001','gemini-1.5-pro','gemini-1.5-flash'],
+  anthropicModel: ['claude-sonnet-4-6','claude-opus-4','claude-haiku-4-5','claude-3-5-sonnet-20241022'],
+  geminiModel:    ['gemini-2.5-flash','gemini-2.5-pro','gemini-2.5-flash-lite','gemini-1.5-pro'],
 };
 
 function loadSettings() {
