@@ -213,7 +213,8 @@ table.md-tbl tr:hover td { background: #f8fafc; }
     </div>
     <div class="config-group">
       <div class="config-label">文書の種類</div>
-      <select id="docType" style="width:auto;min-width:180px;">
+      <select id="docType" style="width:auto;min-width:200px;">
+        <option value="certificate">📋 証明書・公文書（戸籍・登記・成績）</option>
         <option value="legal">法律・契約書</option>
         <option value="technical">技術文書・マニュアル</option>
         <option value="academic">学術論文・研究報告</option>
@@ -449,7 +450,7 @@ function getSrcLang() { return getDir() === 'jp-en' ? '日本語' : '英語'; }
 function getTgtLang() { return getDir() === 'jp-en' ? '英語'   : '日本語'; }
 function getDocType() { return document.getElementById('docType').value; }
 function getDocTypeLabel() {
-  const m = { legal:'法律・契約書', technical:'技術文書・マニュアル', academic:'学術論文・研究報告', business:'ビジネス文書', general:'一般文書' };
+  const m = { certificate:'証明書・公文書', legal:'法律・契約書', technical:'技術文書・マニュアル', academic:'学術論文・研究報告', business:'ビジネス文書', general:'一般文書' };
   return m[getDocType()] || '一般文書';
 }
 function updateDirectionUI() {
@@ -638,7 +639,29 @@ function sysPrep() {
 抽出するデータ：
 1. 用語対応表（専門用語・固有名詞・繰り返し語句のすべて）
 2. 数値レジストリ（数字・日付・金額・パーセント・電話番号等のすべて）
-3. 文書構造サマリー`;
+3. 文書構造サマリー
+4.【証明書・公文書の場合のみ】和暦→西暦変換レジストリ`;
+}
+
+function getCertificatePrepSection() {
+  if (getDocType() !== 'certificate') return '';
+  return `
+## タスク4: 和暦→西暦変換レジストリ（証明書・公文書専用）
+
+文書中に出現するすべての和暦日付を抽出し、正しい西暦に変換して翻訳文と照合してください。
+
+| # | ページ | 原文（和暦） | 正しい西暦 | 翻訳文の表記 | 一致 |
+|---|--------|------------|-----------|------------|------|
+
+変換公式：
+- 令和X年 = (2018+X)年
+- 平成X年 = (1988+X)年
+- 昭和X年 = (1925+X)年
+- 大正X年 = (1911+X)年
+- 明治X年 = (1867+X)年
+
+※ 1件でも計算ミスがあれば「✗」と記載し、正しい西暦を明記すること。
+`;
 }
 
 function promptPrep(src, tgt, nouns) {
@@ -646,7 +669,7 @@ function promptPrep(src, tgt, nouns) {
 固有名詞の翻訳方法：
 ${nouns.trim() || '（特に指定なし）'}
 
-以下の原文と翻訳文を分析し、3つのデータセットを抽出してください。
+以下の原文と翻訳文を分析し、${getDocType() === 'certificate' ? '4' : '3'}つのデータセットを抽出してください。
 
 ## タスク1: 用語対応表
 
@@ -677,7 +700,7 @@ ${nouns.trim() || '（特に指定なし）'}
 - 表・図・脚注・注釈の数
 - 原文にあって翻訳にないセクション（があれば具体的に）
 - その他の構造的な差異
-
+${getCertificatePrepSection()}
 ---
 ## ${getSrcLang()}原文
 
@@ -693,6 +716,23 @@ ${tgt}`;
 
 function getDocSpecificSemantic() {
   const dt = getDocType();
+  if (dt === 'certificate') return `
+【証明書・公文書の重点チェック】
+- 和暦→西暦変換の正確性：
+  令和（2019〜）: 令和X年 = 2018+X年
+  平成（1989〜2019）: 平成X年 = 1988+X年
+  昭和（1926〜1989）: 昭和X年 = 1925+X年
+  大正（1912〜1926）: 大正X年 = 1911+X年
+  明治（1868〜1912）: 明治X年 = 1867+X年
+- 月日の順序：日本語は「年月日」→ 英語は「Month Day, Year」または「Day Month Year」
+- 続柄の正確な訳語：
+  長男/次男/三男 → First Son/Second Son/Third Son
+  長女/次女/三女 → First Daughter/Second Daughter/Third Daughter
+  養父/養母 → Adoptive Father/Adoptive Mother
+  義父/義母 → Father-in-law/Mother-in-law
+  異父兄弟/異母兄弟 → Half-brother（paternal/maternal）
+- 法的地位の変化を正確に反映（入籍/離婚/死亡等の事由の訳語）
+- 「認知」「届出」「除籍」等の戸籍用語が公式訳語と一致しているか`;
   if (dt === 'legal') return `
 【法律文書の重点チェック】
 - 義務の程度:「しなければならない」→ shall/must、「することができる」→ may/can の精度
@@ -761,6 +801,26 @@ ${getDocSpecificSemantic()}
 
 function getDocSpecificTechnical() {
   const dt = getDocType();
+  if (dt === 'certificate') return `
+【証明書・公文書の追加技術チェック】
+- 和暦→西暦の数値計算が正確か（1件ずつ計算して確認すること）
+- 氏名のローマ字表記：
+  - ヘボン式ローマ字の規則（し=shi, ち=chi, つ=tsu, じ=ji, ふ=fu 等）
+  - 長音（ō/ū等）の処理が一貫しているか
+  - 姓（Family Name）と名（Given Name）の順序が指定通りか
+- 住所の番地・地番表記（丁目・番・号の英語表記順序）
+- 学籍番号・証明書番号等の数字が1桁も変わっていないか
+- 成績表固有チェック：
+  - 優/良/可/不可 → A(Excellent)/B(Good)/C(Pass)/F(Fail) または数値換算
+  - 単位数（Credits）の数値が正確か
+  - GPA計算値がある場合、正確か（4.0換算等）
+  - 卒業/修了/中退の区別が正確か（Graduated/Completed/Withdrew）
+- 登記簿固有チェック：
+  - 地番・家屋番号が1字も変わっていないか
+  - 地目（田/畑/宅地等）の訳語（Paddy Field/Upland Field/Residential Land等）
+  - 面積単位（㎡/坪）の換算・表記
+  - 持分（○分の○）の分数表記が正確か
+- 公証・認証に関する定型文（Certified True Copy / I hereby certify that...等）の正確性`;
   if (dt === 'legal') return `
 【法律文書の追加パターン】
 - 法律用語: 甲/乙、契約当事者名の正確性
@@ -870,6 +930,13 @@ function sysCompleteness() {
 14. 箇条書きの順序が変わっている
 15. 番号付け（条文番号、項目番号等）が変わっている
 16. 表の行列構造が変わっている
+
+### 証明書・公文書固有パターン（文書種類が「証明書・公文書」の場合のみ確認）
+17. 氏名欄の人物が全員翻訳されているか（1名でも欠落がないか）
+18. 続柄欄が全行翻訳されているか
+19. 認証文・奥書き・公証欄が翻訳に含まれているか
+20. 原本の「注記」「欄外注記」が翻訳に反映されているか
+21. 印鑑・割印欄の説明（Seal/Official Seal等）が適切に処理されているか
 
 ## 検証手順（厳守）
 
