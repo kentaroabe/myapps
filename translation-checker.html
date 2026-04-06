@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>翻訳チェッカー - AI三者検証システム</title>
+<style>
+:root {
+  --primary: #4f46e5;
+  --primary-dark: #3730a3;
+  --success: #10b981;
+  --error: #ef4444;
+  --warn: #f59e0b;
+  --bg: #f1f5f9;
+  --card: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --muted: #64748b;
+  --gpt: #10a37f;
+  --claude: #c07a3e;
+  --gemini: #4285f4;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 20px 16px 40px;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+
+/* ── Header ── */
+.header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.header h1 { font-size: 26px; font-weight: 800; color: var(--primary); margin-bottom: 6px; }
+.header p  { color: var(--muted); font-size: 14px; }
+.ai-badges { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+.ai-badge {
+  padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+}
+.ai-badge.gpt    { background: #d1fae5; color: var(--gpt); }
+.ai-badge.claude { background: #fef3c7; color: var(--claude); }
+.ai-badge.gemini { background: #dbeafe; color: var(--gemini); }
+
+/* ── Card ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+.card-header {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 15px; font-weight: 700; margin-bottom: 18px;
+}
+.card-header .icon { font-size: 18px; }
+.card-header .toggle { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 18px; line-height: 1; padding: 2px 6px; }
+
+/* ── Form ── */
+label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .04em; }
+label:first-child { margin-top: 0; }
+input[type=text], input[type=password], select, textarea {
+  width: 100%; padding: 8px 11px; border: 1px solid var(--border);
+  border-radius: 7px; font-size: 13.5px; color: var(--text); background: #f8fafc;
+  transition: border-color .15s, box-shadow .15s;
+}
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+}
+textarea { min-height: 90px; resize: vertical; font-family: inherit; line-height: 1.55; }
+.pw-wrap { position: relative; }
+.pw-wrap input { padding-right: 36px; }
+.pw-eye {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: var(--muted); font-size: 15px; padding: 3px;
+}
+
+/* ── API Grid ── */
+.api-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.api-card {
+  border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+}
+.api-card-head {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 700; font-size: 13px; margin-bottom: 2px;
+}
+.dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.dot.gpt { background: var(--gpt); }
+.dot.claude { background: var(--claude); }
+.dot.gemini { background: var(--gemini); }
+
+/* ── PDF Upload ── */
+.pdf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+@media (max-width: 540px) { .pdf-row { grid-template-columns: 1fr; } }
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 10px; padding: 20px 16px;
+  text-align: center; cursor: pointer; position: relative; transition: all .2s;
+  min-height: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--primary); background: rgba(79,70,229,.03); }
+.upload-zone.filled { border-color: var(--success); background: rgba(16,185,129,.04); border-style: solid; }
+.upload-zone input {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  width: 100%; height: 100%; padding: 0; border: none; background: none;
+}
+.upload-icon { font-size: 28px; margin-bottom: 6px; }
+.upload-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.upload-hint  { font-size: 11px; color: var(--muted); }
+.upload-name  { font-size: 12px; color: var(--success); font-weight: 600; margin-top: 6px; word-break: break-all; }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 22px; border-radius: 8px; font-size: 14px; font-weight: 700;
+  cursor: pointer; border: none; transition: all .18s;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(79,70,229,.3); }
+.btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-secondary { background: #f1f5f9; color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+
+/* ── Progress ── */
+.phase-label { font-size: 13px; font-weight: 700; color: var(--muted); margin: 14px 0 8px; }
+.phase-label:first-child { margin-top: 0; }
+.prog-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.prog-item {
+  border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.prog-icon {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.prog-icon.idle    { background: #f1f5f9; }
+.prog-icon.running { background: #dbeafe; }
+.prog-icon.done    { background: #d1fae5; }
+.prog-icon.err     { background: #fee2e2; }
+.prog-icon.skip    { background: #f8fafc; }
+.prog-name  { font-size: 13px; font-weight: 600; }
+.prog-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin-anim { display: inline-block; animation: spin .8s linear infinite; }
+
+/* ── Tabs ── */
+.tab-bar {
+  display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto;
+}
+.tab-btn {
+  padding: 7px 16px; border: none; background: none; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -2px;
+  white-space: nowrap; transition: all .15s;
+}
+.tab-btn:hover { color: var(--primary); }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+.ai-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.ai-btn {
+  padding: 5px 14px; border-radius: 20px; border: 2px solid var(--border);
+  background: none; cursor: pointer; font-size: 12px; font-weight: 700; transition: all .15s;
+}
+.ai-btn.gpt    { color: var(--gpt); }
+.ai-btn.claude { color: var(--claude); }
+.ai-btn.gemini { color: var(--gemini); }
+.ai-btn.gpt.on    { background: var(--gpt);    color: #fff; border-color: var(--gpt); }
+.ai-btn.claude.on { background: var(--claude); color: #fff; border-color: var(--claude); }
+.ai-btn.gemini.on { background: var(--gemini); color: #fff; border-color: var(--gemini); }
+
+/* ── Result Box ── */
+.result-box {
+  background: #f8fafc; border: 1px solid var(--border); border-radius: 9px;
+  padding: 16px; min-height: 80px; font-size: 13px; line-height: 1.65; overflow-x: auto;
+}
+.result-box.empty { color: var(--muted); font-style: italic; }
+.loading-row {
+  display: flex; align-items: center; gap: 10px; color: var(--muted);
+  font-size: 13px; padding: 12px 0;
+}
+.spinner {
+  width: 18px; height: 18px; border: 2px solid var(--border);
+  border-top-color: var(--primary); border-radius: 50%;
+  animation: spin .7s linear infinite; flex-shrink: 0;
+}
+.err-box { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 7px; padding: 10px 14px; color: #b91c1c; font-size: 13px; }
+
+/* ── Table ── */
+.tbl-wrap { overflow-x: auto; margin: 8px 0; }
+table.md-tbl { border-collapse: collapse; width: 100%; font-size: 12px; }
+table.md-tbl th { background: #f1f5f9; padding: 7px 10px; border: 1px solid var(--border); font-weight: 700; text-align: left; white-space: nowrap; }
+table.md-tbl td { padding: 6px 10px; border: 1px solid var(--border); vertical-align: top; }
+table.md-tbl tr:hover td { background: #f8fafc; }
+
+/* ── Misc ── */
+.hidden { display: none !important; }
+.info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 7px; padding: 10px 14px; color: #1d4ed8; font-size: 12.5px; margin-top: 12px; line-height: 1.6; }
+.char-count { font-size: 11px; color: var(--muted); margin-top: 3px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- file:// CORS warning (shown dynamically) -->
+<div id="corsWarning" class="hidden" style="
+  background:#fef3c7; border:1px solid #fbbf24; border-radius:10px;
+  padding:12px 18px; margin-bottom:16px; font-size:13px; line-height:1.7; color:#92400e;">
+  ⚠️ <strong>このファイルは file:// で直接開かれています</strong>　ChatGPT・Gemini はこのまま動作します。<br>
+  Claude を使うには「ローカルプロキシを使用」をオンにし、<code>claude-proxy.py</code> を起動してください。
+</div>
+
+<!-- Header -->
+<div class="header">
+  <h1>翻訳チェッカー</h1>
+  <p>日英PDF翻訳を3つのAIが多角的に検証・相互確認し、最終レポートを生成します</p>
+  <div class="ai-badges">
+    <span class="ai-badge gpt">ChatGPT</span>
+    <span class="ai-badge claude">Claude</span>
+    <span class="ai-badge gemini">Gemini</span>
+  </div>
+</div>
+
+<!-- API Settings -->
+<div class="card">
+  <div class="card-header">
+    <span class="icon">⚙️</span> API設定
+    <button class="toggle" id="settingsToggle" onclick="toggleSettings()">▲</button>
+  </div>
+  <div id="settingsBody">
+    <div class="api-grid">
+
+      <div class="api-card">
+        <div class="api-card-head"><span class="dot gpt"></span>ChatGPT (OpenAI)</div>
+        <label>APIキー</label>
+        <div class="pw-wrap">
+          <input type="password" id="openaiKey" placeholder="sk-..." oninput="saveSettings(); checkStart()">
+          <button class="pw-eye" onclick="togglePw('openaiKey',this)">👁</button>
+        </div>
+        <label>モデル</label>
+        <select id="openaiModel" onchange="saveSettings()">
+          <option value="gpt-4o" selected>gpt-4o</option>
+          <option value="gpt-4o-mini">gpt-4o-mini</option>
+          <option value="gpt-4-turbo">gpt-4-turbo</option>
+          <option value="o3-mini">o3-mini</option>
+        </select>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-head"><span class="dot claude"></span>Claude (Anthropic)</div>
+        <label>APIキー</label>
+        <div class="pw-wrap">
+          <input type="password" id="anthropicKey" placeholder="sk-ant-..." oninput="saveSettings(); checkStart()">
+          <button class="pw-eye" onclick="togglePw('anthropicKey',this)">👁</button>
+        </div>
+        <label>モデル</label>
+        <select id="anthropicModel" onchange="saveSettings()">
+          <option value="claude-3-5-sonnet-20241022" selected>claude-3-5-sonnet-20241022</option>
+          <option value="claude-3-7-sonnet-20250219">claude-3-7-sonnet-20250219</option>
+          <option value="claude-3-5-haiku-20241022">claude-3-5-haiku-20241022</option>
+        </select>
+        <!-- Proxy toggle -->
+        <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);">
+            <input type="checkbox" id="useProxy" onchange="toggleProxyField(); saveSettings();" style="width:auto;accent-color:var(--claude);">
+            プロキシを使用（CORS回避）
+          </label>
+          <div id="proxyFieldWrap" class="hidden" style="margin-top:8px;">
+            <label>プロキシURL</label>
+            <input type="text" id="proxyUrl" value="http://localhost:3001" oninput="saveSettings()" placeholder="https://claude-proxy.xxx.workers.dev または http://localhost:3001">
+            <div id="proxyHint" style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.6;">
+              <strong>Cloudflare Worker（推奨）</strong>: worker.js をデプロイしてそのURLを入力<br>
+              <strong>ローカル</strong>: <code>python claude-proxy.py</code> を起動して <code>http://localhost:3001</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-head"><span class="dot gemini"></span>Gemini (Google)</div>
+        <label>APIキー</label>
+        <div class="pw-wrap">
+          <input type="password" id="geminiKey" placeholder="AIza..." oninput="saveSettings(); checkStart()">
+          <button class="pw-eye" onclick="togglePw('geminiKey',this)">👁</button>
+        </div>
+        <label>モデル</label>
+        <select id="geminiModel" onchange="saveSettings()">
+          <option value="gemini-2.0-flash" selected>gemini-2.0-flash</option>
+          <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+          <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+          <option value="gemini-2.0-flash-thinking-exp">gemini-2.0-flash-thinking-exp</option>
+        </select>
+      </div>
+
+    </div>
+    <div class="info-box">
+      ※ APIキーはブラウザのlocalStorageに保存されます（このページ内のみ）。<br>
+      ※ <strong>ChatGPT・Gemini</strong> はブラウザから直接呼び出せます。<br>
+      ※ <strong>Claude</strong> はAnthropicのCORSポリシーにより直接呼び出しが失敗する場合があります。<br>
+      　→ 同梱の <code>claude-proxy.py</code> を起動し「ローカルプロキシを使用」をオンにしてください。<br>
+      ※ 少なくとも1つのAPIキーがあれば動作しますが、3つすべて設定すると相互検証が行えます。
+    </div>
+  </div>
+</div>
+
+<!-- Upload & Config -->
+<div class="card">
+  <div class="card-header"><span class="icon">📄</span> PDFアップロード・設定</div>
+
+  <div class="pdf-row">
+    <div>
+      <label>日本語PDF（原文）</label>
+      <div class="upload-zone" id="jpZone"
+           ondragover="onDragOver(event,'jpZone')" ondragleave="onDragLeave(event,'jpZone')" ondrop="onDrop(event,'jp')">
+        <input type="file" accept=".pdf" id="jpFile" onchange="onFileSelect(event,'jp')">
+        <div class="upload-icon">🇯🇵</div>
+        <div class="upload-title">日本語PDFをドロップ</div>
+        <div class="upload-hint">またはクリックして選択</div>
+        <div class="upload-name hidden" id="jpName"></div>
+      </div>
+      <div class="char-count hidden" id="jpCount"></div>
+    </div>
+    <div>
+      <label>英語PDF（翻訳文）</label>
+      <div class="upload-zone" id="enZone"
+           ondragover="onDragOver(event,'enZone')" ondragleave="onDragLeave(event,'enZone')" ondrop="onDrop(event,'en')">
+        <input type="file" accept=".pdf" id="enFile" onchange="onFileSelect(event,'en')">
+        <div class="upload-icon">🇬🇧</div>
+        <div class="upload-title">英語PDFをドロップ</div>
+        <div class="upload-hint">またはクリックして選択</div>
+        <div class="upload-name hidden" id="enName"></div>
+      </div>
+      <div class="char-count hidden" id="enCount"></div>
+    </div>
+  </div>
+
+  <label>固有名詞の翻訳方法（毎回変わる部分）</label>
+  <textarea id="properNouns" placeholder="例：
+・「山田商事株式会社」→「Yamada Shoji Co., Ltd.」
+・「甲」は契約者A（Contractor A）、「乙」は契約者B（Contractor B）と翻訳する
+・条項番号は「第X条」→「Article X」と翻訳する"></textarea>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="startBtn" onclick="startChecking()" disabled>
+      ▶ 翻訳チェック開始
+    </button>
+    <button class="btn btn-secondary" onclick="resetAll()">↺ リセット</button>
+  </div>
+</div>
+
+<!-- Progress -->
+<div class="card hidden" id="progressCard">
+  <div class="card-header"><span class="icon">⏳</span> 処理状況</div>
+
+  <div class="phase-label">Phase 1 ── 3つのAIが同時に翻訳チェック</div>
+  <div class="prog-grid">
+    <div class="prog-item"><div class="prog-icon idle" id="s-p1-gpt">⏸</div><div><div class="prog-name">ChatGPT</div><div class="prog-sub" id="d-p1-gpt">待機中</div></div></div>
+    <div class="prog-item"><div class="prog-icon idle" id="s-p1-claude">⏸</div><div><div class="prog-name">Claude</div><div class="prog-sub" id="d-p1-claude">待機中</div></div></div>
+    <div class="prog-item"><div class="prog-icon idle" id="s-p1-gemini">⏸</div><div><div class="prog-name">Gemini</div><div class="prog-sub" id="d-p1-gemini">待機中</div></div></div>
+  </div>
+
+  <div class="phase-label" style="margin-top:16px;">Phase 2 ── 他のAIの指摘を参考に相互検証</div>
+  <div class="prog-grid">
+    <div class="prog-item"><div class="prog-icon idle" id="s-p2-gpt">⏸</div><div><div class="prog-name">ChatGPT（再確認）</div><div class="prog-sub" id="d-p2-gpt">待機中</div></div></div>
+    <div class="prog-item"><div class="prog-icon idle" id="s-p2-claude">⏸</div><div><div class="prog-name">Claude（再確認）</div><div class="prog-sub" id="d-p2-claude">待機中</div></div></div>
+    <div class="prog-item"><div class="prog-icon idle" id="s-p2-gemini">⏸</div><div><div class="prog-name">Gemini（再確認）</div><div class="prog-sub" id="d-p2-gemini">待機中</div></div></div>
+  </div>
+
+  <div class="phase-label" style="margin-top:16px;">Phase 3 ── 全結果を統合して最終レポート作成</div>
+  <div class="prog-grid">
+    <div class="prog-item"><div class="prog-icon idle" id="s-p3">⏸</div><div><div class="prog-name">最終統合レポート</div><div class="prog-sub" id="d-p3">待機中</div></div></div>
+  </div>
+</div>
+
+<!-- Results -->
+<div class="card hidden" id="resultsCard">
+  <div class="card-header">
+    <span class="icon">📊</span> チェック結果
+    <button class="btn btn-secondary btn-sm" onclick="exportResults()" style="margin-left:auto;">📥 エクスポート</button>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('p1',this)">Phase 1：初回チェック</button>
+    <button class="tab-btn" onclick="switchTab('p2',this)">Phase 2：相互検証</button>
+    <button class="tab-btn" onclick="switchTab('p3',this)">✨ Phase 3：最終レポート</button>
+  </div>
+
+  <!-- Phase 1 -->
+  <div class="tab-pane active" id="tab-p1">
+    <div class="ai-bar">
+      <button class="ai-btn gpt on" onclick="switchAi('p1','gpt',this)">ChatGPT</button>
+      <button class="ai-btn claude"  onclick="switchAi('p1','claude',this)">Claude</button>
+      <button class="ai-btn gemini" onclick="switchAi('p1','gemini',this)">Gemini</button>
+    </div>
+    <div id="p1-gpt"><div class="result-box empty">まだ結果がありません</div></div>
+    <div id="p1-claude" class="hidden"><div class="result-box empty">まだ結果がありません</div></div>
+    <div id="p1-gemini" class="hidden"><div class="result-box empty">まだ結果がありません</div></div>
+  </div>
+
+  <!-- Phase 2 -->
+  <div class="tab-pane" id="tab-p2">
+    <div class="ai-bar">
+      <button class="ai-btn gpt on" onclick="switchAi('p2','gpt',this)">ChatGPT</button>
+      <button class="ai-btn claude"  onclick="switchAi('p2','claude',this)">Claude</button>
+      <button class="ai-btn gemini" onclick="switchAi('p2','gemini',this)">Gemini</button>
+    </div>
+    <div id="p2-gpt"><div class="result-box empty">まだ結果がありません</div></div>
+    <div id="p2-claude" class="hidden"><div class="result-box empty">まだ結果がありません</div></div>
+    <div id="p2-gemini" class="hidden"><div class="result-box empty">まだ結果がありません</div></div>
+  </div>
+
+  <!-- Phase 3 -->
+  <div class="tab-pane" id="tab-p3">
+    <div id="p3-result"><div class="result-box empty">まだ結果がありません</div></div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// ─────────────────────────────────────────────
+// ★ デプロイ設定（GitHub Pages で公開する場合ここを変更）
+// Cloudflare Worker をデプロイしたら、その URL を以下に設定してください。
+// 例: 'https://claude-proxy.yourname.workers.dev'
+// 未設定（空文字）の場合はユーザーが手動でプロキシURLを入力します。
+// ─────────────────────────────────────────────
+const CLOUD_PROXY_URL = 'https://translation-checker.abe-f3a.workers.dev';
+
+// ─────────────────────────────────────────────
+// PDF.js setup
+// ─────────────────────────────────────────────
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+const S = {
+  jpFile: null, enFile: null,
+  jpText: '',   enText: '',
+  p1: { gpt: null, claude: null, gemini: null },
+  p2: { gpt: null, claude: null, gemini: null },
+  p3: null,
+};
+
+// ─────────────────────────────────────────────
+// Settings persistence
+// ─────────────────────────────────────────────
+function loadSettings() {
+  ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel','proxyUrl'].forEach(id => {
+    const v = localStorage.getItem('tc_' + id);
+    if (v) document.getElementById(id).value = v;
+  });
+  // CLOUD_PROXY_URL が設定されていればデフォルトで自動適用
+  if (CLOUD_PROXY_URL) {
+    if (!document.getElementById('proxyUrl').value) {
+      document.getElementById('proxyUrl').value = CLOUD_PROXY_URL;
+    }
+    document.getElementById('useProxy').checked = true;
+    document.getElementById('proxyFieldWrap').classList.remove('hidden');
+    // ローカルプロキシのヒントを非表示にしてクラウド用に変更
+    const hint = document.getElementById('proxyHint');
+    hint.innerHTML = `Cloudflare Worker プロキシを使用中: <code>${CLOUD_PROXY_URL}</code>`;
+  } else {
+    const useProxy = localStorage.getItem('tc_useProxy') === 'true';
+    document.getElementById('useProxy').checked = useProxy;
+    if (useProxy) document.getElementById('proxyFieldWrap').classList.remove('hidden');
+  }
+}
+function saveSettings() {
+  ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel','proxyUrl'].forEach(id => {
+    localStorage.setItem('tc_' + id, document.getElementById(id).value);
+  });
+  localStorage.setItem('tc_useProxy', document.getElementById('useProxy').checked);
+}
+function toggleProxyField() {
+  const wrap = document.getElementById('proxyFieldWrap');
+  wrap.classList.toggle('hidden', !document.getElementById('useProxy').checked);
+}
+function togglePw(id, btn) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+  btn.textContent = el.type === 'password' ? '👁' : '🙈';
+}
+function toggleSettings() {
+  const body = document.getElementById('settingsBody');
+  const btn  = document.getElementById('settingsToggle');
+  const hidden = body.style.display === 'none';
+  body.style.display = hidden ? '' : 'none';
+  btn.textContent = hidden ? '▲' : '▼';
+}
+
+// ─────────────────────────────────────────────
+// File upload
+// ─────────────────────────────────────────────
+function onDragOver(e, zoneId) { e.preventDefault(); document.getElementById(zoneId).classList.add('drag-over'); }
+function onDragLeave(e, zoneId){ document.getElementById(zoneId).classList.remove('drag-over'); }
+function onDrop(e, lang) {
+  e.preventDefault();
+  document.getElementById(lang+'Zone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type === 'application/pdf') applyFile(lang, f);
+}
+function onFileSelect(e, lang) {
+  const f = e.target.files[0];
+  if (f) applyFile(lang, f);
+}
+function applyFile(lang, file) {
+  if (lang === 'jp') S.jpFile = file; else S.enFile = file;
+  document.getElementById(lang+'Zone').classList.add('filled');
+  const nm = document.getElementById(lang+'Name');
+  nm.textContent = '✓ ' + file.name;
+  nm.classList.remove('hidden');
+  checkStart();
+}
+
+// ─────────────────────────────────────────────
+// PDF text extraction
+// ─────────────────────────────────────────────
+async function extractPdf(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page    = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const lines   = [];
+    let lastY = null, line = '';
+    content.items.forEach(item => {
+      if (lastY !== null && Math.abs(item.transform[5] - lastY) > 4) {
+        if (line.trim()) lines.push(line.trim());
+        line = '';
+      }
+      line += item.str;
+      lastY = item.transform[5];
+    });
+    if (line.trim()) lines.push(line.trim());
+    text += `\n=== ページ ${p} ===\n${lines.join('\n')}\n`;
+  }
+  return text;
+}
+
+// ─────────────────────────────────────────────
+// API calls
+// ─────────────────────────────────────────────
+async function callGPT(system, user) {
+  const key   = document.getElementById('openaiKey').value.trim();
+  const model = document.getElementById('openaiModel').value;
+  if (!key) throw new Error('OpenAI APIキーが未設定です');
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model, temperature: 0.2, max_tokens: 4096,
+      messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
+    })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    const msg = e?.error?.message || res.statusText;
+    if (res.status === 401) throw new Error('OpenAI 401: APIキーが無効です。sk-... で始まる正しいキーを入力してください。');
+    if (res.status === 429) throw new Error('OpenAI 429: クレジット残高不足またはレート制限です。https://platform.openai.com/settings/billing でご確認ください。');
+    throw new Error('OpenAI ' + res.status + ': ' + msg);
+  }
+  return (await res.json()).choices[0].message.content;
+}
+
+async function callClaude(system, user) {
+  const key      = document.getElementById('anthropicKey').value.trim();
+  const model    = document.getElementById('anthropicModel').value;
+  const useProxy = document.getElementById('useProxy').checked;
+  const proxyUrl = (document.getElementById('proxyUrl').value || 'http://localhost:3001').replace(/\/$/, '');
+  if (!key) throw new Error('Anthropic APIキーが未設定です');
+
+  const endpoint = useProxy
+    ? proxyUrl + '/v1/messages'
+    : 'https://api.anthropic.com/v1/messages';
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-api-key': key,
+    'anthropic-version': '2023-06-01',
+  };
+  if (!useProxy) headers['anthropic-dangerous-request-allow-browser'] = 'true';
+
+  let res;
+  try {
+    res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ model, max_tokens: 4096, system, messages: [{ role: 'user', content: user }] })
+    });
+  } catch (networkErr) {
+    if (useProxy) {
+      throw new Error(
+        'プロキシ（' + proxyUrl + '）に接続できません。\n' +
+        'claude-proxy.py が起動しているか確認してください。\n' +
+        '起動方法: コマンドプロンプトで「python claude-proxy.py」を実行'
+      );
+    }
+    throw new Error(
+      'Claude APIへの直接接続に失敗しました（CORS非対応）。\n' +
+      'Claude設定の「ローカルプロキシを使用」をオンにして、\n' +
+      'claude-proxy.py を起動してから再試行してください。'
+    );
+  }
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    const msg = e?.error?.message || res.statusText;
+    if (res.status === 401) throw new Error('Anthropic 401: APIキーが無効です。正しいキー（sk-ant-...）を確認してください。');
+    if (res.status === 429) throw new Error('Anthropic 429: レート制限またはクレジット不足です。https://console.anthropic.com で確認してください。');
+    throw new Error('Anthropic ' + res.status + ': ' + msg);
+  }
+  return (await res.json()).content[0].text;
+}
+
+async function callGemini(prompt) {
+  const key   = document.getElementById('geminiKey').value.trim();
+  const model = document.getElementById('geminiModel').value;
+  if (!key) throw new Error('Gemini APIキーが未設定です');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 }
+    })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(()=>({}));
+    const msg = e?.error?.message || res.statusText;
+    if (res.status === 400 && msg.includes('API key')) throw new Error('Gemini 400: APIキーが無効です。Google AI Studio（https://aistudio.google.com/apikey）で発行したキー（AIza...）を入力してください。');
+    if (res.status === 429) throw new Error('Gemini 429: レート制限です。しばらく待ってから再試行してください。');
+    throw new Error('Gemini ' + res.status + ': ' + msg);
+  }
+  const d = await res.json();
+  return d.candidates[0].content.parts[0].text;
+}
+
+// ─────────────────────────────────────────────
+// Prompt builders
+// ─────────────────────────────────────────────
+const SYS = 'あなたはプロの日英翻訳チェッカーです。日本語原文と英語翻訳文を照らし合わせて、翻訳ミスや改善点を正確に指摘してください。';
+
+function buildP1(jp, en, nouns) {
+  return `これは日本語の文章を英語に翻訳した内容です。翻訳内容に間違いはありませんか？
+間違いがある場合、以下の表形式で出力してください。
+
+###### 出力形式
+ページ数 | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 備考
+
+###### 補足
+「誤りの種類」は以下の２つのどちらかです：
+・誤訳-修正が必要
+・誤りではないが、修正が望ましい
+
+###### 固有名詞の翻訳方法
+${nouns.trim() || '（特に指定なし）'}
+
+---
+## 日本語原文
+
+${jp}
+
+---
+## 英語翻訳文
+
+${en}`;
+}
+
+function buildP2(jp, en, nouns, myResult, others) {
+  const othersText = Object.entries(others)
+    .map(([name, r]) => `### ${name} の指摘内容\n${r}`)
+    .join('\n\n');
+  return `翻訳チェックの第2段階です。
+他のAIが同じ翻訳をチェックし、それぞれ指摘事項を出しました。
+他のAIの指摘を参考にしながら、もう一度翻訳を見直し、最終的な見解を出力してください。
+
+## あなたの最初の指摘事項
+${myResult || '（指摘なし）'}
+
+## 他のAIによる指摘事項
+${othersText || '（他のAIの結果なし）'}
+
+## 固有名詞の翻訳方法
+${nouns.trim() || '（特に指定なし）'}
+
+---
+上記を踏まえて、以下の観点で再確認し、同じ表形式で出力してください：
+- 他のAIの指摘で正しいと判断したものは採用し、備考欄に「他のAI指摘に同意」と記載
+- 同意しない場合は理由を備考欄に記載
+- 新たに気づいた指摘があれば追加
+
+ページ数 | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 備考
+
+---
+## 参考：日本語原文
+${jp.substring(0, 10000)}${jp.length > 10000 ? '\n（以下省略）' : ''}
+
+---
+## 参考：英語翻訳文
+${en.substring(0, 10000)}${en.length > 10000 ? '\n（以下省略）' : ''}`;
+}
+
+function buildP3(p1, p2) {
+  const parts = [];
+  const names = { gpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini' };
+  Object.keys(names).forEach(k => {
+    if (p1[k]) parts.push(`### ${names[k]}（Phase 1 初回チェック）\n${p1[k]}`);
+    if (p2[k]) parts.push(`### ${names[k]}（Phase 2 相互検証後）\n${p2[k]}`);
+  });
+  return `3つのAI（ChatGPT・Claude・Gemini）による翻訳チェックと相互検証が完了しました。
+以下の全指摘事項を統合して、最終的な翻訳ミスリストを作成してください。
+
+## 各AIの指摘事項（全6件）
+
+${parts.join('\n\n---\n\n')}
+
+---
+## 統合レポート作成の指示
+
+上記を統合し、以下の表形式で最終レポートを出力してください。
+
+ページ数 | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 指摘AI数 | 備考
+
+- 同じ箇所の指摘は1行にまとめる
+- 「指摘AI数」には同じ箇所を指摘したAIの数（1〜3）を記入
+- 複数のAIが指摘した箇所は備考欄に「【重要】複数AIが指摘」と記載
+- 表の後に、全体の品質評価と総括コメントを200字以内で追加すること`;
+}
+
+// ─────────────────────────────────────────────
+// Progress helpers
+// ─────────────────────────────────────────────
+function setProgress(id, state, desc) {
+  const icon = document.getElementById('s-' + id);
+  const desc_el = document.getElementById('d-' + id);
+  icon.className = 'prog-icon ' + state;
+  const map = { idle: '⏸', running: '<span class="spin-anim">⟳</span>', done: '✅', err: '❌', skip: '⏭' };
+  icon.innerHTML = map[state] || '⏸';
+  if (desc_el) desc_el.textContent = desc;
+}
+function setLoading(elId) {
+  document.getElementById(elId).innerHTML = '<div class="loading-row"><div class="spinner"></div>処理中...</div>';
+}
+function setContent(elId, text, isErr) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (isErr) {
+    el.innerHTML = `<div class="err-box">⚠️ ${esc(text)}</div>`;
+  } else {
+    el.innerHTML = `<div class="result-box">${renderMd(text)}</div>`;
+  }
+}
+
+// ─────────────────────────────────────────────
+// Simple Markdown renderer
+// ─────────────────────────────────────────────
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function renderMd(text) {
+  if (!text) return '';
+  const lines = text.split('\n');
+  const out = []; let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.includes('|')) {
+      const block = [];
+      while (i < lines.length && lines[i].includes('|')) { block.push(lines[i]); i++; }
+      out.push(renderTable(block));
+    } else {
+      let h = esc(line);
+      h = h.replace(/^#{6}\s*(.+)/, '<div style="font-size:12px;color:var(--muted);font-weight:700;margin:8px 0 2px;">$1</div>');
+      h = h.replace(/^#{3,5}\s*(.+)/, '<div style="font-weight:700;margin:10px 0 4px;">$1</div>');
+      h = h.replace(/^#{2}\s*(.+)/,   '<div style="font-size:15px;font-weight:800;margin:12px 0 5px;border-bottom:1px solid var(--border);padding-bottom:4px;">$1</div>');
+      h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      h = h.replace(/^---+$/, '<hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">');
+      out.push(h || '<div style="height:4px"></div>');
+      i++;
+    }
+  }
+  return out.join('');
+}
+
+function renderTable(lines) {
+  const rows = lines.filter(l => !l.match(/^\s*\|[-:\s|]+\|\s*$/));
+  if (!rows.length) return '';
+  let html = '<div class="tbl-wrap"><table class="md-tbl">';
+  rows.forEach((row, ri) => {
+    const cells = row.split('|').filter((_,j,a) => j>0 && j<a.length-1);
+    const tag = ri === 0 ? 'th' : 'td';
+    html += '<tr>' + cells.map(c => `<${tag}>${esc(c.trim())}</${tag}>`).join('') + '</tr>';
+  });
+  return html + '</table></div>';
+}
+
+// ─────────────────────────────────────────────
+// Tab switching
+// ─────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+function switchAi(phase, ai, btn) {
+  const bar = btn.closest('.ai-bar');
+  bar.querySelectorAll('.ai-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  ['gpt','claude','gemini'].forEach(a => {
+    const el = document.getElementById(phase + '-' + a);
+    if (el) el.classList.toggle('hidden', a !== ai);
+  });
+}
+
+// ─────────────────────────────────────────────
+// Start button check
+// ─────────────────────────────────────────────
+function checkStart() {
+  const hasFiles = !!(S.jpFile && S.enFile);
+  const hasKey   = !!(
+    document.getElementById('openaiKey').value.trim() ||
+    document.getElementById('anthropicKey').value.trim() ||
+    document.getElementById('geminiKey').value.trim()
+  );
+  document.getElementById('startBtn').disabled = !(hasFiles && hasKey);
+}
+
+// ─────────────────────────────────────────────
+// Main workflow
+// ─────────────────────────────────────────────
+async function startChecking() {
+  if (!S.jpFile || !S.enFile) { alert('両方のPDFをアップロードしてください'); return; }
+
+  const gptKey    = document.getElementById('openaiKey').value.trim();
+  const claudeKey = document.getElementById('anthropicKey').value.trim();
+  const geminiKey = document.getElementById('geminiKey').value.trim();
+  const nouns     = document.getElementById('properNouns').value;
+
+  const ais = [];
+  if (gptKey)    ais.push('gpt');
+  if (claudeKey) ais.push('claude');
+  if (geminiKey) ais.push('gemini');
+  if (ais.length === 0) { alert('APIキーを1つ以上設定してください'); return; }
+
+  document.getElementById('startBtn').disabled = true;
+  document.getElementById('progressCard').classList.remove('hidden');
+  document.getElementById('resultsCard').classList.remove('hidden');
+
+  // ── Extract PDFs ──────────────────────────
+  try {
+    ['p1-gpt','p1-claude','p1-gemini'].forEach(id => setProgress(id, 'idle', 'PDFを解析中...'));
+    const [jpText, enText] = await Promise.all([extractPdf(S.jpFile), extractPdf(S.enFile)]);
+    S.jpText = jpText; S.enText = enText;
+
+    const showCount = (id, text) => {
+      const el = document.getElementById(id);
+      el.textContent = `テキスト抽出: ${text.length.toLocaleString()} 文字`;
+      el.classList.remove('hidden');
+    };
+    showCount('jpCount', jpText);
+    showCount('enCount', enText);
+
+  } catch (err) {
+    alert('PDF解析エラー: ' + err.message);
+    document.getElementById('startBtn').disabled = false;
+    checkStart();
+    return;
+  }
+
+  const p1Prompt = buildP1(S.jpText, S.enText, nouns);
+
+  // ── Phase 1 ───────────────────────────────
+  ais.forEach(ai => { setProgress('p1-' + ai, 'running', 'チェック中...'); setLoading('p1-' + ai); });
+
+  const p1Calls = {};
+  if (gptKey)    p1Calls.gpt    = callGPT(SYS, p1Prompt);
+  if (claudeKey) p1Calls.claude = callClaude(SYS, p1Prompt);
+  if (geminiKey) p1Calls.gemini = callGemini(SYS + '\n\n' + p1Prompt);
+
+  const p1Names = { gpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini' };
+  await Promise.allSettled(
+    Object.entries(p1Calls).map(async ([ai, prom]) => {
+      try {
+        const r = await prom;
+        S.p1[ai] = r;
+        setProgress('p1-' + ai, 'done', '完了');
+        setContent('p1-' + ai, r);
+      } catch (err) {
+        setProgress('p1-' + ai, 'err', 'エラー');
+        setContent('p1-' + ai, err.message, true);
+      }
+    })
+  );
+
+  // ── Phase 2 ───────────────────────────────
+  const p1Results = {};
+  if (S.p1.gpt)    p1Results['ChatGPT'] = S.p1.gpt;
+  if (S.p1.claude) p1Results['Claude']  = S.p1.claude;
+  if (S.p1.gemini) p1Results['Gemini']  = S.p1.gemini;
+
+  const doP2 = Object.keys(p1Results).length >= 2;
+
+  if (doP2) {
+    const p2Tasks = [];
+
+    if (S.p1.gpt && gptKey) {
+      const others = {};
+      if (p1Results['Claude'])  others['Claude']  = p1Results['Claude'];
+      if (p1Results['Gemini'])  others['Gemini']  = p1Results['Gemini'];
+      if (Object.keys(others).length > 0) {
+        setProgress('p2-gpt', 'running', '相互検証中...');
+        setLoading('p2-gpt');
+        p2Tasks.push(callGPT(SYS, buildP2(S.jpText, S.enText, nouns, S.p1.gpt, others))
+          .then(r => { S.p2.gpt = r; setProgress('p2-gpt','done','完了'); setContent('p2-gpt', r); })
+          .catch(err => { setProgress('p2-gpt','err','エラー'); setContent('p2-gpt', err.message, true); }));
+      } else setProgress('p2-gpt','skip','スキップ（他のAI結果なし）');
+    }
+
+    if (S.p1.claude && claudeKey) {
+      const others = {};
+      if (p1Results['ChatGPT']) others['ChatGPT'] = p1Results['ChatGPT'];
+      if (p1Results['Gemini'])  others['Gemini']  = p1Results['Gemini'];
+      if (Object.keys(others).length > 0) {
+        setProgress('p2-claude', 'running', '相互検証中...');
+        setLoading('p2-claude');
+        p2Tasks.push(callClaude(SYS, buildP2(S.jpText, S.enText, nouns, S.p1.claude, others))
+          .then(r => { S.p2.claude = r; setProgress('p2-claude','done','完了'); setContent('p2-claude', r); })
+          .catch(err => { setProgress('p2-claude','err','エラー'); setContent('p2-claude', err.message, true); }));
+      } else setProgress('p2-claude','skip','スキップ（他のAI結果なし）');
+    }
+
+    if (S.p1.gemini && geminiKey) {
+      const others = {};
+      if (p1Results['ChatGPT']) others['ChatGPT'] = p1Results['ChatGPT'];
+      if (p1Results['Claude'])  others['Claude']  = p1Results['Claude'];
+      if (Object.keys(others).length > 0) {
+        setProgress('p2-gemini', 'running', '相互検証中...');
+        setLoading('p2-gemini');
+        p2Tasks.push(callGemini(SYS + '\n\n' + buildP2(S.jpText, S.enText, nouns, S.p1.gemini, others))
+          .then(r => { S.p2.gemini = r; setProgress('p2-gemini','done','完了'); setContent('p2-gemini', r); })
+          .catch(err => { setProgress('p2-gemini','err','エラー'); setContent('p2-gemini', err.message, true); }));
+      } else setProgress('p2-gemini','skip','スキップ（他のAI結果なし）');
+    }
+
+    await Promise.allSettled(p2Tasks);
+  } else {
+    ['p2-gpt','p2-claude','p2-gemini'].forEach(id => setProgress(id,'skip','スキップ（AIが1つのみ）'));
+  }
+
+  // ── Phase 3 ───────────────────────────────
+  setProgress('p3', 'running', '統合レポート作成中...');
+  setLoading('p3-result');
+
+  try {
+    const p3Prompt = buildP3(S.p1, S.p2);
+    let r;
+    if (gptKey)         r = await callGPT(SYS, p3Prompt);
+    else if (claudeKey) r = await callClaude(SYS, p3Prompt);
+    else                r = await callGemini(SYS + '\n\n' + p3Prompt);
+
+    S.p3 = r;
+    setProgress('p3','done','完了');
+    setContent('p3-result', r);
+
+    // Auto-jump to final tab
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn')[2].classList.add('active');
+    document.getElementById('tab-p3').classList.add('active');
+
+  } catch (err) {
+    setProgress('p3','err','エラー');
+    setContent('p3-result', err.message, true);
+  }
+
+  document.getElementById('startBtn').disabled = false;
+  checkStart();
+}
+
+// ─────────────────────────────────────────────
+// Reset
+// ─────────────────────────────────────────────
+function resetAll() {
+  S.jpFile = null; S.enFile = null; S.jpText = ''; S.enText = '';
+  S.p1 = { gpt:null, claude:null, gemini:null };
+  S.p2 = { gpt:null, claude:null, gemini:null };
+  S.p3 = null;
+
+  ['jp','en'].forEach(lang => {
+    document.getElementById(lang+'Zone').classList.remove('filled');
+    const nm = document.getElementById(lang+'Name');
+    nm.classList.add('hidden'); nm.textContent = '';
+    document.getElementById(lang+'File').value = '';
+    document.getElementById(lang+'Count').classList.add('hidden');
+  });
+
+  document.getElementById('progressCard').classList.add('hidden');
+  document.getElementById('resultsCard').classList.add('hidden');
+
+  const ids = ['p1-gpt','p1-claude','p1-gemini','p2-gpt','p2-claude','p2-gemini','p3'];
+  ids.forEach(id => setProgress(id,'idle','待機中'));
+
+  ['p1-gpt','p1-claude','p1-gemini','p2-gpt','p2-claude','p2-gemini','p3-result'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '<div class="result-box empty">まだ結果がありません</div>';
+  });
+
+  // Reset tabs
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  document.querySelectorAll('.tab-pane').forEach((p,i) => p.classList.toggle('active', i===0));
+  ['p1','p2'].forEach(ph => {
+    const bar = document.querySelector(`#tab-${ph} .ai-bar`);
+    if (bar) { bar.querySelectorAll('.ai-btn').forEach((b,i) => b.classList.toggle('on',i===0)); }
+    ['claude','gemini'].forEach(ai => {
+      const el = document.getElementById(ph+'-'+ai);
+      if (el) el.classList.add('hidden');
+    });
+    const gptEl = document.getElementById(ph+'-gpt');
+    if (gptEl) gptEl.classList.remove('hidden');
+  });
+
+  checkStart();
+}
+
+// ─────────────────────────────────────────────
+// Export
+// ─────────────────────────────────────────────
+function exportResults() {
+  let txt = '# 翻訳チェック結果\n';
+  txt += `生成日時: ${new Date().toLocaleString('ja-JP')}\n\n`;
+
+  txt += '## Phase 1：初回翻訳チェック\n\n';
+  if (S.p1.gpt)    txt += '### ChatGPT\n' + S.p1.gpt    + '\n\n';
+  if (S.p1.claude) txt += '### Claude\n'  + S.p1.claude + '\n\n';
+  if (S.p1.gemini) txt += '### Gemini\n'  + S.p1.gemini + '\n\n';
+
+  txt += '## Phase 2：相互検証\n\n';
+  if (S.p2.gpt)    txt += '### ChatGPT（再確認）\n' + S.p2.gpt    + '\n\n';
+  if (S.p2.claude) txt += '### Claude（再確認）\n'  + S.p2.claude + '\n\n';
+  if (S.p2.gemini) txt += '### Gemini（再確認）\n'  + S.p2.gemini + '\n\n';
+
+  txt += '## Phase 3：最終統合レポート\n\n';
+  if (S.p3) txt += S.p3;
+
+  const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `translation-check-${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────
+loadSettings();
+['openaiKey','anthropicKey','geminiKey'].forEach(id => {
+  document.getElementById(id).addEventListener('input', checkStart);
+});
+
+// Show CORS warning when opened via file://
+if (window.location.protocol === 'file:') {
+  document.getElementById('corsWarning').classList.remove('hidden');
+}
+</script>
+</body>
+</html>
