@@ -128,6 +128,13 @@ textarea { min-height: 96px; resize: vertical; font-family: inherit; line-height
 .prog-name { font-size: 12px; font-weight: 700; }
 .prog-role { font-size: 11px; color: var(--muted); margin-top: 1px; }
 .prog-sub  { font-size: 11px; color: var(--muted); }
+.overall-progress { border: 1px solid var(--border); border-radius: 10px; background: #f8fafc; padding: 12px 14px; margin-bottom: 12px; }
+.overall-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.overall-title { font-size: 13px; font-weight: 800; }
+.overall-pct { font-size: 13px; font-weight: 800; color: var(--primary); white-space: nowrap; }
+.overall-bar { width: 100%; height: 9px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+.overall-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1 0%, #22c55e 100%); transition: width .25s ease; }
+.overall-meta { margin-top: 7px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: spin .8s linear infinite; }
 
@@ -259,8 +266,11 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
         </select>
       </div>
     </div>
-    <div class="info-box">
-      ※ APIキーはlocalStorageに保存されます。&nbsp; ※ 3つすべて設定で最大精度。1つでも動作可。
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div class="info-box" style="flex:1;margin:0;">
+        ※ APIキーはlocalStorageに保存されます。&nbsp; ※ 3つすべて設定で最大精度。1つでも動作可。
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="clearApiKeys()" style="white-space:nowrap;color:#b91c1c;border-color:#fca5a5;">🗑 APIキーを消去</button>
     </div>
   </div>
 </div>
@@ -381,11 +391,11 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
       <div class="ctl-stack">
         <label class="ctl-row"><input type="checkbox" id="strictMode" checked> 厳密検証モード（疑わしい箇所は全報告）</label>
         <label class="ctl-row"><input type="checkbox" id="redUnknown" checked> 読み不明の固有名詞は赤字フラグを要求</label>
-        <label class="ctl-row">チャンクサイズ
+        <label class="ctl-row">処理単位（1回で確認するページ数）
           <select id="chunkSize" style="width:auto;min-width:120px;">
-            <option value="4">4ページ（最高精度）</option>
-            <option value="8" selected>8ページ（推奨）</option>
-            <option value="12">12ページ（高速）</option>
+            <option value="4">4ページ（丁寧・時間がかかる）</option>
+            <option value="8" selected>8ページ（バランス・推奨）</option>
+            <option value="12">12ページ（速い・やや粗め）</option>
           </select>
         </label>
       </div>
@@ -426,6 +436,17 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
 <!-- Progress -->
 <div class="card hidden" id="progressCard">
   <div class="card-header">⏳ 処理状況</div>
+  <div class="overall-progress">
+    <div class="overall-head">
+      <div class="overall-title" id="overallTitle">全体進捗</div>
+      <div class="overall-pct" id="overallPct">0%</div>
+    </div>
+    <div class="overall-bar"><div class="overall-fill" id="overallBar"></div></div>
+    <div class="overall-meta">
+      <div id="overallSteps">0 / 0 ステップ</div>
+      <div id="overallEta">経過: 00:00 / 残り予測: --:--</div>
+    </div>
+  </div>
 
   <div class="phase-section">
     <div class="phase-section-title">Phase 0 ── 事前分析（用語・数値・構造を抽出）</div>
@@ -705,6 +726,7 @@ const S = {
   p2bt: null, p2cmp: null,
   p3: null,
   stats: { p1: 0, p2: 0, total: 0, score: '-' },
+  progress: { total: 0, done: 0, startAt: 0 },
   running: false,
 };
 
@@ -721,6 +743,14 @@ function saveSettings() {
   ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel'].forEach(id => {
     localStorage.setItem('tc_' + id, document.getElementById(id).value);
   });
+}
+function clearApiKeys() {
+  if (!confirm('保存されているAPIキーをすべて消去しますか？\n（モデル選択などの設定は残ります）')) return;
+  ['openaiKey','anthropicKey','geminiKey'].forEach(id => {
+    localStorage.removeItem('tc_' + id);
+    document.getElementById(id).value = '';
+  });
+  checkStart();
 }
 function togglePw(id, btn) {
   const el = document.getElementById(id);
@@ -1577,6 +1607,7 @@ function setProgress(id, state, desc) {
   const map = { idle:'⏸', running:'<span class="spin">⟳</span>', done:'✅', err:'❌', skip:'⏭' };
   icon.innerHTML = map[state] || '⏸';
   if (d && desc) d.textContent = desc;
+  if (state === 'running' && desc) setOverallTitle(`全体進捗（現在: ${desc}）`);
 }
 function setLoading(id) {
   const el = document.getElementById(id);
@@ -1619,6 +1650,53 @@ function updateSummary() {
   set('sum-p1', S.stats.p1);
   set('sum-p2', S.stats.p2);
   set('sum-score', S.stats.score);
+}
+
+function fmtTime(sec) {
+  const s = Math.max(0, Math.floor(sec || 0));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+}
+function renderOverallProgress() {
+  const total = Math.max(0, Number(S.progress.total) || 0);
+  const rawDone = Number(S.progress.done) || 0;
+  const done = total > 0 ? Math.max(0, Math.min(rawDone, total)) : Math.max(0, rawDone);
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const bar = document.getElementById('overallBar');
+  const pctEl = document.getElementById('overallPct');
+  const stepsEl = document.getElementById('overallSteps');
+  const etaEl = document.getElementById('overallEta');
+  if (bar) bar.style.width = `${pct}%`;
+  if (pctEl) pctEl.textContent = `${pct}%`;
+  if (stepsEl) stepsEl.textContent = `${done} / ${total} ステップ`;
+  if (!etaEl) return;
+  if (!S.running || total === 0 || done >= total) {
+    const elapsedDone = S.progress.startAt ? (Date.now() - S.progress.startAt) / 1000 : 0;
+    etaEl.textContent = `経過: ${fmtTime(elapsedDone)} / 残り予測: 00:00`;
+    return;
+  }
+  const elapsed = Math.max(1, (Date.now() - S.progress.startAt) / 1000);
+  const eta = done > 0 ? Math.round((elapsed / done) * (total - done)) : null;
+  etaEl.textContent = `経過: ${fmtTime(elapsed)} / 残り予測: ${eta == null ? '--:--' : fmtTime(eta)}`;
+}
+function initOverallProgress(total) {
+  S.progress = { total: Math.max(0, total || 0), done: 0, startAt: Date.now() };
+  const title = document.getElementById('overallTitle');
+  if (title) title.textContent = '全体進捗（開始）';
+  renderOverallProgress();
+}
+function stepOverallProgress(stepCount = 1) {
+  S.progress.done = Math.min(S.progress.total, (S.progress.done || 0) + stepCount);
+  renderOverallProgress();
+}
+function setOverallTitle(text) {
+  const title = document.getElementById('overallTitle');
+  if (title && text) title.textContent = text;
+}
+function finalizeOverallProgress() {
+  S.progress.done = S.progress.total;
+  renderOverallProgress();
 }
 
 // ═══════════════════ Markdown Renderer ═══════════════════
@@ -1724,20 +1802,25 @@ async function startChecking() {
 
   const src = S.jpText, tgt = S.enText;
   const chunks = buildPageChunks(src, tgt, getChunkSize());
+  const activeP1AIs = [gptKey, claudeKey, geminiKey].filter(Boolean).length;
+  const totalSteps = 1 + (activeP1AIs * chunks.length) + chunks.length + chunks.length + 1;
+  initOverallProgress(totalSteps);
 
   // ── Phase 0: Preparation ──
   let prepData = '';
   try {
-    setProgress('p0', 'running', `用語・数値・構造を抽出中...（${chunks.length}チャンク構成）`);
+    setProgress('p0', 'running', `用語・数値・構造を抽出中...（${chunks.length}回に分けて確認）`);
     setLoading('p0-result');
     const p0Res = await callBest(sysPrep(), promptPrep(src, tgt, nouns), { maxTokens: 8192 });
     S.p0 = p0Res.result;
     prepData = S.p0;
     const aiName = { gpt:'GPT', claude:'Claude', gemini:'Gemini' }[p0Res.ai];
     setProgress('p0', 'done', `完了 (${aiName})`);
+    stepOverallProgress();
     setContent('p0-result', S.p0);
   } catch (err) {
     setProgress('p0', 'err', 'エラー: ' + err.message);
+    stepOverallProgress();
     setContent('p0-result', err.message, true);
   }
 
@@ -1753,10 +1836,11 @@ async function startChecking() {
       try {
         const res = await runner(c, i + 1, chunks.length);
         findings += countFindings(res);
-        out.push(`## チャンク ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${res}`);
+        out.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${res}`);
       } catch (err) {
-        out.push(`## チャンク ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n⚠️ ${err.message}`);
+        out.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n⚠️ ${err.message}`);
       }
+      stepOverallProgress();
     }
     return { text: out.join('\n\n---\n\n'), findings };
   };
@@ -1821,23 +1905,25 @@ async function startChecking() {
       const c = chunks[i];
       setProgress('p2a', 'running', `逆翻訳を生成中...（${i + 1}/${chunks.length}）`);
       const btRes = await callBest(sysBackTranslate(), promptBackTranslate(c.tgt), { maxTokens: 16384 });
-      btChunks.push(`## チャンク ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${btRes.result}`);
+      btChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${btRes.result}`);
       btAIs.push(btRes.ai);
+      stepOverallProgress();
     }
     S.p2bt = btChunks.join('\n\n---\n\n');
     const primaryAI = btAIs[0] || 'gpt';
     setProgress('p2a', 'done', '完了 (' + { gpt:'GPT', claude:'Claude', gemini:'Gemini' }[primaryAI] + '中心)');
     setRawContent('p2-bt', S.p2bt);
   } catch (err) {
+    if (chunks.length > btChunks.length) stepOverallProgress(chunks.length - btChunks.length);
     setProgress('p2a', 'err', 'エラー: ' + err.message);
     setContent('p2-bt', err.message, true);
   }
 
   if (S.p2bt) {
+    const cmpChunks = [];
     try {
       setProgress('p2b', 'running', `セグメント対照比較中...（1/${chunks.length}）`);
       setLoading('p2-cmp');
-      const cmpChunks = [];
       for (let i = 0; i < chunks.length; i++) {
         const c = chunks[i];
         setProgress('p2b', 'running', `セグメント対照比較中...（${i + 1}/${chunks.length}）`);
@@ -1845,16 +1931,19 @@ async function startChecking() {
         const cmpRes = await callBest(sysBackCompare(), promptBackCompare(c.src, btBody, nouns),
           { exclude: btAIs[i] ? [btAIs[i]] : [], maxTokens: 8192 });
         p2Findings += countFindings(cmpRes.result);
-        cmpChunks.push(`## チャンク ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${cmpRes.result}`);
+        cmpChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${cmpRes.result}`);
+        stepOverallProgress();
       }
       S.p2cmp = cmpChunks.join('\n\n---\n\n');
       setProgress('p2b', 'done', `完了（${p2Findings}件検出）`);
       setContent('p2-cmp', S.p2cmp);
     } catch (err) {
+      if (chunks.length > cmpChunks.length) stepOverallProgress(chunks.length - cmpChunks.length);
       setProgress('p2b', 'err', 'エラー: ' + err.message);
       setContent('p2-cmp', err.message, true);
     }
   } else {
+    stepOverallProgress(chunks.length);
     setProgress('p2b', 'skip', '逆翻訳未生成のためスキップ');
   }
   S.stats.p2 = p2Findings;
@@ -1869,6 +1958,7 @@ async function startChecking() {
       { maxTokens: 16384 });
     S.p3 = r3.result;
     setProgress('p3', 'done', '完了');
+    stepOverallProgress();
     setContent('p3-result', S.p3);
 
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -1877,11 +1967,14 @@ async function startChecking() {
     document.getElementById('tab-p3').classList.add('active');
   } catch (err) {
     setProgress('p3', 'err', 'エラー');
+    stepOverallProgress();
     setContent('p3-result', err.message, true);
   }
 
   updateSummary();
   S.running = false;
+  finalizeOverallProgress();
+  setOverallTitle('全体進捗（完了）');
   document.getElementById('startBtn').disabled = false;
   checkStart();
 }
@@ -1894,6 +1987,7 @@ function resetAll() {
   S.p1 = { gpt:null, claude:null, gemini:null };
   S.p2bt = null; S.p2cmp = null; S.p3 = null;
   S.stats = { p1: 0, p2: 0, total: 0, score: '-' };
+  S.progress = { total: 0, done: 0, startAt: 0 };
 
   ['jp','en'].forEach(lang => {
     document.getElementById(lang+'Zone').classList.remove('filled');
@@ -1922,6 +2016,8 @@ function resetAll() {
   document.querySelectorAll('#tab-p1 .ai-btn').forEach((b,i) => b.classList.toggle('on', i===0));
 
   document.getElementById('bt-text-wrap').classList.add('hidden');
+  setOverallTitle('全体進捗');
+  renderOverallProgress();
   updateSummary();
   checkStart();
 }
@@ -1954,6 +2050,7 @@ loadSettings();
   document.getElementById(id).addEventListener('input', checkStart);
 });
 updateSummary();
+renderOverallProgress();
 </script>
 </body>
 </html>
