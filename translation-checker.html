@@ -266,11 +266,8 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
         </select>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-      <div class="info-box" style="flex:1;margin:0;">
-        ※ APIキーはlocalStorageに保存されます。&nbsp; ※ 3つすべて設定で最大精度。1つでも動作可。
-      </div>
-      <button class="btn btn-secondary btn-sm" onclick="clearApiKeys()" style="white-space:nowrap;color:#b91c1c;border-color:#fca5a5;">🗑 APIキーを消去</button>
+    <div class="info-box">
+      ※ APIキーはlocalStorageに保存されます。&nbsp; ※ 3つすべて設定で最大精度。1つでも動作可。
     </div>
   </div>
 </div>
@@ -743,14 +740,6 @@ function saveSettings() {
   ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel'].forEach(id => {
     localStorage.setItem('tc_' + id, document.getElementById(id).value);
   });
-}
-function clearApiKeys() {
-  if (!confirm('保存されているAPIキーをすべて消去しますか？\n（モデル選択などの設定は残ります）')) return;
-  ['openaiKey','anthropicKey','geminiKey'].forEach(id => {
-    localStorage.removeItem('tc_' + id);
-    document.getElementById(id).value = '';
-  });
-  checkStart();
 }
 function togglePw(id, btn) {
   const el = document.getElementById(id);
