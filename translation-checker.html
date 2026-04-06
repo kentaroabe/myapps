@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>翻訳チェッカー - AI三層専門検証システム</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<title>翻訳チェッカー Pro — 4段階多層検証</title>
 <style>
 :root {
   --primary: #4f46e5; --primary-dark: #3730a3;
@@ -12,30 +11,26 @@
   --bg: #f1f5f9; --card: #fff; --border: #e2e8f0;
   --text: #1e293b; --muted: #64748b;
   --gpt: #10a37f; --claude: #c07a3e; --gemini: #4285f4;
-  --semantic: #7c3aed; --technical: #dc2626; --complete: #0891b2;
+  --prep: #8b5cf6; --semantic: #7c3aed; --technical: #dc2626; --complete: #0891b2;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px 16px 48px; }
 .container { max-width: 1100px; margin: 0 auto; }
 
-/* Header */
 .header { text-align: center; margin-bottom: 28px; }
 .header h1 { font-size: 24px; font-weight: 800; color: var(--primary); margin-bottom: 6px; }
 .header p  { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
 .phase-badges { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .phase-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-.pb-semantic  { background: #ede9fe; color: var(--semantic); }
-.pb-technical { background: #fee2e2; color: var(--technical); }
-.pb-complete  { background: #cffafe; color: var(--complete); }
+.pb-prep      { background: #f3e8ff; color: var(--prep); }
+.pb-specialist{ background: #dbeafe; color: #1d4ed8; }
 .pb-backt     { background: #fef3c7; color: #92400e; }
 .pb-final     { background: #d1fae5; color: #065f46; }
 
-/* Card */
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin-bottom: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
 .card-header { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; margin-bottom: 18px; }
 .card-header .toggle { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--muted); font-size: 18px; }
 
-/* Form */
 label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .04em; }
 label:first-child { margin-top: 0; }
 input[type=text], input[type=password], select, textarea {
@@ -48,14 +43,12 @@ textarea { min-height: 80px; resize: vertical; font-family: inherit; line-height
 .pw-wrap input { padding-right: 36px; }
 .pw-eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--muted); font-size: 15px; }
 
-/* API grid */
 .api-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
 .api-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
 .api-card-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; margin-bottom: 2px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .dot.gpt { background: var(--gpt); } .dot.claude { background: var(--claude); } .dot.gemini { background: var(--gemini); }
 
-/* Direction & doctype row */
 .config-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 18px; padding: 14px 16px; background: #f8fafc; border: 1px solid var(--border); border-radius: 10px; }
 .config-group { display: flex; flex-direction: column; gap: 6px; }
 .config-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
@@ -63,7 +56,6 @@ textarea { min-height: 80px; resize: vertical; font-family: inherit; line-height
 .radio-opt { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13.5px; font-weight: 600; }
 .radio-opt input { width: auto; accent-color: var(--primary); }
 
-/* PDF upload */
 .pdf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
 @media (max-width: 540px) { .pdf-row { grid-template-columns: 1fr; } }
 .upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 20px 16px; text-align: center; cursor: pointer; position: relative; transition: all .2s; min-height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -76,7 +68,6 @@ textarea { min-height: 80px; resize: vertical; font-family: inherit; line-height
 .upload-name  { font-size: 12px; color: var(--success); font-weight: 600; margin-top: 5px; word-break: break-all; }
 .char-count   { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
-/* Buttons */
 .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 22px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; transition: all .18s; }
 .btn-primary { background: var(--primary); color: #fff; }
 .btn-primary:hover:not(:disabled) { background: var(--primary-dark); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(79,70,229,.3); }
@@ -86,7 +77,6 @@ textarea { min-height: 80px; resize: vertical; font-family: inherit; line-height
 .btn-sm { padding: 6px 14px; font-size: 13px; }
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
 
-/* Progress */
 .phase-section { margin-bottom: 16px; }
 .phase-section-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
 .phase-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
@@ -104,7 +94,6 @@ textarea { min-height: 80px; resize: vertical; font-family: inherit; line-height
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: spin .8s linear infinite; }
 
-/* Tabs */
 .tab-bar { display: flex; gap: 2px; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto; }
 .tab-btn { padding: 7px 16px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all .15s; }
 .tab-btn:hover { color: var(--primary); }
@@ -112,38 +101,33 @@ textarea { min-height: 80px; resize: vertical; font-family: inherit; line-height
 .tab-pane { display: none; }
 .tab-pane.active { display: block; }
 
-/* AI sub-tabs */
 .ai-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .ai-btn { padding: 5px 14px; border-radius: 20px; border: 2px solid var(--border); background: none; cursor: pointer; font-size: 12px; font-weight: 700; transition: all .15s; }
 .ai-btn.semantic  { color: var(--semantic); } .ai-btn.semantic.on  { background: var(--semantic);  color: #fff; border-color: var(--semantic); }
 .ai-btn.technical { color: var(--technical);} .ai-btn.technical.on { background: var(--technical); color: #fff; border-color: var(--technical); }
 .ai-btn.complete  { color: var(--complete); } .ai-btn.complete.on  { background: var(--complete);  color: #fff; border-color: var(--complete); }
 
-/* Result areas */
 .result-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 9px; padding: 16px; min-height: 80px; font-size: 13px; line-height: 1.65; overflow-x: auto; }
 .result-box.empty { color: var(--muted); font-style: italic; }
 .loading-row { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; padding: 12px 0; }
 .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
 .err-box { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 7px; padding: 10px 14px; color: #b91c1c; font-size: 13px; }
 
-/* Role badge in result */
 .role-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; margin-bottom: 12px; }
+.rb-prep      { background: #f3e8ff; color: var(--prep); }
 .rb-semantic  { background: #ede9fe; color: var(--semantic); }
 .rb-technical { background: #fee2e2; color: var(--technical); }
 .rb-complete  { background: #cffafe; color: var(--complete); }
 
-/* Table */
 .tbl-wrap { overflow-x: auto; margin: 8px 0; }
 table.md-tbl { border-collapse: collapse; width: 100%; font-size: 12px; }
 table.md-tbl th { background: #f1f5f9; padding: 7px 10px; border: 1px solid var(--border); font-weight: 700; text-align: left; white-space: nowrap; }
 table.md-tbl td { padding: 6px 10px; border: 1px solid var(--border); vertical-align: top; }
 table.md-tbl tr:hover td { background: #f8fafc; }
 
-/* Collapsible back-translation */
 .collapse-toggle { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: var(--muted); margin-bottom: 8px; }
 .collapse-toggle:hover { background: var(--border); }
 
-/* Info box */
 .info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 7px; padding: 10px 14px; color: #1d4ed8; font-size: 12px; margin-top: 12px; line-height: 1.7; }
 .hidden { display: none !important; }
 </style>
@@ -151,25 +135,21 @@ table.md-tbl tr:hover td { background: #f8fafc; }
 <body>
 <div class="container">
 
-<!-- Header -->
 <div class="header">
-  <h1>翻訳チェッカー</h1>
-  <p>3つのAIが専門分業でチェックし、逆翻訳で意味のズレを検出。最高精度の翻訳検証システム</p>
+  <h1>翻訳チェッカー Pro</h1>
+  <p>事前分析 → 3AI専門検証 → 逆翻訳検証 → 統合レポート。4段階の多層検証で翻訳ミスを徹底検出</p>
   <div class="phase-badges">
-    <span class="phase-badge pb-semantic">GPT｜意味・ニュアンス</span>
-    <span class="phase-badge pb-technical">Claude｜技術的精度</span>
-    <span class="phase-badge pb-complete">Gemini｜完全性・一貫性</span>
-    <span class="phase-badge pb-backt">逆翻訳検証</span>
-    <span class="phase-badge pb-final">最終統合レポート</span>
+    <span class="phase-badge pb-prep">Phase 0｜事前分析</span>
+    <span class="phase-badge pb-specialist">Phase 1｜3AI専門検証</span>
+    <span class="phase-badge pb-backt">Phase 2｜逆翻訳検証</span>
+    <span class="phase-badge pb-final">Phase 3｜統合レポート</span>
   </div>
 </div>
 
-<!-- API Settings -->
 <div class="card">
   <div class="card-header">⚙️ API設定 <button class="toggle" id="settingsToggle" onclick="toggleSettings()">▲</button></div>
   <div id="settingsBody">
     <div class="api-grid">
-
       <div class="api-card">
         <div class="api-card-head"><span class="dot gpt"></span>ChatGPT (OpenAI) <span style="font-size:10px;color:var(--semantic);font-weight:700;margin-left:auto;">意味担当</span></div>
         <label>APIキー</label>
@@ -185,7 +165,6 @@ table.md-tbl tr:hover td { background: #f8fafc; }
           <option value="gpt-4o">gpt-4o（旧）</option>
         </select>
       </div>
-
       <div class="api-card">
         <div class="api-card-head"><span class="dot claude"></span>Claude (Anthropic) <span style="font-size:10px;color:var(--technical);font-weight:700;margin-left:auto;">技術担当</span></div>
         <label>APIキー</label>
@@ -199,12 +178,7 @@ table.md-tbl tr:hover td { background: #f8fafc; }
           <option value="claude-opus-4">claude-opus-4（高精度）</option>
           <option value="claude-haiku-4-5">claude-haiku-4-5（軽量）</option>
         </select>
-        <input type="hidden" id="useProxy" value="true">
-        <input type="hidden" id="proxyUrl" value="">
-        <div id="proxyFieldWrap" class="hidden"></div>
-        <div id="proxyHint"></div>
       </div>
-
       <div class="api-card">
         <div class="api-card-head"><span class="dot gemini"></span>Gemini (Google) <span style="font-size:10px;color:var(--complete);font-weight:700;margin-left:auto;">完全性担当</span></div>
         <label>APIキー</label>
@@ -220,7 +194,6 @@ table.md-tbl tr:hover td { background: #f8fafc; }
           <option value="gemini-1.5-pro">gemini-1.5-pro（旧）</option>
         </select>
       </div>
-
     </div>
     <div class="info-box">
       ※ APIキーはlocalStorageに保存されます。&nbsp; ※ 3つすべて設定で最大精度。1つでも動作可。
@@ -228,23 +201,14 @@ table.md-tbl tr:hover td { background: #f8fafc; }
   </div>
 </div>
 
-<!-- Input Card -->
 <div class="card">
   <div class="card-header">📄 翻訳ファイルと設定</div>
-
-  <!-- Direction + Doc type -->
   <div class="config-row">
     <div class="config-group">
       <div class="config-label">翻訳方向</div>
       <div class="radio-row">
-        <label class="radio-opt">
-          <input type="radio" name="direction" value="jp-en" checked onchange="updateDirectionUI()">
-          🇯🇵 日本語 → 英語 🇬🇧
-        </label>
-        <label class="radio-opt">
-          <input type="radio" name="direction" value="en-jp" onchange="updateDirectionUI()">
-          🇬🇧 英語 → 日本語 🇯🇵
-        </label>
+        <label class="radio-opt"><input type="radio" name="direction" value="jp-en" checked onchange="updateDirectionUI()"> 🇯🇵 日本語 → 英語 🇬🇧</label>
+        <label class="radio-opt"><input type="radio" name="direction" value="en-jp" onchange="updateDirectionUI()"> 🇬🇧 英語 → 日本語 🇯🇵</label>
       </div>
     </div>
     <div class="config-group">
@@ -258,12 +222,10 @@ table.md-tbl tr:hover td { background: #f8fafc; }
       </select>
     </div>
   </div>
-
   <div class="pdf-row">
     <div>
       <label id="srcLabel">日本語PDF（原文）</label>
-      <div class="upload-zone" id="jpZone"
-           ondragover="onDragOver(event,'jpZone')" ondragleave="onDragLeave(event,'jpZone')" ondrop="onDrop(event,'jp')">
+      <div class="upload-zone" id="jpZone" ondragover="onDragOver(event,'jpZone')" ondragleave="onDragLeave(event,'jpZone')" ondrop="onDrop(event,'jp')">
         <input type="file" accept=".pdf" id="jpFile" onchange="onFileSelect(event,'jp')">
         <div class="upload-icon" id="srcIcon">🇯🇵</div>
         <div class="upload-title" id="srcTitle">日本語PDFをドロップ</div>
@@ -274,8 +236,7 @@ table.md-tbl tr:hover td { background: #f8fafc; }
     </div>
     <div>
       <label id="tgtLabel">英語PDF（翻訳文）</label>
-      <div class="upload-zone" id="enZone"
-           ondragover="onDragOver(event,'enZone')" ondragleave="onDragLeave(event,'enZone')" ondrop="onDrop(event,'en')">
+      <div class="upload-zone" id="enZone" ondragover="onDragOver(event,'enZone')" ondragleave="onDragLeave(event,'enZone')" ondrop="onDrop(event,'en')">
         <input type="file" accept=".pdf" id="enFile" onchange="onFileSelect(event,'en')">
         <div class="upload-icon" id="tgtIcon">🇬🇧</div>
         <div class="upload-title" id="tgtTitle">英語PDFをドロップ</div>
@@ -285,22 +246,30 @@ table.md-tbl tr:hover td { background: #f8fafc; }
       <div class="char-count hidden" id="enCount"></div>
     </div>
   </div>
-
   <label>固有名詞の翻訳方法</label>
-  <textarea id="properNouns" placeholder="例：
-・「山田商事株式会社」→「Yamada Shoji Co., Ltd.」
-・「甲」→ Contractor A、「乙」→ Contractor B
-・「第X条」→「Article X」"></textarea>
-
+  <textarea id="properNouns" placeholder="例：&#10;・「山田商事株式会社」→「Yamada Shoji Co., Ltd.」&#10;・「甲」→ Contractor A、「乙」→ Contractor B&#10;・「第X条」→「Article X」"></textarea>
   <div class="btn-row">
     <button class="btn btn-primary" id="startBtn" onclick="startChecking()" disabled>▶ 翻訳チェック開始</button>
     <button class="btn btn-secondary" onclick="resetAll()">↺ リセット</button>
   </div>
 </div>
 
-<!-- Progress Card -->
+<!-- Progress -->
 <div class="card hidden" id="progressCard">
   <div class="card-header">⏳ 処理状況</div>
+
+  <div class="phase-section">
+    <div class="phase-section-title">Phase 0 ── 事前分析（用語・数値・構造を抽出）</div>
+    <div class="prog-grid">
+      <div class="prog-item">
+        <div class="prog-icon idle" id="s-p0">⏸</div>
+        <div>
+          <div class="prog-name">用語対応表・数値レジストリ・構造マップ</div>
+          <div class="prog-sub" id="d-p0">待機中</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="phase-section">
     <div class="phase-section-title">Phase 1 ── 専門分業チェック（3AI並列）</div>
@@ -309,7 +278,7 @@ table.md-tbl tr:hover td { background: #f8fafc; }
         <div class="prog-icon idle" id="s-p1-gpt">⏸</div>
         <div>
           <div class="prog-name">ChatGPT</div>
-          <div class="prog-role" style="color:var(--semantic);">意味・ニュアンス専門</div>
+          <div class="prog-role" style="color:var(--semantic);">意味の忠実度（15パターン検査）</div>
           <div class="prog-sub" id="d-p1-gpt">待機中</div>
         </div>
       </div>
@@ -317,7 +286,7 @@ table.md-tbl tr:hover td { background: #f8fafc; }
         <div class="prog-icon idle" id="s-p1-claude">⏸</div>
         <div>
           <div class="prog-name">Claude</div>
-          <div class="prog-role" style="color:var(--technical);">技術的精度専門</div>
+          <div class="prog-role" style="color:var(--technical);">技術的精度（数値レジストリ照合）</div>
           <div class="prog-sub" id="d-p1-claude">待機中</div>
         </div>
       </div>
@@ -325,7 +294,7 @@ table.md-tbl tr:hover td { background: #f8fafc; }
         <div class="prog-icon idle" id="s-p1-gemini">⏸</div>
         <div>
           <div class="prog-name">Gemini</div>
-          <div class="prog-role" style="color:var(--complete);">完全性・一貫性専門</div>
+          <div class="prog-role" style="color:var(--complete);">完全性・用語一貫性</div>
           <div class="prog-sub" id="d-p1-gemini">待機中</div>
         </div>
       </div>
@@ -333,7 +302,7 @@ table.md-tbl tr:hover td { background: #f8fafc; }
   </div>
 
   <div class="phase-section">
-    <div class="phase-section-title">Phase 2 ── 逆翻訳検証（意味のズレを検出）</div>
+    <div class="phase-section-title">Phase 2 ── 逆翻訳検証（翻訳文→原語に戻して比較）</div>
     <div class="prog-grid">
       <div class="prog-item">
         <div class="prog-icon idle" id="s-p2a">⏸</div>
@@ -346,8 +315,8 @@ table.md-tbl tr:hover td { background: #f8fafc; }
       <div class="prog-item">
         <div class="prog-icon idle" id="s-p2b">⏸</div>
         <div>
-          <div class="prog-name">意味乖離の検出</div>
-          <div class="prog-role" style="color:#92400e;">原文と逆翻訳を比較</div>
+          <div class="prog-name">セグメント対照比較</div>
+          <div class="prog-role" style="color:#92400e;">原文 vs 逆翻訳を段落ごとに照合</div>
           <div class="prog-sub" id="d-p2b">待機中</div>
         </div>
       </div>
@@ -355,12 +324,12 @@ table.md-tbl tr:hover td { background: #f8fafc; }
   </div>
 
   <div class="phase-section">
-    <div class="phase-section-title">Phase 3 ── 最終統合レポート</div>
+    <div class="phase-section-title">Phase 3 ── 統合レポート（反幻覚検証 + 信頼度スコア）</div>
     <div class="prog-grid">
       <div class="prog-item">
         <div class="prog-icon idle" id="s-p3">⏸</div>
         <div>
-          <div class="prog-name">全結果を統合・信頼度付きレポート生成</div>
+          <div class="prog-name">全結果を統合・検証済みレポート生成</div>
           <div class="prog-sub" id="d-p3">待機中</div>
         </div>
       </div>
@@ -368,41 +337,44 @@ table.md-tbl tr:hover td { background: #f8fafc; }
   </div>
 </div>
 
-<!-- Results Card -->
+<!-- Results -->
 <div class="card hidden" id="resultsCard">
   <div class="card-header">
     📊 検証結果
     <button class="btn btn-secondary btn-sm" onclick="exportResults()" style="margin-left:auto;">📥 エクスポート</button>
   </div>
-
   <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('p1',this)">Phase 1：専門分業チェック</button>
-    <button class="tab-btn" onclick="switchTab('p2',this)">Phase 2：逆翻訳検証</button>
+    <button class="tab-btn active" onclick="switchTab('p0',this)">Phase 0：事前分析</button>
+    <button class="tab-btn" onclick="switchTab('p1',this)">Phase 1：専門検証</button>
+    <button class="tab-btn" onclick="switchTab('p2',this)">Phase 2：逆翻訳</button>
     <button class="tab-btn" onclick="switchTab('p3',this)">✨ Phase 3：最終レポート</button>
   </div>
 
-  <!-- Phase 1 -->
-  <div class="tab-pane active" id="tab-p1">
+  <div class="tab-pane active" id="tab-p0">
+    <div class="role-badge rb-prep">📊 用語対応表・数値レジストリ・文書構造マップ</div>
+    <div id="p0-result"><div class="result-box empty">まだ結果がありません</div></div>
+  </div>
+
+  <div class="tab-pane" id="tab-p1">
     <div class="ai-bar">
-      <button class="ai-btn semantic on" onclick="switchAiTab('p1','gpt',this)">GPT｜意味・ニュアンス</button>
+      <button class="ai-btn semantic on" onclick="switchAiTab('p1','gpt',this)">GPT｜意味の忠実度</button>
       <button class="ai-btn technical"   onclick="switchAiTab('p1','claude',this)">Claude｜技術的精度</button>
       <button class="ai-btn complete"    onclick="switchAiTab('p1','gemini',this)">Gemini｜完全性・一貫性</button>
     </div>
     <div id="p1-gpt">
-      <div class="role-badge rb-semantic">🔍 意味・ニュアンス専門チェック — 「意味が正確に伝わっているか」のみを検証</div>
+      <div class="role-badge rb-semantic">🔍 意味の忠実度 — 15パターンの意味エラーを網羅検査</div>
       <div class="result-box empty">まだ結果がありません</div>
     </div>
     <div id="p1-claude" class="hidden">
-      <div class="role-badge rb-technical">🔬 技術的精度専門チェック — 固有名詞・数字・スペル・文法を客観的に検証</div>
+      <div class="role-badge rb-technical">🔬 技術的精度 — 数値レジストリ・固有名詞を1件ずつ照合</div>
       <div class="result-box empty">まだ結果がありません</div>
     </div>
     <div id="p1-gemini" class="hidden">
-      <div class="role-badge rb-complete">📋 完全性・一貫性専門チェック — 脱落・追加・用語統一を検証</div>
+      <div class="role-badge rb-complete">📋 完全性・一貫性 — 用語対応表との整合性を全文検証</div>
       <div class="result-box empty">まだ結果がありません</div>
     </div>
   </div>
 
-  <!-- Phase 2 -->
   <div class="tab-pane" id="tab-p2">
     <div style="margin-bottom:16px;">
       <button class="collapse-toggle" onclick="toggleBT()">▶ 逆翻訳テキストを表示/非表示</button>
@@ -410,23 +382,19 @@ table.md-tbl tr:hover td { background: #f8fafc; }
         <div id="p2-bt"><div class="result-box empty">まだ結果がありません</div></div>
       </div>
     </div>
-    <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text);">意味の乖離 検出結果</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text);">セグメント対照比較結果</div>
     <div id="p2-cmp"><div class="result-box empty">まだ結果がありません</div></div>
   </div>
 
-  <!-- Phase 3 -->
   <div class="tab-pane" id="tab-p3">
     <div id="p3-result"><div class="result-box empty">まだ結果がありません</div></div>
   </div>
 </div>
 
-</div><!-- /container -->
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-// ══════════════════════════════════════════════
-// ★ デプロイ設定 — Cloudflare Worker URL
-// ══════════════════════════════════════════════
 const CLOUD_PROXY_URL = 'https://translation-checker.abe-f3a.workers.dev';
 
 const VALID_MODELS = {
@@ -438,21 +406,17 @@ const VALID_MODELS = {
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// ══════════════════════════════════════════════
-// State
-// ══════════════════════════════════════════════
+// ═══════════════════ State ═══════════════════
 const S = {
   jpFile: null, enFile: null,
-  jpText: '',   enText: '',
+  jpText: '', enText: '',
+  p0: null,
   p1: { gpt: null, claude: null, gemini: null },
-  p2bt:  null,   // back-translation text
-  p2cmp: null,   // back-translation comparison
-  p3:    null,
+  p2bt: null, p2cmp: null,
+  p3: null,
 };
 
-// ══════════════════════════════════════════════
-// Settings
-// ══════════════════════════════════════════════
+// ═══════════════════ Settings ═══════════════════
 function loadSettings() {
   ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel'].forEach(id => {
     const v = localStorage.getItem('tc_' + id);
@@ -479,17 +443,17 @@ function toggleSettings() {
   btn.textContent = hidden ? '▲' : '▼';
 }
 
-// ══════════════════════════════════════════════
-// Direction helpers
-// ══════════════════════════════════════════════
+// ═══════════════════ Direction ═══════════════════
 function getDir()     { return document.querySelector('input[name="direction"]:checked')?.value || 'jp-en'; }
 function getSrcLang() { return getDir() === 'jp-en' ? '日本語' : '英語'; }
 function getTgtLang() { return getDir() === 'jp-en' ? '英語'   : '日本語'; }
 function getDocType() { return document.getElementById('docType').value; }
-
+function getDocTypeLabel() {
+  const m = { legal:'法律・契約書', technical:'技術文書・マニュアル', academic:'学術論文・研究報告', business:'ビジネス文書', general:'一般文書' };
+  return m[getDocType()] || '一般文書';
+}
 function updateDirectionUI() {
-  const dir = getDir();
-  const jp = dir === 'jp-en';
+  const jp = getDir() === 'jp-en';
   document.getElementById('srcLabel').textContent = jp ? '日本語PDF（原文）'  : '英語PDF（原文）';
   document.getElementById('tgtLabel').textContent = jp ? '英語PDF（翻訳文）'  : '日本語PDF（翻訳文）';
   document.getElementById('srcIcon').textContent  = jp ? '🇯🇵' : '🇬🇧';
@@ -498,9 +462,7 @@ function updateDirectionUI() {
   document.getElementById('tgtTitle').textContent = jp ? '英語PDFをドロップ'  : '日本語PDFをドロップ';
 }
 
-// ══════════════════════════════════════════════
-// File upload
-// ══════════════════════════════════════════════
+// ═══════════════════ File Upload ═══════════════════
 function onDragOver(e, z)  { e.preventDefault(); document.getElementById(z).classList.add('drag-over'); }
 function onDragLeave(e, z) { document.getElementById(z).classList.remove('drag-over'); }
 function onDrop(e, lang) {
@@ -526,9 +488,7 @@ function checkStart() {
   document.getElementById('startBtn').disabled = !(hasFiles && hasKey);
 }
 
-// ══════════════════════════════════════════════
-// PDF extraction
-// ══════════════════════════════════════════════
+// ═══════════════════ PDF Extraction ═══════════════════
 async function extractPdf(file) {
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
@@ -552,30 +512,28 @@ async function extractPdf(file) {
   return text;
 }
 
-// ══════════════════════════════════════════════
-// API calls
-// ══════════════════════════════════════════════
-async function callGPT(system, user) {
+// ═══════════════════ API Calls ═══════════════════
+async function callGPT(system, user, opts = {}) {
   const key   = document.getElementById('openaiKey').value.trim();
   const model = document.getElementById('openaiModel').value;
   if (!key) throw new Error('OpenAI APIキーが未設定です');
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-    body: JSON.stringify({ model, temperature: 0.1, max_tokens: 4096,
+    body: JSON.stringify({ model, temperature: 0, max_tokens: opts.maxTokens || 8192,
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }] })
   });
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
     const m = e?.error?.message || res.statusText;
-    if (res.status === 429) throw new Error('OpenAI 429: クレジット残高不足またはレート制限。https://platform.openai.com/settings/billing をご確認ください。');
+    if (res.status === 429) throw new Error('OpenAI 429: クレジット残高不足またはレート制限。');
     if (res.status === 401) throw new Error('OpenAI 401: APIキーが無効です。');
     throw new Error('OpenAI ' + res.status + ': ' + m);
   }
   return (await res.json()).choices[0].message.content;
 }
 
-async function callClaude(system, user) {
+async function callClaude(system, user, opts = {}) {
   const key   = document.getElementById('anthropicKey').value.trim();
   const model = document.getElementById('anthropicModel').value;
   if (!key) throw new Error('Anthropic APIキーが未設定です');
@@ -587,148 +545,67 @@ async function callClaude(system, user) {
   let res;
   try {
     res = await fetch(endpoint, { method: 'POST', headers,
-      body: JSON.stringify({ model, max_tokens: 4096, system, messages: [{ role: 'user', content: user }] }) });
+      body: JSON.stringify({ model, max_tokens: opts.maxTokens || 8192, system,
+        messages: [{ role: 'user', content: user }] }) });
   } catch (e) {
     throw new Error(CLOUD_PROXY_URL
-      ? 'Cloudflare Workerへの接続失敗。Workerが正しくデプロイされているか確認してください。'
-      : 'Claude APIへの接続失敗（ネットワークエラー）: ' + e.message);
+      ? 'Cloudflare Workerへの接続失敗。'
+      : 'Claude APIへの接続失敗: ' + e.message);
   }
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
     const m = e?.error?.message || res.statusText;
-    if (res.status === 401) throw new Error('Anthropic 401: APIキーが無効です（sk-ant-...）。');
-    if (res.status === 429) throw new Error('Anthropic 429: レート制限またはクレジット不足。https://console.anthropic.com をご確認ください。');
+    if (res.status === 401) throw new Error('Anthropic 401: APIキーが無効です。');
+    if (res.status === 429) throw new Error('Anthropic 429: レート制限またはクレジット不足。');
     throw new Error('Anthropic ' + res.status + ': ' + m);
   }
   return (await res.json()).content[0].text;
 }
 
-async function callGemini(prompt) {
+async function callGemini(system, user, opts = {}) {
   const key   = document.getElementById('geminiKey').value.trim();
   const model = document.getElementById('geminiModel').value;
   if (!key) throw new Error('Gemini APIキーが未設定です');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 4096 } })
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ parts: [{ text: user }] }],
+      generationConfig: { temperature: 0, maxOutputTokens: opts.maxTokens || 8192 }
+    })
   });
   if (!res.ok) {
     const e = await res.json().catch(()=>({}));
     const m = e?.error?.message || res.statusText;
-    if (res.status === 400 && m.includes('API key')) throw new Error('Gemini 400: APIキーが無効です。https://aistudio.google.com/apikey で確認してください。');
-    if (res.status === 429) throw new Error('Gemini 429: レート制限。しばらく待ってから再試行してください。');
+    if (res.status === 400 && m.includes('API key')) throw new Error('Gemini 400: APIキーが無効です。');
+    if (res.status === 429) throw new Error('Gemini 429: レート制限。');
     throw new Error('Gemini ' + res.status + ': ' + m);
   }
   const d = await res.json();
   return d.candidates[0].content.parts[0].text;
 }
 
-// 利用可能な最良のAIを呼ぶ（exclude: 使用済みAIを除外）
-async function callBest(system, user, exclude = []) {
+async function callBest(system, user, opts = {}) {
   const gptKey    = document.getElementById('openaiKey').value.trim();
   const claudeKey = document.getElementById('anthropicKey').value.trim();
   const geminiKey = document.getElementById('geminiKey').value.trim();
+  const exclude   = opts.exclude || [];
   const order = [
-    { id: 'gpt',    key: gptKey,    fn: () => callGPT(system, user)           },
-    { id: 'claude', key: claudeKey, fn: () => callClaude(system, user)        },
-    { id: 'gemini', key: geminiKey, fn: () => callGemini(system + '\n\n' + user) },
+    { id: 'gpt',    key: gptKey,    fn: () => callGPT(system, user, opts)    },
+    { id: 'claude', key: claudeKey, fn: () => callClaude(system, user, opts) },
+    { id: 'gemini', key: geminiKey, fn: () => callGemini(system, user, opts) },
   ];
   for (const ai of order) {
-    if (ai.key && !exclude.includes(ai.id)) {
-      return { ai: ai.id, result: await ai.fn() };
-    }
+    if (ai.key && !exclude.includes(ai.id)) return { ai: ai.id, result: await ai.fn() };
+  }
+  for (const ai of order) {
+    if (ai.key) return { ai: ai.id, result: await ai.fn() };
   }
   throw new Error('利用可能なAPIキーがありません');
 }
 
-// ══════════════════════════════════════════════
-// System prompts — 専門分業
-// ══════════════════════════════════════════════
-function sysSemantic(dir) {
-  const src = getSrcLang(), tgt = getTgtLang();
-  const spellGrammar = dir === 'jp-en'
-    ? 'スペルミス・文法ミス（冠詞・時制・単複数）'
-    : '誤字・脱字・文法ミス（助詞・送り仮名）';
-  return `あなたは「意味・ニュアンス」専門の翻訳検証AIです。
-${src}→${tgt}翻訳について、「意味の正確性」のみを検証してください。
-
-【あなたの担当】
-・各文の意味が原文と正確に一致しているか
-・ニュアンス（強調・否定・条件・因果・逆接）が保たれているか
-・暗示・含意・省略が正しく伝わっているか
-・文脈依存の表現が正しく解釈されているか
-・原文のトーン（断定/推量/命令/丁寧）が維持されているか
-
-【他のAIが担当するため、あなたは見なくてよい項目】
-・${spellGrammar}（別のAIが担当）
-・固有名詞・数字・単位の確認（別のAIが担当）
-・文書の抜け漏れチェック（別のAIが担当）
-
-意味の検証に100%集中し、深く徹底的に確認してください。`;
-}
-
-function sysTechnical(dir) {
-  const src = getSrcLang(), tgt = getTgtLang();
-  const spellLine = dir === 'jp-en'
-    ? '・英単語のスペルミス（typo含む）\n・英文法ミス（冠詞 a/an/the・時制・単複数・前置詞・格）'
-    : '・日本語の誤字・脱字・送り仮名ミス\n・日本語文法ミス（助詞・接続・敬語の誤用）';
-  return `あなたは「技術的精度」専門の翻訳検証AIです。
-客観的・機械的に検証できる要素のみをチェックしてください。
-
-【あなたの担当】
-・固有名詞（人名・地名・会社名・法令名・商品名・ブランド名）の正確性
-・数字・日付・通貨・単位・割合・電話番号（一字一句正確に）
-${spellLine}
-・専門用語・略語の正確性と適切性
-
-【重要】意味の解釈・判断は行わない。「正しい/間違い」が客観的に判断できる項目のみ報告すること。`;
-}
-
-function sysCompleteness(dir) {
-  const src = getSrcLang(), tgt = getTgtLang();
-  return `あなたは「完全性・一貫性」専門の翻訳検証AIです。
-「抜け漏れ」と「用語の統一性」のみを徹底的に確認してください。
-
-【あなたの担当】
-・原文の文・段落が翻訳から1つも抜け落ちていないか（全ページを確認）
-・翻訳に原文にない文・情報が追加されていないか
-・同じ原語が文書全体で一貫した訳語になっているか（揺れを検出）
-・文書構造（見出し・箇条書き・番号・表・注釈）が翻訳で維持されているか
-
-【重要】意味の精度・スペル・文法は他のAIが担当。抜け漏れと用語統一のみに集中すること。`;
-}
-
-function sysBackTranslate(dir) {
-  const from = getTgtLang(), to = getSrcLang();
-  return `あなたは翻訳AIです。与えられた${from}のテキストを${to}に翻訳してください。
-翻訳のルール：
-・できるだけ逐語的・直訳的に翻訳すること（意訳・自然な言い回しに整えない）
-・原文の構造・語順・表現をできる限り保持すること
-・翻訳以外のコメント・評価・説明は一切加えないこと
-・ページ番号マーカー（=== ページ X ===）はそのまま保持すること`;
-}
-
-function sysBackCompare(dir) {
-  const src = getSrcLang(), tgt = getTgtLang();
-  return `あなたは翻訳検証の専門家です。
-以下の2つのテキストを比較して、意味の乖離を特定してください：
-1. 【原文】（${src}）
-2. 【逆翻訳文】（${tgt}翻訳文を${src}に逐語訳したもの）
-
-逆翻訳は直訳なので、表現の違いは正常です。「意味の違い」のみを報告してください。
-言い回しの違いや、翻訳スタイルの違いは無視してください。`;
-}
-
-// ══════════════════════════════════════════════
-// User prompts — 専門チェック
-// ══════════════════════════════════════════════
-function getDocTypeLabel() {
-  const t = document.getElementById('docType').value;
-  const m = { legal:'法律・契約書', technical:'技術文書・マニュアル', academic:'学術論文・研究報告', business:'ビジネス文書', general:'一般文書' };
-  return m[t] || '一般文書';
-}
-
+// ═══════════════════ Error Types ═══════════════════
 function getErrorTypes(dir) {
   const sp = dir === 'jp-en'
     ? '③ スペルミス　　　… 英単語のスペルが誤っている'
@@ -743,25 +620,63 @@ ${sp}
 ${gr}
 ⑤ 数字・単位ミス　… 数値・通貨・単位・日付等が誤っている
 ⑥ 脱落・省略　　　… 原文の語句や文が翻訳から抜け落ちている
-⑦ 用語の一貫性　　… 同じ原語が文書内で複数の訳語に揺れている
+⑦ 過剰翻訳　　　　… 原文にない内容が翻訳に追加されている
+⑧ 用語の一貫性　　… 同じ原語が文書内で複数の訳語に揺れている
 【修正が望ましい】
-⑧ 表現改善　　　　… 意味は通じるが、より自然・正確な表現がある
-⑨ 文体・スタイル　… 文書の種類に合った文体に改善できる`;
+⑨ 表現改善　　　　… 意味は通じるが、より自然・正確な表現がある
+⑩ 文体・スタイル　… 文書の種類に合った文体に改善できる`;
 }
 
-const OUTPUT_TABLE = 'ページ数 | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 備考';
+const OUTPUT_TABLE = 'ページ | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 備考';
 
-function promptSemantic(src, tgt, nouns, dir) {
+// ═══════════════════ Phase 0: Prep Prompts ═══════════════════
+function sysPrep() {
+  return `あなたは翻訳検証の事前分析AIです。原文と翻訳文を分析し、後続の検証AIが使用するデータを正確に抽出してください。
+
+このデータの品質が検証全体の精度を決定します。1件も見落としがないよう、全ページを丁寧に走査してください。
+
+抽出するデータ：
+1. 用語対応表（専門用語・固有名詞・繰り返し語句のすべて）
+2. 数値レジストリ（数字・日付・金額・パーセント・電話番号等のすべて）
+3. 文書構造サマリー`;
+}
+
+function promptPrep(src, tgt, nouns) {
   return `文書種類：${getDocTypeLabel()}
-固有名詞の翻訳方法：${nouns.trim() || '（特に指定なし）'}
+固有名詞の翻訳方法：
+${nouns.trim() || '（特に指定なし）'}
 
-以下の翻訳を「意味・ニュアンス」の観点のみで検証してください。
-1文ずつ丁寧に照合し、意味の誤りをすべて報告してください。
+以下の原文と翻訳文を分析し、3つのデータセットを抽出してください。
 
-出力形式：
-${OUTPUT_TABLE}
+## タスク1: 用語対応表
 
-誤りの種類は「① 意味の誤訳」または「⑧ 表現改善」のみを使用すること。
+文書中の重要な用語のすべて（固有名詞・専門用語・繰り返し出現する語句）について対応を抽出。
+
+| # | 原語 | 訳語 | 出現ページ | 種別 | 備考 |
+|---|------|------|-----------|------|------|
+
+種別: 固有名詞 / 専門用語 / 一般用語
+備考欄：
+- 同じ原語に複数訳語がある場合 →「訳語揺れ：○○ / △△」
+- 上記の固有名詞指定と異なる翻訳の場合 →「指定と不一致」
+- 問題なし → 空欄
+
+## タスク2: 数値・日付レジストリ
+
+すべての数値（金額・日付・パーセント・数量・電話番号・住所番地・条文番号等）を原文・翻訳文の両方から抽出し、1対1で対応を確認。
+
+| # | ページ | 原文の数値 | 翻訳文の数値 | 一致 |
+|---|--------|-----------|-------------|------|
+
+一致列: ✓（一致）/ ✗（不一致 — 具体的に何が違うかを記載）
+
+## タスク3: 文書構造サマリー
+
+- 総ページ数
+- セクション・見出し構造（概要）
+- 表・図・脚注・注釈の数
+- 原文にあって翻訳にないセクション（があれば具体的に）
+- その他の構造的な差異
 
 ---
 ## ${getSrcLang()}原文
@@ -774,18 +689,243 @@ ${src}
 ${tgt}`;
 }
 
-function promptTechnical(src, tgt, nouns, dir) {
-  const ET = getErrorTypes(dir);
-  return `文書種類：${getDocTypeLabel()}
-固有名詞の翻訳方法：${nouns.trim() || '（特に指定なし）'}
+// ═══════════════════ Phase 1: Specialist Prompts ═══════════════════
 
+function getDocSpecificSemantic() {
+  const dt = getDocType();
+  if (dt === 'legal') return `
+【法律文書の重点チェック】
+- 義務の程度:「しなければならない」→ shall/must、「することができる」→ may/can の精度
+- 条件節:「ただし」「この限りでない」の例外条件が正確に反映されているか
+- 定義語: 括弧書きで定義された語が定義通りに訳されているか
+- 法的効力の差:「みなす」(deemed) vs「推定する」(presumed) 等
+- 権利・義務の主体が入れ替わっていないか
+- 「及び」(and) vs「又は」(or) の論理演算子が正確か`;
+  if (dt === 'technical') return `
+【技術文書の重点チェック】
+- 手順の順序が翻訳で変わっていないか
+- 因果関係:「～すると…になる」という技術的因果が正確か
+- 警告・注意の強度: Warning > Caution > Note の区別が維持されているか
+- 条件分岐: if/when/unless の技術的条件が正確か`;
+  if (dt === 'academic') return `
+【学術文書の重点チェック】
+- ヘッジング:「示唆する」(suggest) vs「証明する」(prove) 等の確信度
+- 因果 vs 相関:「原因となる」(cause) vs「関連がある」(correlate) の区別
+- 限定条件:「一部の」「特定の条件下で」等の限定が維持されているか
+- 統計用語: 有意 (significant) / 傾向 (trend) / p値等の精度`;
+  if (dt === 'business') return `
+【ビジネス文書の重点チェック】
+- 丁寧度・敬意の程度が原文と一致しているか
+- 依頼・提案・命令のトーンが正確に反映されているか
+- コミットメントの程度:「検討する」vs「実施する」等`;
+  return '';
+}
+
+function sysSemantic() {
+  const src = getSrcLang(), tgt = getTgtLang();
+  return `あなたは「意味の忠実度」を検証する世界最高水準の翻訳チェッカーです。
+${src}→${tgt}翻訳について、原文の意味が翻訳文に正確に反映されているかのみを検証します。
+
+## 検出すべき15の意味エラーパターン（すべて確認すること）
+
+1. 意味の逆転 — 否定の欠落・追加（「～ない」↔「～ある」）
+2. 条件の変質 — 条件節の変化（if↔when、unless↔if not、場合↔とき）
+3. 因果の逆転 — 原因と結果の入れ替え（because↔although、ので↔のに）
+4. 程度・強度の変化 — must→should、very→somewhat、すべて→一部、必ず→できるだけ
+5. 範囲の変化 — all→some、every→many、全員→多く、各→一部の
+6. 時制の変化 — 過去↔現在↔未来の混同、完了形の誤用
+7. 法性（モダリティ）の変化 — can→may、shall→will、できる→してもよい
+8. 暗示・含意の喪失 — 原文の言外の意味が翻訳で失われている
+9. 主語・目的語の取り違え — 「AがBを」→「BがAを」のような入れ替え
+10. 指示対象の曖昧化 — 「それ」「この」の指す対象が変わっている
+11. 情報の追加 — 原文にない意味が翻訳に付加されている
+12. トーン・レジスターの変化 — 断定↔推量、丁寧↔カジュアル、客観↔主観
+13. 論理接続の変化 — 「また」「しかし」「したがって」等の接続関係のずれ
+14. 比較・程度表現 — 「より多い」「最も」等の比較構造の誤り
+15. 二重否定・反語 — 複雑な否定構造の処理ミス
+${getDocSpecificSemantic()}
+
+## 検証手順（厳守）
+
+1. ページ1から最終ページまで、1文ずつ翻訳文と照合する
+2. 各文について上記15パターンすべてを確認する
+3. 少しでも疑わしい箇所はすべて報告する（見逃すより多く報告する方が望ましい）
+4. 問題が見つからないページも「ページX：問題なし」と明記する
+
+## 担当外（報告不要）
+- スペル・文法ミス（Claude担当）
+- 固有名詞・数字の正確性（Claude担当）
+- 文の脱落・追加（Gemini担当）
+- 用語の一貫性（Gemini担当）`;
+}
+
+function getDocSpecificTechnical() {
+  const dt = getDocType();
+  if (dt === 'legal') return `
+【法律文書の追加パターン】
+- 法律用語: 甲/乙、契約当事者名の正確性
+- 法令名・条文番号（「第○条第○項」→ Article X, Paragraph Y）
+- 日付・期間:「○年○月○日まで」→ by/until/on の正確性
+- 法人名の正式表記（Co., Ltd. / Inc. / Corp.）
+- 署名欄の名前・肩書き`;
+  if (dt === 'technical') return `
+【技術文書の追加パターン】
+- 単位の換算正確性（kg↔lb、cm↔inch等）
+- バージョン番号・モデル番号の正確性
+- 技術略語の正確性（CPU、API、HTTP等）
+- コード・コマンドがそのまま保持されているか`;
+  if (dt === 'academic') return `
+【学術文書の追加パターン】
+- 引用番号・参照番号の正確性
+- 図表番号（Figure X / Table Y）の正確性
+- 統計値（p値、n数、信頼区間等）の正確性`;
+  return '';
+}
+
+function sysTechnical(dir) {
+  const src = getSrcLang(), tgt = getTgtLang();
+  const spellPatterns = dir === 'jp-en'
+    ? `### スペル・英文法パターン
+- 英単語のスペルミス（typo含む。よくある混同: affect/effect, complement/compliment, principal/principle, ensure/insure, stationery/stationary, its/it's, than/then）
+- 冠詞（a/an/the/無冠詞）の誤用
+- 単数形/複数形の不一致
+- 時制の誤用（特に条件文内、時制の一致）
+- 前置詞の誤用
+- 主語-動詞の一致
+- 句読法: カンマスプライス、ピリオド位置（引用符の内外）、セミコロン/コロンの誤用`
+    : `### 表記・日本語文法パターン
+- 漢字の誤字・当て字
+- 送り仮名の誤り
+- 助詞の誤用（は/が、に/で、を/が等）
+- 敬語の混乱（尊敬語/謙譲語/丁寧語の混同）
+- 漢字とひらがなの使い分け（「事」vs「こと」、「為」vs「ため」等）
+- 句読点の使い方`;
+
+  return `あなたは「技術的精度」を検証する世界最高水準の翻訳チェッカーです。
+${src}→${tgt}翻訳について、客観的に正誤判断できる項目のみを検証します。
+
+## 検出すべきエラーパターン（すべて確認すること）
+
+### 固有名詞パターン
+- 人名のスペル（原文のローマ字表記との一致、姓名の順序）
+- 会社名・組織名の正式英語名（指定があればその通りか）
+- 地名（都市名・国名・建物名・施設名）の正確性
+- 法令名・規格名の公式翻訳との一致
+- 商品名・ブランド名の正確性
+- 役職名・肩書きの正確性
+
+### 数値パターン
+- 数字の転写ミス（1234→1243のような転置）
+- 通貨記号の正確性（¥ ↔ $ ↔ € ↔ £）
+- 日付の変換正確性（2024年3月15日 → March 15, 2024 ※月日の入替に注意）
+- パーセンテージの正確性
+- 電話番号・FAX番号の正確性
+- 住所番地の正確性
+- 金額のカンマ区切り（千単位区切り等）の正確性
+- 小数点（日本語の「．」→ 英語の「.」）の正確性
+
+${spellPatterns}
+${getDocSpecificTechnical()}
+
+## 検証手順（厳守）
+
+1. まず、Phase 0の事前分析データ（用語対応表・数値レジストリ）を確認する
+2. 数値レジストリの各エントリを翻訳文と照合し、不一致を報告する
+3. 用語対応表の固有名詞を翻訳文と照合し、誤りを報告する
+4. 翻訳文を全文精読し、スペル・文法エラーを検出する
+5. 問題が見つからないページも「ページX：問題なし」と明記する
+
+## 担当外（報告不要）
+- 意味の解釈・ニュアンス（GPT担当）
+- 文の脱落・追加（Gemini担当）
+- 用語の一貫性（Gemini担当）`;
+}
+
+function sysCompleteness() {
+  return `あなたは「完全性・一貫性」を検証する世界最高水準の翻訳チェッカーです。
+「抜け漏れ」「過剰翻訳」「用語の統一性」を徹底的に確認します。
+
+## 検出すべきエラーパターン（すべて確認すること）
+
+### 脱落パターン
+1. 文の脱落 — 原文の文が翻訳から完全に欠落
+2. 句・語句の脱落 — 文の一部（修飾語、条件節、括弧内等）が欠落
+3. 段落の脱落 — 段落全体が欠落
+4. 注釈・脚注の脱落
+5. 表・リストの項目脱落
+6. ページ間の接続部分の脱落
+
+### 過剰翻訳パターン
+7. 原文にない文が翻訳に追加されている
+8. 原文にない修飾語・説明・補足が追加されている
+9. 翻訳者のメモ・コメントが残っている
+
+### 用語一貫性パターン
+10. 同じ原語が文書内で異なる訳語になっている（Phase 0の用語表を参照）
+11. 同じ概念が異なる表現で翻訳されている
+12. 定義語が定義箇所と使用箇所で異なる訳になっている
+
+### 構造保持パターン
+13. 見出しレベルが変わっている
+14. 箇条書きの順序が変わっている
+15. 番号付け（条文番号、項目番号等）が変わっている
+16. 表の行列構造が変わっている
+
+## 検証手順（厳守）
+
+1. Phase 0の用語対応表で「訳語揺れ」と記載された項目を重点確認する
+2. 原文をページ1から順に走査し、各文/段落が翻訳文に存在するか確認する
+3. 逆に翻訳文を走査し、原文にない内容がないか確認する
+4. 用語対応表のすべての項目について、文書全体で一貫して使われているか確認する
+5. 問題が見つからないページも「ページX：問題なし」と明記する
+
+## 担当外（報告不要）
+- 意味の精度・ニュアンス（GPT担当）
+- スペル・文法・固有名詞・数値（Claude担当）`;
+}
+
+// ═══════════════════ Phase 1: User Prompts ═══════════════════
+
+function promptSemantic(src, tgt, nouns, prepData) {
+  return `文書種類：${getDocTypeLabel()}
+固有名詞の翻訳方法：
+${nouns.trim() || '（特に指定なし）'}
+${prepData ? '\n## 事前分析データ（参考情報）\n' + prepData + '\n---\n' : ''}
+以下の翻訳を「意味の忠実度」の観点のみで検証してください。
+ページ1から最終ページまで、1文ずつ15パターンすべてを確認してください。
+
+出力形式（Markdown表）：
+| ${OUTPUT_TABLE} |
+
+誤りの種類は「① 意味の誤訳」「⑦ 過剰翻訳」「⑨ 表現改善」のみを使用。
+問題のないページには「ページX：問題なし」と記載。
+最後に検出件数のサマリーを記載。
+
+---
+## ${getSrcLang()}原文
+
+${src}
+
+---
+## ${getTgtLang()}翻訳文
+
+${tgt}`;
+}
+
+function promptTechnical(src, tgt, nouns, dir, prepData) {
+  return `文書種類：${getDocTypeLabel()}
+固有名詞の翻訳方法：
+${nouns.trim() || '（特に指定なし）'}
+${prepData ? '\n## 事前分析データ（数値レジストリ・用語表を照合に使用すること）\n' + prepData + '\n---\n' : ''}
 以下の翻訳を「技術的精度」の観点のみで検証してください。
-客観的に正誤が判断できる項目だけを報告してください。
+事前分析の数値レジストリの各エントリを1件ずつ照合してください。
 
-出力形式：
-${OUTPUT_TABLE}
+出力形式（Markdown表）：
+| ${OUTPUT_TABLE} |
 
-誤りの種類は「② 固有名詞ミス」「③ スペルミス」「④ 文法ミス」「⑤ 数字・単位ミス」のみ使用。
+誤りの種類は「② 固有名詞ミス」「③ スペルミス/${dir==='jp-en'?'':'表記ミス'}」「④ 文法ミス」「⑤ 数字・単位ミス」のみ使用。
+問題のないページには「ページX：問題なし」と記載。
+最後に検出件数のサマリーを記載。
 
 ---
 ## ${getSrcLang()}原文
@@ -798,17 +938,20 @@ ${src}
 ${tgt}`;
 }
 
-function promptCompleteness(src, tgt, nouns, dir) {
+function promptCompleteness(src, tgt, nouns, prepData) {
   return `文書種類：${getDocTypeLabel()}
-固有名詞の翻訳方法：${nouns.trim() || '（特に指定なし）'}
-
+固有名詞の翻訳方法：
+${nouns.trim() || '（特に指定なし）'}
+${prepData ? '\n## 事前分析データ（用語対応表の「訳語揺れ」を重点確認すること）\n' + prepData + '\n---\n' : ''}
 以下の翻訳を「完全性・一貫性」の観点のみで検証してください。
-全ページの抜け漏れと、文書全体の用語統一を確認してください。
+全ページの全文・全段落を走査し、脱落と用語揺れを検出してください。
 
-出力形式：
-${OUTPUT_TABLE}
+出力形式（Markdown表）：
+| ${OUTPUT_TABLE} |
 
-誤りの種類は「⑥ 脱落・省略」「⑦ 用語の一貫性」「⑨ 文体・スタイル」のみ使用。
+誤りの種類は「⑥ 脱落・省略」「⑦ 過剰翻訳」「⑧ 用語の一貫性」「⑩ 文体・スタイル」のみ使用。
+問題のないページには「ページX：問題なし」と記載。
+最後に検出件数のサマリーを記載。
 
 ---
 ## ${getSrcLang()}原文
@@ -819,89 +962,150 @@ ${src}
 ## ${getTgtLang()}翻訳文
 
 ${tgt}`;
+}
+
+// ═══════════════════ Phase 2: Back-Translation Prompts ═══════════════════
+
+function sysBackTranslate() {
+  const from = getTgtLang(), to = getSrcLang();
+  return `あなたは翻訳AIです。与えられた${from}のテキストを${to}に翻訳してください。
+
+翻訳ルール（厳守）：
+1. できるだけ逐語的・直訳的に翻訳すること（意訳・自然な言い回しに整えない）
+2. 原文の構造・語順・表現をできる限り保持すること
+3. 翻訳以外のコメント・評価・説明は一切加えないこと
+4. ページ番号マーカー（=== ページ X ===）はそのまま保持すること
+5. 段落の区切りも原文に合わせて保持すること
+6. 1文も省略せず、すべてを翻訳すること`;
 }
 
 function promptBackTranslate(tgt) {
-  return `以下の${getTgtLang()}テキストを${getSrcLang()}に逐語訳してください。
+  return `以下の${getTgtLang()}テキストを${getSrcLang()}に逐語訳してください。1文も省略しないでください。
 
-${tgt.substring(0, 12000)}${tgt.length > 12000 ? '\n（以下省略）' : ''}`;
+${tgt}`;
 }
 
-function promptBackCompare(src, backTranslation, nouns, dir) {
+function sysBackCompare() {
+  const src = getSrcLang();
+  return `あなたは翻訳検証の専門家です。以下の2つのテキストを段落・文ごとに対照比較して、意味の乖離を特定してください。
+
+【重要】逆翻訳は逐語訳なので、表現・言い回しの違いは正常です。「意味が異なる箇所」のみを報告してください。
+
+比較の手順：
+1. 原文の各段落/文と、逆翻訳の対応する段落/文を1つずつ照合する
+2. 意味が同じなら次に進む
+3. 意味が異なる場合のみ報告する
+4. 「意味の違い」とは：事実が異なる、条件が変わる、否定が変わる、主語が変わる、等`;
+}
+
+function promptBackCompare(src, backTranslation, nouns) {
   return `文書種類：${getDocTypeLabel()}
-固有名詞の翻訳方法：${nouns.trim() || '（特に指定なし）'}
+固有名詞の翻訳方法：
+${nouns.trim() || '（特に指定なし）'}
 
-以下の2つのテキストを比較して、「意味の乖離」を検出してください。
-逆翻訳は逐語訳なので言い回しの違いは正常です。「意味が異なる箇所」のみを報告してください。
+以下の2つのテキストをセグメント（段落/文）ごとに対照比較し、意味の乖離を検出してください。
 
-出力形式：
-ページ数 | 原文の該当部分 | 逆翻訳の該当部分 | 意味のズレ・乖離 | 深刻度（高/中/低）
+出力形式（Markdown表）：
+| ページ | 原文の該当部分 | 逆翻訳の該当部分 | 意味のズレ | 深刻度 |
 
 深刻度の基準：
-・高：意味が正反対または大きく異なる（必ず修正が必要）
-・中：ニュアンスが失われている（修正推奨）
-・低：微細な差異（参考情報）
+- 高：意味が正反対または大きく異なる（必ず修正が必要）
+- 中：ニュアンスが失われている（修正推奨）
+- 低：微細な差異（参考情報）
+
+対照比較後、各ページの結果を「ページX：乖離Y件（高Z件/中Z件/低Z件）」でサマリーしてください。
 
 ---
 ## ${getSrcLang()}原文
 
-${src.substring(0, 8000)}${src.length > 8000 ? '\n（以下省略）' : ''}
+${src}
 
 ---
 ## 逆翻訳文（${getTgtLang()}翻訳文を${getSrcLang()}に逐語訳したもの）
 
-${backTranslation.substring(0, 8000)}${backTranslation.length > 8000 ? '\n（以下省略）' : ''}`;
+${backTranslation}`;
 }
 
-function promptFinalSynthesis(p1, p2bt, p2cmp, nouns, dir) {
+// ═══════════════════ Phase 3: Final Synthesis ═══════════════════
+
+function sysFinalSynthesis() {
+  return `あなたは翻訳検証の最終統合を担当する専門家です。
+
+複数の検証フェーズの結果を統合し、重複を排除し、反幻覚検証を行い、信頼度スコア付きの最終レポートを作成します。
+
+## 反幻覚検証（必ず実施すること）
+
+各指摘について以下を確認し、疑わしい指摘は除外またはダウングレードすること：
+- 「原文」欄に引用された文が、実際に原文に存在するか
+- 「翻訳文」欄に引用された文が、実際に翻訳文に存在するか
+- 指摘された「誤り」が本当に誤りか、翻訳上の妥当な判断の範囲ではないか
+- 文脈を無視した表面的な指摘ではないか`;
+}
+
+function promptFinalSynthesis(p0, p1, p2cmp, src, tgt, nouns, dir) {
   const ET = getErrorTypes(dir);
   const parts = [];
-  if (p1.gpt)    parts.push(`### ChatGPT（意味・ニュアンス専門）の指摘\n${p1.gpt}`);
-  if (p1.claude) parts.push(`### Claude（技術的精度専門）の指摘\n${p1.claude}`);
-  if (p1.gemini) parts.push(`### Gemini（完全性・一貫性専門）の指摘\n${p1.gemini}`);
-  if (p2cmp)     parts.push(`### 逆翻訳検証による意味乖離の検出結果\n${p2cmp}`);
+  if (p0)        parts.push(`### Phase 0: 事前分析データ\n${p0}`);
+  if (p1.gpt)    parts.push(`### Phase 1-A: ChatGPT（意味の忠実度）\n${p1.gpt}`);
+  if (p1.claude) parts.push(`### Phase 1-B: Claude（技術的精度）\n${p1.claude}`);
+  if (p1.gemini) parts.push(`### Phase 1-C: Gemini（完全性・一貫性）\n${p1.gemini}`);
+  if (p2cmp)     parts.push(`### Phase 2: 逆翻訳検証による意味乖離\n${p2cmp}`);
 
   return `翻訳検証の全フェーズが完了しました。以下の全結果を統合して最終レポートを作成してください。
+
+固有名詞の翻訳方法：
+${nouns.trim() || '（特に指定なし）'}
 
 ## 全フェーズの検証結果
 
 ${parts.join('\n\n---\n\n')}
 
 ---
+
+## 原文テキスト（反幻覚検証用 — 指摘内容の原文引用がこの中に実在するか確認すること）
+
+${src.substring(0, 15000)}${src.length > 15000 ? '\n（以下省略）' : ''}
+
+## 翻訳文テキスト（反幻覚検証用 — 指摘内容の翻訳引用がこの中に実在するか確認すること）
+
+${tgt.substring(0, 15000)}${tgt.length > 15000 ? '\n（以下省略）' : ''}
+
+---
+
 ## 最終レポート作成の指示
 
-### ① 最終翻訳ミスリスト（表形式）
+### セクション1: 最終翻訳ミスリスト（表形式）
 
-ページ数 | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 信頼度 | 備考
+| ページ | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 信頼度 | 備考 |
 
 誤りの種類：
 ${ET}
 
 信頼度の付け方：
-・高：複数の検証（複数AI指摘 または Phase1+逆翻訳両方で検出）
-・中：1つの検証のみが指摘（内容は妥当）
-・低：指摘はあるが確信度が低い
+- 🔴 高：複数の検証で検出（複数AI指摘、またはPhase 1+逆翻訳の両方で検出）
+- 🟡 中：1つの検証が指摘（内容は妥当、原文/翻訳文で実在を確認済み）
+- ⚪ 低：指摘はあるが確信度が低い、または反幻覚検証で疑義あり
 
 ルール：
-・同じ箇所の指摘は1行にまとめる
-・逆翻訳検証で確認された指摘は信頼度「高」とし、備考欄に「逆翻訳で確認」と記載
-・複数AIが同じ箇所を指摘した場合は備考欄に「【重要】複数AI指摘」と記載
+- 同じ箇所の指摘は1行にまとめる
+- 反幻覚検証で「原文/翻訳文に該当テキストが見つからない」指摘は除外する
+- 逆翻訳検証で確認された指摘は備考欄に「逆翻訳で確認」と記載
+- 複数AIが同じ箇所を指摘した場合は備考欄に「複数AI一致」と記載
 
-### ② 誤りの種類別集計
+### セクション2: 誤りの種類別集計
 
-各カテゴリ（①〜⑨）の件数を一覧にすること
+各カテゴリ（①〜⑩）の件数を一覧にし、修正必要/修正望ましい別の小計も記載。
 
-### ③ 全体評価と翻訳者へのフィードバック
+### セクション3: 全体品質評価
 
-・全体的な翻訳品質の評価（優/良/要改善/要大幅修正）
-・最も多かったエラーのパターンと原因の考察
-・翻訳者への具体的な改善アドバイス
-（合計400字以内）`;
+以下を400字以内で記載：
+- 全体的な翻訳品質の評価（S/A/B/C/D の5段階）
+  S: ほぼ完璧、A: 高品質（軽微な修正のみ）、B: 標準的（いくつかの修正必要）、C: 要改善（多数の修正必要）、D: 要大幅修正
+- 最も多かったエラーパターンとその原因の考察
+- 翻訳者への具体的な改善アドバイス（次回の翻訳に活かせるもの）`;
 }
 
-// ══════════════════════════════════════════════
-// Progress UI
-// ══════════════════════════════════════════════
+// ═══════════════════ Progress UI ═══════════════════
 function setProgress(id, state, desc) {
   const icon = document.getElementById('s-' + id);
   const d    = document.getElementById('d-' + id);
@@ -927,18 +1131,32 @@ function setRawContent(id, text) {
   el.innerHTML = `<div class="result-box" style="white-space:pre-wrap;font-size:12px;">${esc(text)}</div>`;
 }
 
-// ══════════════════════════════════════════════
-// Markdown renderer
-// ══════════════════════════════════════════════
+function countFindings(text) {
+  if (!text) return 0;
+  const lines = text.split('\n');
+  let count = 0, inTable = false;
+  for (const line of lines) {
+    if (line.includes('|') && line.trim().startsWith('|')) {
+      if (!inTable) { inTable = true; continue; }
+      if (line.match(/^\s*\|[\s:-]+\|\s*$/)) continue;
+      count++;
+    } else {
+      inTable = false;
+    }
+  }
+  return count;
+}
+
+// ═══════════════════ Markdown Renderer ═══════════════════
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function renderMd(text) {
   if (!text) return '';
   const lines = text.split('\n'); const out = []; let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    if (line.includes('|')) {
+    if (line.includes('|') && line.trim().startsWith('|')) {
       const block = [];
-      while (i < lines.length && lines[i].includes('|')) { block.push(lines[i]); i++; }
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim().startsWith('|')) { block.push(lines[i]); i++; }
       out.push(renderTable(block));
     } else {
       let h = esc(line);
@@ -955,7 +1173,7 @@ function renderMd(text) {
   return out.join('');
 }
 function renderTable(lines) {
-  const rows = lines.filter(l => !l.match(/^\s*\|[-:\s|]+\|\s*$/));
+  const rows = lines.filter(l => !l.match(/^\s*\|[\s:-]+\|\s*$/));
   if (!rows.length) return '';
   let html = '<div class="tbl-wrap"><table class="md-tbl">';
   rows.forEach((row, ri) => {
@@ -966,9 +1184,7 @@ function renderTable(lines) {
   return html + '</table></div>';
 }
 
-// ══════════════════════════════════════════════
-// Tabs
-// ══════════════════════════════════════════════
+// ═══════════════════ Tabs ═══════════════════
 function switchTab(id, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -985,13 +1201,10 @@ function switchAiTab(phase, ai, btn) {
   });
 }
 function toggleBT() {
-  const w = document.getElementById('bt-text-wrap');
-  w.classList.toggle('hidden');
+  document.getElementById('bt-text-wrap').classList.toggle('hidden');
 }
 
-// ══════════════════════════════════════════════
-// Main workflow
-// ══════════════════════════════════════════════
+// ═══════════════════ Main Workflow ═══════════════════
 async function startChecking() {
   if (!S.jpFile || !S.enFile) { alert('両方のPDFをアップロードしてください'); return; }
 
@@ -1001,70 +1214,94 @@ async function startChecking() {
   const nouns     = document.getElementById('properNouns').value;
   const dir       = getDir();
 
-  const ais = [];
-  if (gptKey)    ais.push('gpt');
-  if (claudeKey) ais.push('claude');
-  if (geminiKey) ais.push('gemini');
-  if (ais.length === 0) { alert('APIキーを1つ以上設定してください'); return; }
+  if (!gptKey && !claudeKey && !geminiKey) { alert('APIキーを1つ以上設定してください'); return; }
 
   document.getElementById('startBtn').disabled = true;
   document.getElementById('progressCard').classList.remove('hidden');
   document.getElementById('resultsCard').classList.remove('hidden');
 
-  // ── PDF 抽出 ─────────────────────────────────
+  // PDF extraction
   try {
     const [jpText, enText] = await Promise.all([extractPdf(S.jpFile), extractPdf(S.enFile)]);
     S.jpText = jpText; S.enText = enText;
-    const showCount = (id, text) => {
-      const el = document.getElementById(id);
-      el.textContent = `テキスト抽出: ${text.length.toLocaleString()} 文字`;
+    ['jp','en'].forEach(lang => {
+      const el = document.getElementById(lang+'Count');
+      el.textContent = `テキスト抽出: ${(lang==='jp'?jpText:enText).length.toLocaleString()} 文字`;
       el.classList.remove('hidden');
-    };
-    showCount('jpCount', jpText);
-    showCount('enCount', enText);
+    });
   } catch (err) {
     alert('PDF解析エラー: ' + err.message);
-    document.getElementById('startBtn').disabled = false;
-    checkStart(); return;
+    document.getElementById('startBtn').disabled = false; checkStart(); return;
   }
 
   const src = S.jpText, tgt = S.enText;
 
-  // ── Phase 1：専門分業（並列） ─────────────────
+  // ── Phase 0: Preparation ──
+  let prepData = '';
+  try {
+    setProgress('p0', 'running', '用語・数値・構造を抽出中...');
+    setLoading('p0-result');
+    const p0Res = await callBest(sysPrep(), promptPrep(src, tgt, nouns), { maxTokens: 8192 });
+    S.p0 = p0Res.result;
+    prepData = S.p0;
+    const aiName = { gpt:'GPT', claude:'Claude', gemini:'Gemini' }[p0Res.ai];
+    setProgress('p0', 'done', `完了 (${aiName})`);
+    setContent('p0-result', S.p0);
+  } catch (err) {
+    setProgress('p0', 'err', 'エラー: ' + err.message);
+    setContent('p0-result', err.message, true);
+  }
+
+  // ── Phase 1: Specialist Checks (parallel) ──
   const p1Tasks = [];
 
   if (gptKey) {
-    setProgress('p1-gpt', 'running', 'チェック中...');
+    setProgress('p1-gpt', 'running', '15パターン検査中...');
     setLoading('p1-gpt');
-    p1Tasks.push(callGPT(sysSemantic(dir), promptSemantic(src, tgt, nouns, dir))
-      .then(r => { S.p1.gpt = r; setProgress('p1-gpt','done','完了'); setContent('p1-gpt', r); })
+    p1Tasks.push(callGPT(sysSemantic(), promptSemantic(src, tgt, nouns, prepData), { maxTokens: 8192 })
+      .then(r => {
+        S.p1.gpt = r;
+        const n = countFindings(r);
+        setProgress('p1-gpt','done', `完了（${n}件検出）`);
+        setContent('p1-gpt', r);
+      })
       .catch(err => { setProgress('p1-gpt','err','エラー'); setContent('p1-gpt', err.message, true); }));
   } else setProgress('p1-gpt', 'skip', 'APIキーなし');
 
   if (claudeKey) {
-    setProgress('p1-claude', 'running', 'チェック中...');
+    setProgress('p1-claude', 'running', '数値レジストリ照合中...');
     setLoading('p1-claude');
-    p1Tasks.push(callClaude(sysTechnical(dir), promptTechnical(src, tgt, nouns, dir))
-      .then(r => { S.p1.claude = r; setProgress('p1-claude','done','完了'); setContent('p1-claude', r); })
+    p1Tasks.push(callClaude(sysTechnical(dir), promptTechnical(src, tgt, nouns, dir, prepData), { maxTokens: 8192 })
+      .then(r => {
+        S.p1.claude = r;
+        const n = countFindings(r);
+        setProgress('p1-claude','done', `完了（${n}件検出）`);
+        setContent('p1-claude', r);
+      })
       .catch(err => { setProgress('p1-claude','err','エラー'); setContent('p1-claude', err.message, true); }));
   } else setProgress('p1-claude', 'skip', 'APIキーなし');
 
   if (geminiKey) {
-    setProgress('p1-gemini', 'running', 'チェック中...');
+    setProgress('p1-gemini', 'running', '用語対応表照合中...');
     setLoading('p1-gemini');
-    p1Tasks.push(callGemini(sysCompleteness(dir) + '\n\n' + promptCompleteness(src, tgt, nouns, dir))
-      .then(r => { S.p1.gemini = r; setProgress('p1-gemini','done','完了'); setContent('p1-gemini', r); })
+    p1Tasks.push(callGemini(sysCompleteness(), promptCompleteness(src, tgt, nouns, prepData), { maxTokens: 8192 })
+      .then(r => {
+        S.p1.gemini = r;
+        const n = countFindings(r);
+        setProgress('p1-gemini','done', `完了（${n}件検出）`);
+        setContent('p1-gemini', r);
+      })
       .catch(err => { setProgress('p1-gemini','err','エラー'); setContent('p1-gemini', err.message, true); }));
   } else setProgress('p1-gemini', 'skip', 'APIキーなし');
 
   await Promise.allSettled(p1Tasks);
 
-  // ── Phase 2：逆翻訳検証（逐次） ─────────────
+  // ── Phase 2: Back-Translation (sequential) ──
   let p2aAI = null;
   try {
     setProgress('p2a', 'running', '逆翻訳を生成中...');
     setLoading('p2-bt');
-    const btRes = await callBest(sysBackTranslate(dir), promptBackTranslate(tgt), []);
+    const btRes = await callBest(sysBackTranslate(), promptBackTranslate(tgt), { maxTokens: 16384 });
     p2aAI = btRes.ai;
     S.p2bt = btRes.result;
     setProgress('p2a', 'done', '完了 (' + { gpt:'GPT', claude:'Claude', gemini:'Gemini' }[btRes.ai] + ')');
@@ -1076,35 +1313,36 @@ async function startChecking() {
 
   if (S.p2bt) {
     try {
-      setProgress('p2b', 'running', '原文と逆翻訳を比較中...');
+      setProgress('p2b', 'running', 'セグメント対照比較中...');
       setLoading('p2-cmp');
-      const exclude = p2aAI ? [p2aAI] : [];
-      const cmpRes = await callBest(sysBackCompare(dir), promptBackCompare(src, S.p2bt, nouns, dir), exclude);
+      const cmpRes = await callBest(sysBackCompare(), promptBackCompare(src, S.p2bt, nouns),
+        { exclude: p2aAI ? [p2aAI] : [], maxTokens: 8192 });
       S.p2cmp = cmpRes.result;
-      setProgress('p2b', 'done', '完了 (' + { gpt:'GPT', claude:'Claude', gemini:'Gemini' }[cmpRes.ai] + ')');
+      const n = countFindings(S.p2cmp);
+      setProgress('p2b', 'done', `完了（${n}件検出 / ${{ gpt:'GPT', claude:'Claude', gemini:'Gemini' }[cmpRes.ai]}）`);
       setContent('p2-cmp', S.p2cmp);
     } catch (err) {
       setProgress('p2b', 'err', 'エラー: ' + err.message);
       setContent('p2-cmp', err.message, true);
     }
   } else {
-    setProgress('p2b', 'skip', '逆翻訳が生成されなかったためスキップ');
+    setProgress('p2b', 'skip', '逆翻訳未生成のためスキップ');
   }
 
-  // ── Phase 3：最終統合 ─────────────────────────
-  setProgress('p3', 'running', '全結果を統合中...');
+  // ── Phase 3: Final Synthesis with Anti-Hallucination ──
+  setProgress('p3', 'running', '反幻覚検証 + 統合中...');
   setLoading('p3-result');
   try {
-    const r3 = await callBest('あなたは翻訳検証の専門家です。与えられた全ての情報を統合して、高品質な最終レポートを作成してください。',
-      promptFinalSynthesis(S.p1, S.p2bt, S.p2cmp, nouns, dir), []);
+    const r3 = await callBest(sysFinalSynthesis(),
+      promptFinalSynthesis(S.p0, S.p1, S.p2cmp, src, tgt, nouns, dir),
+      { maxTokens: 16384 });
     S.p3 = r3.result;
     setProgress('p3', 'done', '完了');
     setContent('p3-result', S.p3);
 
-    // Phase 3タブに自動ジャンプ
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn')[2].classList.add('active');
+    document.querySelectorAll('.tab-btn')[3].classList.add('active');
     document.getElementById('tab-p3').classList.add('active');
   } catch (err) {
     setProgress('p3', 'err', 'エラー');
@@ -1115,11 +1353,10 @@ async function startChecking() {
   checkStart();
 }
 
-// ══════════════════════════════════════════════
-// Reset
-// ══════════════════════════════════════════════
+// ═══════════════════ Reset ═══════════════════
 function resetAll() {
   S.jpFile = null; S.enFile = null; S.jpText = ''; S.enText = '';
+  S.p0 = null;
   S.p1 = { gpt:null, claude:null, gemini:null };
   S.p2bt = null; S.p2cmp = null; S.p3 = null;
 
@@ -1133,18 +1370,16 @@ function resetAll() {
   document.getElementById('progressCard').classList.add('hidden');
   document.getElementById('resultsCard').classList.add('hidden');
 
-  ['p1-gpt','p1-claude','p1-gemini','p2a','p2b','p3'].forEach(id => setProgress(id,'idle','待機中'));
+  ['p0','p1-gpt','p1-claude','p1-gemini','p2a','p2b','p3'].forEach(id => setProgress(id,'idle','待機中'));
 
-  // Result areas
-  ['p1-gpt','p1-claude','p1-gemini','p2-bt','p2-cmp','p3-result'].forEach(id => {
+  ['p0-result','p1-gpt','p1-claude','p1-gemini','p2-bt','p2-cmp','p3-result'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
-      const roleBadge = el.querySelector('.role-badge');
-      el.innerHTML = (roleBadge ? roleBadge.outerHTML : '') + '<div class="result-box empty">まだ結果がありません</div>';
+      const badge = el.querySelector('.role-badge');
+      el.innerHTML = (badge ? badge.outerHTML : '') + '<div class="result-box empty">まだ結果がありません</div>';
     }
   });
 
-  // Tabs reset
   document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', i===0));
   document.querySelectorAll('.tab-pane').forEach((p,i) => p.classList.toggle('active', i===0));
   ['p1-claude','p1-gemini'].forEach(id => { const el = document.getElementById(id); if(el) el.classList.add('hidden'); });
@@ -1155,20 +1390,19 @@ function resetAll() {
   checkStart();
 }
 
-// ══════════════════════════════════════════════
-// Export
-// ══════════════════════════════════════════════
+// ═══════════════════ Export ═══════════════════
 function exportResults() {
   const dir = getDir();
   const dirLabel = dir === 'jp-en' ? '日本語→英語' : '英語→日本語';
   let txt = `# 翻訳チェック結果\n生成日時: ${new Date().toLocaleString('ja-JP')}\n翻訳方向: ${dirLabel}\n文書種類: ${getDocTypeLabel()}\n\n`;
+  if (S.p0)       txt += '## Phase 0：事前分析\n\n' + S.p0 + '\n\n';
   txt += '## Phase 1：専門分業チェック\n\n';
-  if (S.p1.gpt)    txt += '### ChatGPT（意味・ニュアンス専門）\n' + S.p1.gpt    + '\n\n';
-  if (S.p1.claude) txt += '### Claude（技術的精度専門）\n'       + S.p1.claude + '\n\n';
-  if (S.p1.gemini) txt += '### Gemini（完全性・一貫性専門）\n'   + S.p1.gemini + '\n\n';
+  if (S.p1.gpt)    txt += '### ChatGPT（意味の忠実度）\n' + S.p1.gpt    + '\n\n';
+  if (S.p1.claude) txt += '### Claude（技術的精度）\n'     + S.p1.claude + '\n\n';
+  if (S.p1.gemini) txt += '### Gemini（完全性・一貫性）\n' + S.p1.gemini + '\n\n';
   txt += '## Phase 2：逆翻訳検証\n\n';
   if (S.p2bt)  txt += '### 逆翻訳テキスト\n' + S.p2bt  + '\n\n';
-  if (S.p2cmp) txt += '### 意味乖離の検出結果\n' + S.p2cmp + '\n\n';
+  if (S.p2cmp) txt += '### セグメント対照比較結果\n' + S.p2cmp + '\n\n';
   txt += '## Phase 3：最終統合レポート\n\n';
   if (S.p3) txt += S.p3;
   const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
@@ -1178,9 +1412,7 @@ function exportResults() {
   a.click(); URL.revokeObjectURL(url);
 }
 
-// ══════════════════════════════════════════════
-// Init
-// ══════════════════════════════════════════════
+// ═══════════════════ Init ═══════════════════
 loadSettings();
 ['openaiKey','anthropicKey','geminiKey'].forEach(id => {
   document.getElementById(id).addEventListener('input', checkStart);
