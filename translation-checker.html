@@ -130,6 +130,18 @@ table.md-tbl tr:hover td { background: #f8fafc; }
 
 .info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 7px; padding: 10px 14px; color: #1d4ed8; font-size: 12px; margin-top: 12px; line-height: 1.7; }
 .hidden { display: none !important; }
+
+/* Style Guide */
+.sg-badge { display: inline-flex; align-items: center; gap: 5px; background: #fef9c3; border: 1px solid #fde047; color: #78350f; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; margin-left: auto; }
+.sg-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-top: 4px; }
+.sg-section { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+.sg-section-title { font-size: 12px; font-weight: 800; color: var(--text); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.sg-rule { font-size: 12px; line-height: 1.7; color: var(--text); }
+.sg-rule code { background: #e2e8f0; padding: 1px 5px; border-radius: 3px; font-family: monospace; font-size: 11px; }
+.sg-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; }
+.sg-table th { background: #f1f5f9; padding: 4px 8px; border: 1px solid var(--border); font-weight: 700; text-align: left; white-space: nowrap; }
+.sg-table td { padding: 4px 8px; border: 1px solid var(--border); }
+.sg-note { font-size: 11px; color: var(--muted); margin-top: 4px; font-style: italic; }
 </style>
 </head>
 <body>
@@ -197,6 +209,96 @@ table.md-tbl tr:hover td { background: #f8fafc; }
     </div>
     <div class="info-box">
       ※ APIキーはlocalStorageに保存されます。&nbsp; ※ 3つすべて設定で最大精度。1つでも動作可。
+    </div>
+  </div>
+</div>
+
+<!-- Style Guide Card -->
+<div class="card">
+  <div class="card-header">
+    📐 翻訳スタイルガイド
+    <span class="sg-badge">✓ 適用中</span>
+    <button class="toggle" id="sgToggle" onclick="toggleSG()" style="margin-left:8px;">▼</button>
+  </div>
+  <div id="sgBody" class="hidden">
+    <div class="sg-sections">
+
+      <div class="sg-section">
+        <div class="sg-section-title">🏠 住所の英訳ルール</div>
+        <div class="sg-rule">
+          <strong>記載順：</strong>小さい単位 → 大きい単位（日本語の逆順）<br>
+          <strong>地名は1単語（ハイフン・スペースで区切らない）</strong><br>
+        </div>
+        <table class="sg-table">
+          <tr><th>単位</th><th>英語</th><th>例</th></tr>
+          <tr><td>都道府県</td><td>（なし）</td><td>Tokyo, Kanagawa</td></tr>
+          <tr><td>市</td><td>-shi</td><td>Yokohama-shi</td></tr>
+          <tr><td>区</td><td>-ku</td><td>Chiyoda-ku</td></tr>
+          <tr><td>町（ちょう）</td><td>-cho</td><td>Sakuragi-cho</td></tr>
+          <tr><td>町（まち）</td><td>-machi</td><td>Yaba-machi</td></tr>
+          <tr><td>郡</td><td>-gun</td><td>Nishitama-gun</td></tr>
+          <tr><td>大字</td><td>Oaza</td><td>Oaza Misawa</td></tr>
+          <tr><td>字</td><td>Aza</td><td>Aza Minamiyama</td></tr>
+        </table>
+        <div class="sg-rule" style="margin-top:6px;">
+          ❌ <code>Higashi Hiroshima-shi</code> / <code>Higashi-Hiroshima-shi</code><br>
+          ✅ <code>Higashihiroshima-shi</code><br>
+          途中に数字がある場合はハイフンでつなぐ：<code>Kita-25-jonishi</code><br>
+          京都市の住所は特殊表記（例：<code>99-98 Seiryu-cho, Imadegawa-Agaru, Demachidori, Kamigyo-ku</code>）
+        </div>
+      </div>
+
+      <div class="sg-section">
+        <div class="sg-section-title">🔤 ヘボン式ローマ字ルール</div>
+        <div class="sg-rule">
+          <strong>撥音（ん）：</strong>B・M・P の前は <code>M</code>（Nではない）<br>
+        </div>
+        <table class="sg-table">
+          <tr><th>例</th><th>誤</th><th>正</th></tr>
+          <tr><td>難波</td><td>NAMBA ✗→</td><td>NAMBA ✓（NAN→NAM）</td></tr>
+          <tr><td>本間</td><td>HONMA ✓</td><td>HOMMA ✓（HON→HOM）</td></tr>
+          <tr><td>三瓶</td><td>SANPEI ✗→</td><td>SAMPEI ✓</td></tr>
+        </table>
+        <div class="sg-rule" style="margin-top:6px;">
+          <strong>促音（っ）：</strong>子音を重ねる。チ音前は T<br>
+          例：服部 → HATTORI、発地 → HOTCHI<br><br>
+          <strong>長音（原則省略）：</strong><br>
+          OU・OO・UU は表記しない（例：幸太→KOTA、大野→ONO、裕貴→YUKI）<br>
+          <strong>例外</strong>：末尾が実際に「オ」と読む場合は OO 表記<br>
+          例：妹尾（セノオ）→ SENOO、横尾（ヨコオ）→ YOKOO<br>
+          ❌ Gumma → ✅ Gunma
+        </div>
+        <div class="sg-note">※ 自治体の公式表記がある場合はそちらを優先</div>
+      </div>
+
+      <div class="sg-section">
+        <div class="sg-section-title">📅 日付・年号ルール</div>
+        <div class="sg-rule">
+          <strong>和暦は必ず西暦に変換</strong><br>
+          令和X年 = 2018+X &nbsp; 平成X年 = 1988+X<br>
+          昭和X年 = 1925+X &nbsp; 大正X年 = 1911+X<br><br>
+          <strong>日付フォーマット（英訳デフォルト）：</strong><br>
+          <code>June 27, 2019</code>（月 日, 年）<br>
+          英国式指定時：<code>1 March 2022</code>（日 月 年）
+        </div>
+      </div>
+
+      <div class="sg-section">
+        <div class="sg-section-title">⌨️ 書式ルール</div>
+        <div class="sg-rule">
+          <strong>フォント：</strong>Times New Roman<br><br>
+          <strong>記号変換（全角→半角）：</strong>
+        </div>
+        <table class="sg-table">
+          <tr><th>変換前（全角）</th><th>変換後（半角）</th></tr>
+          <tr><td>【 】</td><td>[ ]</td></tr>
+          <tr><td>・</td><td>-</td></tr>
+        </table>
+        <div class="sg-rule" style="margin-top:6px;">
+          <strong>会社名・学校名等の固有名詞：</strong>公式HPで正式表記を確認。不明な場合は赤字で表示。
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -398,6 +500,104 @@ table.md-tbl tr:hover td { background: #f8fafc; }
 <script>
 const CLOUD_PROXY_URL = 'https://translation-checker.abe-f3a.workers.dev';
 
+// ═══════════════════ Style Guide ═══════════════════
+const STYLE_GUIDE = `
+## 適用中の翻訳スタイルガイド
+
+### ルール1: 住所の英訳
+
+【記載順序】小さい単位 → 大きい単位の順（日本語の逆順）
+
+【地名の表記単位】地名1区切り内は1単語で記載。ハイフン・スペースで区切らない。
+- 都道府県: Prefecture / -ken は不要 (東京都→Tokyo, 神奈川県→Kanagawa)
+- 市: -shi (横浜市→Yokohama-shi)
+- 区: -ku (千代田区→Chiyoda-ku)
+- 町（ちょう）: -cho (桜木町→Sakuragi-cho)
+- 町（まち）: -machi (矢場町→Yaba-machi)
+- 本町: Hommachi (「ん」の後にMが続くためHom-)
+- 郡: -gun (西多摩郡→Nishitama-gun)
+- 大字: Oaza
+- 字: Aza
+
+【正誤例】
+✗ Higashi Hiroshima-shi / Higashi-Hiroshima-shi
+✓ Higashihiroshima-shi
+
+✗ Uriwari Higashi / Uriwari-Higashi
+✓ Uriwarihigashi
+
+【途中に数字がある地名】ハイフンでつなぐ
+例: 北二十五条西 → Kita-25-jonishi
+
+【大字・字の例】
+青森県三沢市大字三沢字南山99番地999 → 99-999 Aza Minamiyama, Oaza Misawa, Misawa-shi, Aomori
+
+【京都市の住所（特殊）】
+例: 上京区出町通今出川上ル青竜町99-98 → 99-98 Seiryu-cho, Imadegawa-Agaru, Demachidori, Kamigyo-ku, Kyoto-shi, Kyoto
+
+---
+
+### ルール2: ヘボン式ローマ字
+
+【撥音「ん」】B・M・P の前の「ん」は N ではなく M で表記
+- 難波(ナンバ) → NAMBA（NANではなくNAM）
+- 本間(ホンマ) → HOMMA（HONではなくHOM）
+- 三瓶(サンペイ) → SAMPEI（SANではなくSAM）
+- 本町(ホンマチ) → Hommachi（HonではなくHom）
+
+【促音「っ」】子音を重ねる。チ・チャ・チュ・チョ音の前は T を使用
+- 服部(ハットリ) → HATTORI
+- 吉川(キッカワ) → KIKKAWA
+- 発地(ホッチ) → HOTCHI
+- 八丁(ハッチョウ) → HATCHO
+
+【長音（原則：O・U は表記しない）】
+OU → O のみ表記（幸太/コウタ → KOTA、洋子/ヨウコ → YOKO、亮子/リョウコ → RYOKO）
+OO → O のみ表記（大野/オオノ → ONO、大河内/オオコウチ → OKOCHI、大西/オオニシ → ONISHI）
+UU → U のみ表記（裕貴/ユウキ → YUKI、優子/ユウコ → YUKO、日向/ヒュウガ → HYUGA）
+
+【長音の例外（実際に「オ」と読む末尾音）】OO と表記する
+- 妹尾(セノオ) → SENOO
+- 横尾(ヨコオ) → YOKOO
+- 高藤(タカトオ) → TAKATOO
+
+【長音の例外（実際に「ウ」と読む末尾音）】O のみ（OU とは書かない）
+- 伊藤(イトウ) → ITO
+- 御園生(ミソノウ) → MISONO
+
+【重要例外】
+✗ Gumma → ✓ Gunma
+
+【自治体の公式表記が存在する場合は公式表記を優先】
+
+---
+
+### ルール3: 日付・年号
+
+【和暦→西暦変換（必須）】外国の方に和暦は通じないため、すべて西暦に変換
+- 令和X年 = (2018+X)年（令和1年=2019年）
+- 平成X年 = (1988+X)年（平成1年=1989年）
+- 昭和X年 = (1925+X)年（昭和1年=1926年）
+- 大正X年 = (1911+X)年（大正1年=1912年）
+- 明治X年 = (1867+X)年（明治1年=1868年）
+
+【日付フォーマット（日本語→英語、デフォルト）】
+June 27, 2019（月名 日, 年）
+英国式指定の場合: 1 March 2022（日 月名 年）
+
+---
+
+### ルール4: 書式
+
+【記号変換】全角記号 → 半角記号
+- 【 】→ [ ]
+- ・ → -（ハイフン）
+
+【固有名詞（会社名・学校名等）】公式HPで正式英語表記を確認。不明な場合は赤字でフラグ。
+
+【縦書き原本】特に指定がない限り横書きで記載。
+`;
+
 const VALID_MODELS = {
   openaiModel:    ['gpt-5.4','gpt-5.4-mini','gpt-5.4-nano','gpt-4o'],
   anthropicModel: ['claude-sonnet-4-6','claude-opus-4','claude-haiku-4-5'],
@@ -442,6 +642,12 @@ function toggleSettings() {
   const hidden = body.style.display === 'none';
   body.style.display = hidden ? '' : 'none';
   btn.textContent = hidden ? '▲' : '▼';
+}
+function toggleSG() {
+  const body = document.getElementById('sgBody');
+  const btn  = document.getElementById('sgToggle');
+  body.classList.toggle('hidden');
+  btn.textContent = body.classList.contains('hidden') ? '▼' : '▲';
 }
 
 // ═══════════════════ Direction ═══════════════════
@@ -625,7 +831,12 @@ ${gr}
 ⑧ 用語の一貫性　　… 同じ原語が文書内で複数の訳語に揺れている
 【修正が望ましい】
 ⑨ 表現改善　　　　… 意味は通じるが、より自然・正確な表現がある
-⑩ 文体・スタイル　… 文書の種類に合った文体に改善できる`;
+⑩ 文体・スタイル　… 文書の種類に合った文体に改善できる
+【スタイルガイド違反】
+⑪ 住所表記違反　　… スタイルガイドの住所英訳ルールに違反している
+⑫ ローマ字表記違反… ヘボン式ローマ字ルール（撥音M・促音・長音等）に違反している
+⑬ 日付フォーマット… 日付の形式・和暦変換がスタイルガイドと異なる
+⑭ 書式違反　　　　… 全角記号の使用等の書式ルール違反`;
 }
 
 const OUTPUT_TABLE = 'ページ | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 備考';
@@ -640,7 +851,9 @@ function sysPrep() {
 1. 用語対応表（専門用語・固有名詞・繰り返し語句のすべて）
 2. 数値レジストリ（数字・日付・金額・パーセント・電話番号等のすべて）
 3. 文書構造サマリー
-4.【証明書・公文書の場合のみ】和暦→西暦変換レジストリ`;
+4.【証明書・公文書の場合のみ】和暦→西暦変換レジストリ
+5.【住所が含まれる場合】住所レジストリ（原文の住所と翻訳文の住所を1件ずつ対応）
+6.【氏名が含まれる場合】氏名ローマ字レジストリ（原文の氏名と翻訳文のローマ字を1件ずつ対応）`;
 }
 
 function getCertificatePrepSection() {
@@ -665,11 +878,16 @@ function getCertificatePrepSection() {
 }
 
 function promptPrep(src, tgt, nouns) {
+  const hasCert = getDocType() === 'certificate';
+  const taskCount = hasCert ? '6' : '5';
   return `文書種類：${getDocTypeLabel()}
 固有名詞の翻訳方法：
 ${nouns.trim() || '（特に指定なし）'}
 
-以下の原文と翻訳文を分析し、${getDocType() === 'certificate' ? '4' : '3'}つのデータセットを抽出してください。
+適用中のスタイルガイド：（後続のタスクでスタイルガイドの違反も記録すること）
+${STYLE_GUIDE}
+
+以下の原文と翻訳文を分析し、${taskCount}つのデータセットを抽出してください。
 
 ## タスク1: 用語対応表
 
@@ -701,6 +919,26 @@ ${nouns.trim() || '（特に指定なし）'}
 - 原文にあって翻訳にないセクション（があれば具体的に）
 - その他の構造的な差異
 ${getCertificatePrepSection()}
+## タスク5: 住所レジストリ（住所が含まれる場合）
+
+文書中に住所が含まれる場合、すべての住所について原文と翻訳文を抽出し、スタイルガイドのルール1（住所の英訳）に照らして確認してください。
+
+| # | ページ | 原文の住所 | 翻訳文の住所 | スタイルガイド準拠 |
+|---|--------|-----------|------------|-----------------|
+
+準拠列：✓（準拠）/ ✗（違反 — 何のルールに違反しているかを具体的に記載）
+住所が文書中に存在しない場合は「住所なし」と記載。
+
+## タスク6: 氏名ローマ字レジストリ（氏名が含まれる場合）
+
+文書中に人名（氏名・姓・名）が含まれる場合、すべての氏名について原文と翻訳文のローマ字を抽出し、スタイルガイドのルール2（ヘボン式ローマ字）に照らして確認してください。
+
+| # | ページ | 原文の氏名 | 読み仮名（判明している場合） | 翻訳文のローマ字 | スタイルガイド準拠 |
+|---|--------|-----------|--------------------------|----------------|-----------------|
+
+準拠列：✓（準拠）/ ✗（違反 — 具体的に何の規則に違反か記載）/ ?（読み方不明のため確認不可）
+氏名が文書中に存在しない場合は「氏名なし」と記載。
+
 ---
 ## ${getSrcLang()}原文
 
@@ -864,36 +1102,59 @@ function sysTechnical(dir) {
   return `あなたは「技術的精度」を検証する世界最高水準の翻訳チェッカーです。
 ${src}→${tgt}翻訳について、客観的に正誤判断できる項目のみを検証します。
 
+## 適用中の翻訳スタイルガイド（このガイドへの違反もすべて報告すること）
+
+${STYLE_GUIDE}
+
 ## 検出すべきエラーパターン（すべて確認すること）
 
+### 住所英訳パターン（スタイルガイド ルール1）
+- 地名が1単語になっているか（ハイフン・スペースで不正に分割されていないか）
+  例: ✗ Higashi Hiroshima-shi / Higashi-Hiroshima-shi → ✓ Higashihiroshima-shi
+- 記載順序が「小→大」になっているか（日本語の逆順）
+- 都道府県に -Prefecture / -ken が不要に付いていないか
+- -shi / -ku / -cho / -machi / -gun の接尾辞が正しく使われているか
+- 大字→Oaza、字→Aza が正しく使われているか
+- 途中に数字のある地名はハイフンでつながれているか（例: Kita-25-jonishi）
+- 京都市の住所は特殊表記（Agaru/Sagaru/Nishiiru等）になっているか
+
+### ヘボン式ローマ字パターン（スタイルガイド ルール2）
+Phase 0の氏名ローマ字レジストリを参照し、各氏名について以下を確認すること：
+- 撥音「ん」: B・M・P の前は M（例: 本間→HOMMA、三瓶→SAMPEI）
+- 促音「っ」: 子音を重ねる。チ音前はT（例: 服部→HATTORI、発地→HOTCHI）
+- 長音のOU/OO/UUは原則省略（例: 幸太→KOTA、大野→ONO、裕貴→YUKI）
+- 例外：末尾が実際に「オ」と読む場合はOO表記（例: 妹尾→SENOO）
+- 例外: Gumma ✗ → Gunma ✓
+
 ### 固有名詞パターン
-- 人名のスペル（原文のローマ字表記との一致、姓名の順序）
-- 会社名・組織名の正式英語名（指定があればその通りか）
-- 地名（都市名・国名・建物名・施設名）の正確性
+- 人名のスペル（Phase 0氏名レジストリと照合）
+- 会社名・組織名の正式英語名
+- 地名の正確性
 - 法令名・規格名の公式翻訳との一致
 - 商品名・ブランド名の正確性
 - 役職名・肩書きの正確性
 
-### 数値パターン
+### 数値・日付パターン
 - 数字の転写ミス（1234→1243のような転置）
 - 通貨記号の正確性（¥ ↔ $ ↔ € ↔ £）
-- 日付の変換正確性（2024年3月15日 → March 15, 2024 ※月日の入替に注意）
-- パーセンテージの正確性
-- 電話番号・FAX番号の正確性
-- 住所番地の正確性
-- 金額のカンマ区切り（千単位区切り等）の正確性
-- 小数点（日本語の「．」→ 英語の「.」）の正確性
+- 日付フォーマット: デフォルトは「June 27, 2019」形式（月名 日, 年）
+- パーセンテージ・電話番号・FAX番号・住所番地の正確性
+- 金額のカンマ区切り・小数点の正確性
+
+### 書式パターン（スタイルガイド ルール4）
+- 全角記号が半角に変換されているか（【】→[]、・→- 等）
 
 ${spellPatterns}
 ${getDocSpecificTechnical()}
 
 ## 検証手順（厳守）
 
-1. まず、Phase 0の事前分析データ（用語対応表・数値レジストリ）を確認する
-2. 数値レジストリの各エントリを翻訳文と照合し、不一致を報告する
-3. 用語対応表の固有名詞を翻訳文と照合し、誤りを報告する
-4. 翻訳文を全文精読し、スペル・文法エラーを検出する
-5. 問題が見つからないページも「ページX：問題なし」と明記する
+1. Phase 0の住所レジストリを確認し、スタイルガイド違反を報告する
+2. Phase 0の氏名ローマ字レジストリを確認し、スタイルガイド違反を報告する
+3. 数値レジストリの各エントリを翻訳文と照合する
+4. 用語対応表の固有名詞を翻訳文と照合する
+5. 翻訳文を全文精読し、書式・スペル・文法エラーを検出する
+6. 問題が見つからないページも「ページX：問題なし」と明記する
 
 ## 担当外（報告不要）
 - 意味の解釈・ニュアンス（GPT担当）
@@ -1161,7 +1422,7 @@ ${ET}
 
 ### セクション2: 誤りの種類別集計
 
-各カテゴリ（①〜⑩）の件数を一覧にし、修正必要/修正望ましい別の小計も記載。
+各カテゴリ（①〜⑭）の件数を一覧にし、修正必要/修正望ましい/スタイルガイド違反別の小計も記載。
 
 ### セクション3: 全体品質評価
 
