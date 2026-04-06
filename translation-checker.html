@@ -266,8 +266,9 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
         </select>
       </div>
     </div>
-    <div class="info-box">
-      ※ APIキーはlocalStorageに保存されます。&nbsp; ※ 3つすべて設定で最大精度。1つでも動作可。
+    <div class="info-box" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div>※ APIキーはlocalStorageに保存されます。&nbsp; ※ 3つすべて設定で最大精度。1つでも動作可。</div>
+      <button class="btn btn-secondary btn-sm" onclick="clearSavedKeys()" style="white-space:nowrap;color:#b91c1c;border-color:#fca5a5;">🗑 保存済みキーを消去</button>
     </div>
   </div>
 </div>
@@ -740,6 +741,17 @@ function saveSettings() {
   ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel'].forEach(id => {
     localStorage.setItem('tc_' + id, document.getElementById(id).value);
   });
+}
+function clearSavedKeys() {
+  if (!confirm('localStorageに保存されているAPIキーを削除します。よろしいですか？')) return;
+  ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel'].forEach(id => {
+    localStorage.removeItem('tc_' + id);
+  });
+  ['openaiKey','anthropicKey','geminiKey'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  checkStart();
+  alert('APIキーを消去しました。');
 }
 function togglePw(id, btn) {
   const el = document.getElementById(id);
