@@ -520,7 +520,7 @@ async function callGPT(system, user, opts = {}) {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-    body: JSON.stringify({ model, temperature: 0, max_tokens: opts.maxTokens || 8192,
+    body: JSON.stringify({ model, temperature: 0, max_completion_tokens: opts.maxTokens || 8192,
       messages: [{ role: 'system', content: system }, { role: 'user', content: user }] })
   });
   if (!res.ok) {
