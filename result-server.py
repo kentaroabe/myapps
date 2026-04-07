@@ -399,7 +399,7 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
         results = db_list()
         rows = ''
         for e in results:
-            created = e['created_at'][:10]
+            created = e['created_at'][:16].replace('T', ' ')
             expires = e['expires_at'][:10]
             ip      = e.get('ip_address') or '-'
             host    = self.headers.get('Host', f'localhost:{PORT}')
@@ -422,15 +422,16 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
                 out = c.get('output') or 0
                 if not inp and not out:
                     continue
-                # フロント送信値 → なければサーバー側で再計算
+                # フロントで計算済みの cost → なければサーバー側で再計算
                 c_val = c.get('cost')
                 if c_val is None:
                     c_val = _calc_cost(c.get('model', ''), inp, out)
-                if isinstance(c_val, float):
+                if isinstance(c_val, (int, float)):
                     recalc_total += c_val
                 c_str = f'${c_val:.4f}' if isinstance(c_val, (int, float)) else '?'
-                cost_detail.append(f'{lbl}({c.get("model","?")}): {c_str} ({round(inp/1000,1)}K in / {round(out/1000,1)}K out)')
-            # _total: フロント送信値 → なければ再計算合計
+                # モデル別詳細がある場合はそのまま、なければ従来形式
+                detail_str = c.get('detail') or f'{c.get("model","?")} ({round(inp/1000,1)}K in/{round(out/1000,1)}K out)'
+                cost_detail.append(f'{lbl}: {c_str} [{detail_str}]')
             total_cost = cost_data.get('_total')
             if not isinstance(total_cost, (int, float)) and cost_detail:
                 total_cost = recalc_total

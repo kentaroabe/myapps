@@ -752,11 +752,24 @@ const S = {
   progress: { total: 0, done: 0, startAt: 0 },
   publishedUrl: null, publishedExpires: null,
   running: false,
-  cost: {
-    gpt:    { model: '', input: 0, output: 0 },
-    claude: { model: '', input: 0, output: 0 },
-    gemini: { model: '', input: 0, output: 0 },
-  },
+  cost: { gpt: {}, claude: {}, gemini: {} },
+};
+
+// フルモデル → ミニモデルのマッピング
+const MINI_MODEL_MAP = {
+  'gpt-5.4':             'gpt-5.4-mini',
+  'gpt-5.4-mini':        'gpt-5.4-nano',
+  'gpt-5.4-nano':        'gpt-5.4-nano',
+  'gpt-4o':              'gpt-4o-mini',
+  'gpt-4o-mini':         'gpt-4o-mini',
+  'claude-opus-4':       'claude-haiku-4-5',
+  'claude-sonnet-4-6':   'claude-haiku-4-5',
+  'claude-haiku-4-5':    'claude-haiku-4-5',
+  'gemini-2.5-pro':      'gemini-2.5-flash',
+  'gemini-2.5-flash':    'gemini-2.5-flash-lite',
+  'gemini-2.5-flash-lite':'gemini-2.5-flash-lite',
+  'gemini-1.5-pro':      'gemini-1.5-flash',
+  'gemini-1.5-flash':    'gemini-1.5-flash',
 };
 
 // APIコスト単価テーブル（$／100万トークン、参考値）
@@ -1270,8 +1283,9 @@ async function callOcrGemini(base64, prompt, key) {
 
 // ═══════════════════ API Calls ═══════════════════
 async function callGPT(system, user, opts = {}) {
-  const key   = document.getElementById('openaiKey').value.trim();
-  const model = document.getElementById('openaiModel').value;
+  const key       = document.getElementById('openaiKey').value.trim();
+  const baseModel = document.getElementById('openaiModel').value;
+  const model     = opts.mini ? (MINI_MODEL_MAP[baseModel] || baseModel) : baseModel;
   if (!key) throw new Error('OpenAI APIキーが未設定です');
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -1288,16 +1302,17 @@ async function callGPT(system, user, opts = {}) {
   }
   const gptData = await res.json();
   if (gptData.usage) {
-    S.cost.gpt.model   = model;
-    S.cost.gpt.input  += gptData.usage.prompt_tokens || 0;
-    S.cost.gpt.output += gptData.usage.completion_tokens || 0;
+    if (!S.cost.gpt[model]) S.cost.gpt[model] = { input: 0, output: 0 };
+    S.cost.gpt[model].input  += gptData.usage.prompt_tokens || 0;
+    S.cost.gpt[model].output += gptData.usage.completion_tokens || 0;
   }
   return gptData.choices[0].message.content;
 }
 
 async function callClaude(system, user, opts = {}) {
-  const key   = document.getElementById('anthropicKey').value.trim();
-  const model = document.getElementById('anthropicModel').value;
+  const key       = document.getElementById('anthropicKey').value.trim();
+  const baseModel = document.getElementById('anthropicModel').value;
+  const model     = opts.mini ? (MINI_MODEL_MAP[baseModel] || baseModel) : baseModel;
   if (!key) throw new Error('Anthropic APIキーが未設定です');
   const endpoint = CLOUD_PROXY_URL
     ? CLOUD_PROXY_URL.replace(/\/$/, '') + '/v1/messages'
@@ -1323,16 +1338,17 @@ async function callClaude(system, user, opts = {}) {
   }
   const claudeData = await res.json();
   if (claudeData.usage) {
-    S.cost.claude.model   = model;
-    S.cost.claude.input  += claudeData.usage.input_tokens || 0;
-    S.cost.claude.output += claudeData.usage.output_tokens || 0;
+    if (!S.cost.claude[model]) S.cost.claude[model] = { input: 0, output: 0 };
+    S.cost.claude[model].input  += claudeData.usage.input_tokens || 0;
+    S.cost.claude[model].output += claudeData.usage.output_tokens || 0;
   }
   return claudeData.content[0].text;
 }
 
 async function callGemini(system, user, opts = {}) {
-  const key   = document.getElementById('geminiKey').value.trim();
-  const model = document.getElementById('geminiModel').value;
+  const key       = document.getElementById('geminiKey').value.trim();
+  const baseModel = document.getElementById('geminiModel').value;
+  const model     = opts.mini ? (MINI_MODEL_MAP[baseModel] || baseModel) : baseModel;
   if (!key) throw new Error('Gemini APIキーが未設定です');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   const res = await fetch(url, {
@@ -1352,9 +1368,9 @@ async function callGemini(system, user, opts = {}) {
   }
   const geminiData = await res.json();
   if (geminiData.usageMetadata) {
-    S.cost.gemini.model   = model;
-    S.cost.gemini.input  += geminiData.usageMetadata.promptTokenCount || 0;
-    S.cost.gemini.output += geminiData.usageMetadata.candidatesTokenCount || 0;
+    if (!S.cost.gemini[model]) S.cost.gemini[model] = { input: 0, output: 0 };
+    S.cost.gemini[model].input  += geminiData.usageMetadata.promptTokenCount || 0;
+    S.cost.gemini[model].output += geminiData.usageMetadata.candidatesTokenCount || 0;
   }
   return geminiData.candidates[0].content.parts[0].text;
 }
@@ -2226,7 +2242,7 @@ async function startChecking() {
   try {
     setProgress('p0', 'running', `用語・数値・構造を抽出中...（${chunks.length}回に分けて確認）`);
     setLoading('p0-result');
-    const p0Res = await callBest(sysPrep(), promptPrep(src, tgt, nouns), { maxTokens: 8192 });
+    const p0Res = await callBest(sysPrep(), promptPrep(src, tgt, nouns), { maxTokens: 8192, mini: true });
     S.p0 = p0Res.result;
     prepData = S.p0;
     const aiName = { gpt:'GPT', claude:'Claude', gemini:'Gemini' }[p0Res.ai];
@@ -2264,7 +2280,7 @@ async function startChecking() {
     setProgress('p1-gpt', 'running', `15パターン検査中...（1/${chunks.length}）`);
     setLoading('p1-gpt');
     p1Tasks.push(chunked(
-      (c) => callGPT(sysSemantic(), promptSemantic(c.src, c.tgt, nouns, prepData), { maxTokens: 8192 }),
+      (c) => callGPT(sysSemantic(), promptSemantic(c.src, c.tgt, nouns, prepData), { maxTokens: 8192, mini: true }),
       (i, n) => setProgress('p1-gpt', 'running', `15パターン検査中...（${i}/${n}）`)
     ).then(({ text, findings }) => {
         S.p1.gpt = text;
@@ -2279,7 +2295,7 @@ async function startChecking() {
     setProgress('p1-claude', 'running', `数値レジストリ照合中...（1/${chunks.length}）`);
     setLoading('p1-claude');
     p1Tasks.push(chunked(
-      (c) => callClaude(sysTechnical(dir), promptTechnical(c.src, c.tgt, nouns, dir, prepData), { maxTokens: 8192 }),
+      (c) => callClaude(sysTechnical(dir), promptTechnical(c.src, c.tgt, nouns, dir, prepData), { maxTokens: 8192, mini: true }),
       (i, n) => setProgress('p1-claude', 'running', `数値レジストリ照合中...（${i}/${n}）`)
     ).then(({ text, findings }) => {
         S.p1.claude = text;
@@ -2294,7 +2310,7 @@ async function startChecking() {
     setProgress('p1-gemini', 'running', `用語対応表照合中...（1/${chunks.length}）`);
     setLoading('p1-gemini');
     p1Tasks.push(chunked(
-      (c) => callGemini(sysCompleteness(), promptCompleteness(c.src, c.tgt, nouns, prepData), { maxTokens: 8192 }),
+      (c) => callGemini(sysCompleteness(), promptCompleteness(c.src, c.tgt, nouns, prepData), { maxTokens: 8192, mini: true }),
       (i, n) => setProgress('p1-gemini', 'running', `用語対応表照合中...（${i}/${n}）`)
     ).then(({ text, findings }) => {
         S.p1.gemini = text;
@@ -2319,7 +2335,7 @@ async function startChecking() {
     for (let i = 0; i < chunks.length; i++) {
       const c = chunks[i];
       setProgress('p2a', 'running', `逆翻訳を生成中...（${i + 1}/${chunks.length}）`);
-      const btRes = await callBest(sysBackTranslate(), promptBackTranslate(c.tgt), { maxTokens: 16384 });
+      const btRes = await callBest(sysBackTranslate(), promptBackTranslate(c.tgt), { maxTokens: 16384, mini: true });
       btChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${btRes.result}`);
       btAIs.push(btRes.ai);
       stepOverallProgress();
@@ -2344,7 +2360,7 @@ async function startChecking() {
         setProgress('p2b', 'running', `セグメント対照比較中...（${i + 1}/${chunks.length}）`);
         const btBody = btChunks[i]?.replace(/^##[^\n]+\n/, '') || '';
         const cmpRes = await callBest(sysBackCompare(), promptBackCompare(c.src, btBody, nouns),
-          { exclude: btAIs[i] ? [btAIs[i]] : [], maxTokens: 8192 });
+          { exclude: btAIs[i] ? [btAIs[i]] : [], maxTokens: 8192, mini: true });
         p2Findings += countFindings(cmpRes.result);
         cmpChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${cmpRes.result}`);
         stepOverallProgress();
@@ -2407,11 +2423,7 @@ function resetAll() {
   S.stats = { p1: 0, p2: 0, total: 0, score: '-' };
   S.progress = { total: 0, done: 0, startAt: 0 };
   S.publishedUrl = null; S.publishedExpires = null;
-  S.cost = {
-    gpt:    { model: '', input: 0, output: 0 },
-    claude: { model: '', input: 0, output: 0 },
-    gemini: { model: '', input: 0, output: 0 },
-  };
+  S.cost = { gpt: {}, claude: {}, gemini: {} };
 
   ['jp','en'].forEach(lang => {
     document.getElementById(lang+'Zone').classList.remove('filled');
@@ -2538,14 +2550,23 @@ async function postResult() {
   const html  = generateResultHtml();
   const title = `翻訳チェック結果 ${new Date().toLocaleDateString('ja-JP')}`;
 
-  // コスト情報を集計してサーバーに送る
+  // コスト情報を集計してサーバーに送る（モデル別）
   const apiCost = {};
   let totalCost = 0;
-  for (const [key, c] of Object.entries(S.cost)) {
-    if (!c.input && !c.output) continue;
-    const cost = calcCost(c.model, c.input, c.output);
-    apiCost[key] = { model: c.model, input: c.input, output: c.output, cost };
-    if (cost != null) totalCost += cost;
+  for (const [provider, models] of Object.entries(S.cost)) {
+    let providerCost = 0, totalIn = 0, totalOut = 0;
+    const detailParts = [];
+    for (const [model, usage] of Object.entries(models)) {
+      if (!usage.input && !usage.output) continue;
+      const cost = calcCost(model, usage.input, usage.output);
+      if (cost != null) providerCost += cost;
+      totalIn  += usage.input;
+      totalOut += usage.output;
+      detailParts.push(`${model}: ${cost != null ? '$' + cost.toFixed(4) : '?'} (${(usage.input/1000).toFixed(1)}K in / ${(usage.output/1000).toFixed(1)}K out)`);
+    }
+    if (!totalIn && !totalOut) continue;
+    apiCost[provider] = { cost: providerCost, input: totalIn, output: totalOut, detail: detailParts.join(' + ') };
+    totalCost += providerCost;
   }
   apiCost._total = totalCost;
 
