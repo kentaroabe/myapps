@@ -2589,10 +2589,22 @@ ${parts.join('\n')}
 async function postResult() {
   const html  = generateResultHtml();
   const title = `翻訳チェック結果 ${new Date().toLocaleDateString('ja-JP')}`;
-  const res   = await fetch(getResultServerUrl() + '/api/save', {
+
+  // コスト情報を集計してサーバーに送る
+  const apiCost = {};
+  let totalCost = 0;
+  for (const [key, c] of Object.entries(S.cost)) {
+    if (!c.input && !c.output) continue;
+    const cost = calcCost(c.model, c.input, c.output);
+    apiCost[key] = { model: c.model, input: c.input, output: c.output, cost };
+    if (cost != null) totalCost += cost;
+  }
+  apiCost._total = totalCost;
+
+  const res = await fetch(getResultServerUrl() + '/api/save', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, html })
+    body: JSON.stringify({ title, html, api_cost: apiCost })
   });
   if (!res.ok) throw new Error('サーバー応答エラー: ' + res.status);
   return await res.json();
