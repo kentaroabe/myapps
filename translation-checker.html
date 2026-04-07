@@ -876,16 +876,20 @@ async function extractPdf(file, countElId) {
   const contentChars = text.replace(/=== ページ \d+ ===\n?/g, '').replace(/\s+/g, '').length;
   if (contentChars / pdf.numPages < 50) {
     const countEl = countElId ? document.getElementById(countElId) : null;
+    const fileLabel = countElId === 'jpCount' ? '原文PDF' : '翻訳文PDF';
+    const stepsEl = document.getElementById('overallSteps');
     text = '';
     for (let p = 1; p <= pdf.numPages; p++) {
-      if (countEl) {
-        countEl.textContent = `🔍 AI-OCR中... ${p} / ${pdf.numPages} ページ`;
-        countEl.classList.remove('hidden');
-      }
+      const msg = `🔍 AI-OCR中 (${fileLabel}): ${p} / ${pdf.numPages} ページ`;
+      if (countEl) { countEl.textContent = msg; countEl.classList.remove('hidden'); }
+      setOverallTitle(msg);
+      if (stepsEl) stepsEl.textContent = `${p} / ${pdf.numPages} ページ`;
       const base64 = await pdfPageToBase64(pdf, p);
       const pageText = await callOcrBest(base64);
       text += `\n=== ページ ${p} ===\n${pageText}\n`;
     }
+    setOverallTitle('全体進捗（開始）');
+    if (stepsEl) stepsEl.textContent = `0 / 0 ステップ`;
   }
   return text;
 }
