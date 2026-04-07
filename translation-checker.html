@@ -530,6 +530,7 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
     📊 検証結果
     <button class="btn btn-secondary btn-sm" onclick="copyFinalReport()" style="margin-left:auto;">📋 最終レポートをコピー</button>
     <button class="btn btn-secondary btn-sm" onclick="exportResults()">📥 エクスポート</button>
+    <button class="btn btn-secondary btn-sm" id="publishBtn" onclick="saveAndPublish()" style="color:#4f46e5;border-color:#a5b4fc;">📤 URLを発行して保存</button>
   </div>
   <div class="summary-grid" id="summaryGrid">
     <div class="summary-card">
@@ -605,7 +606,8 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-const CLOUD_PROXY_URL = 'https://translation-checker.abe-f3a.workers.dev';
+const CLOUD_PROXY_URL  = 'https://translation-checker.abe-f3a.workers.dev';
+const RESULT_SERVER_URL = 'http://localhost:3002';
 
 // ═══════════════════ Style Guide ═══════════════════
 const STYLE_GUIDE = `
@@ -2132,6 +2134,93 @@ function exportResults() {
   const a    = document.createElement('a');
   a.href = url; a.download = `translation-check-${new Date().toISOString().slice(0,10)}.txt`;
   a.click(); URL.revokeObjectURL(url);
+}
+
+// ═══════════════════ Publish (URL発行) ═══════════════════
+function generateResultHtml() {
+  const dir      = getDir();
+  const dirLabel = dir === 'jp-en' ? '日本語 → 英語' : '英語 → 日本語';
+  const now      = new Date().toLocaleString('ja-JP');
+  const docType  = getDocTypeLabel();
+
+  const css = `
+    *{box-sizing:border-box}
+    body{font-family:'Hiragino Sans','Meiryo',system-ui,sans-serif;max-width:980px;margin:0 auto;padding:28px 24px;background:#f8fafc;color:#1e293b;font-size:14px;line-height:1.75}
+    h1{font-size:22px;font-weight:900;margin:0 0 6px}
+    .meta{color:#64748b;font-size:13px;margin-bottom:24px}
+    .sum-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+    .sum-item{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px;text-align:center}
+    .sum-val{font-size:26px;font-weight:900}
+    .sum-lbl{font-size:11px;color:#64748b;margin-top:3px}
+    .sec-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin:28px 0 8px;padding-bottom:5px;border-bottom:1px solid #e2e8f0}
+    .rbox{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;font-size:13px;line-height:1.72}
+    .tbl-wrap{overflow-x:auto;margin:8px 0}
+    table.md-tbl{border-collapse:collapse;width:100%;font-size:12px}
+    table.md-tbl th{background:#eef2ff;padding:8px 10px;border:1px solid #e2e8f0;font-weight:800;text-align:left;white-space:nowrap}
+    table.md-tbl td{padding:7px 10px;border:1px solid #e2e8f0;vertical-align:top}
+    table.md-tbl tr:nth-child(even) td{background:#f8fafc}
+    hr{border:none;border-top:1px solid #e2e8f0;margin:10px 0}
+    .footer{margin-top:40px;text-align:center;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:16px}
+    @media print{body{background:#fff}}
+  `;
+
+  const sec = (title, content) =>
+    `<div class="sec-title">${title}</div><div class="rbox">${content}</div>`;
+
+  const parts = [];
+  if (S.p3)        parts.push(sec('✨ Phase 3 ── 最終統合レポート', renderMd(S.p3)));
+  if (S.p0)        parts.push(sec('Phase 0 ── 事前分析', renderMd(S.p0)));
+  if (S.p1.gpt)    parts.push(sec('Phase 1 ── ChatGPT（意味の忠実度）', renderMd(S.p1.gpt)));
+  if (S.p1.claude) parts.push(sec('Phase 1 ── Claude（技術的精度）', renderMd(S.p1.claude)));
+  if (S.p1.gemini) parts.push(sec('Phase 1 ── Gemini（完全性・用語一貫性）', renderMd(S.p1.gemini)));
+  if (S.p2cmp)     parts.push(sec('Phase 2 ── セグメント対照比較', renderMd(S.p2cmp)));
+
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>翻訳チェック結果 ${now}</title>
+<style>${css}</style>
+</head>
+<body>
+<h1>翻訳チェック結果</h1>
+<div class="meta">生成日時: ${now}　翻訳方向: ${dirLabel}　文書種類: ${docType}</div>
+<div class="sum-grid">
+  <div class="sum-item"><div class="sum-val" style="color:#4f46e5">${S.stats.score}</div><div class="sum-lbl">品質スコア</div></div>
+  <div class="sum-item"><div class="sum-val">${S.stats.total}</div><div class="sum-lbl">総指摘件数</div></div>
+  <div class="sum-item"><div class="sum-val">${S.stats.p1}</div><div class="sum-lbl">Phase 1 検出</div></div>
+  <div class="sum-item"><div class="sum-val">${S.stats.p2}</div><div class="sum-lbl">Phase 2 検出</div></div>
+</div>
+${parts.join('\n')}
+<div class="footer">Translation Checker &nbsp;|&nbsp; 生成: ${now} &nbsp;|&nbsp; 有効期限: 30日間</div>
+</body>
+</html>`;
+}
+
+async function saveAndPublish() {
+  if (!S.p3) { alert('最終レポートがまだありません。チェック完了後に保存してください。'); return; }
+  const btn = document.getElementById('publishBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 保存中...'; }
+  try {
+    const html  = generateResultHtml();
+    const title = `翻訳チェック結果 ${new Date().toLocaleDateString('ja-JP')}`;
+    const res   = await fetch(RESULT_SERVER_URL + '/api/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, html })
+    });
+    if (!res.ok) throw new Error('サーバー応答エラー: ' + res.status);
+    const data    = await res.json();
+    const url     = data.url;
+    const expires = (data.expires_at || '').slice(0, 10);
+    try { await navigator.clipboard.writeText(url); } catch {}
+    alert(`✅ URLを発行しました！\n\n${url}\n\n有効期限: ${expires}（30日間）\n\nURLをクリップボードにコピーしました。`);
+  } catch (err) {
+    alert('❌ 保存に失敗しました。\n\nresult-server.py が起動しているか確認してください。\n\n' + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📤 URLを発行して保存'; }
+  }
 }
 
 // ═══════════════════ Init ═══════════════════

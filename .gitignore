@@ -1,1 +1,19 @@
-証明書画像/
+# サーバー設定（管理パスワード等）
+server-config.json
+
+# 保存済み翻訳チェック結果
+saved_results/
+results_db.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/
+*.swp
