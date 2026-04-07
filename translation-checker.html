@@ -442,7 +442,6 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
     <div class="overall-bar"><div class="overall-fill" id="overallBar"></div></div>
     <div class="overall-meta">
       <div id="overallSteps">0 / 0 ステップ</div>
-      <div id="overallEta">経過: 00:00 / 残り予測: --:--</div>
     </div>
   </div>
 
@@ -852,7 +851,7 @@ function checkStart() {
 }
 
 // ═══════════════════ PDF Extraction ═══════════════════
-async function extractPdf(file) {
+async function extractPdf(file, countElId) {
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
   let text = '';
@@ -872,7 +871,108 @@ async function extractPdf(file) {
     if (line.trim()) lines.push(line.trim());
     text += `\n=== ページ ${p} ===\n${lines.join('\n')}\n`;
   }
+
+  // スキャン検知: 平均50文字/ページ未満ならAI-OCRにフォールバック
+  const contentChars = text.replace(/=== ページ \d+ ===\n?/g, '').replace(/\s+/g, '').length;
+  if (contentChars / pdf.numPages < 50) {
+    const countEl = countElId ? document.getElementById(countElId) : null;
+    text = '';
+    for (let p = 1; p <= pdf.numPages; p++) {
+      if (countEl) {
+        countEl.textContent = `🔍 AI-OCR中... ${p} / ${pdf.numPages} ページ`;
+        countEl.classList.remove('hidden');
+      }
+      const base64 = await pdfPageToBase64(pdf, p);
+      const pageText = await callOcrBest(base64);
+      text += `\n=== ページ ${p} ===\n${pageText}\n`;
+    }
+  }
   return text;
+}
+
+async function pdfPageToBase64(pdf, pageNum, scale = 2.0) {
+  const page = await pdf.getPage(pageNum);
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  return canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+}
+
+async function callOcrBest(base64) {
+  const gptKey    = document.getElementById('openaiKey').value.trim();
+  const claudeKey = document.getElementById('anthropicKey').value.trim();
+  const geminiKey = document.getElementById('geminiKey').value.trim();
+  const prompt = 'このページに書かれているすべてのテキストを正確に書き起こしてください。段落・改行・番号の順序を保持してください。余計なコメントや説明は不要です。テキストのみを出力してください。';
+  if (gptKey)    return await callOcrGPT(base64, prompt, gptKey);
+  if (claudeKey) return await callOcrClaude(base64, prompt, claudeKey);
+  if (geminiKey) return await callOcrGemini(base64, prompt, geminiKey);
+  throw new Error('OCRに使用できるAPIキーがありません');
+}
+
+async function callOcrGPT(base64, prompt, key) {
+  const model = document.getElementById('openaiModel').value;
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+    body: JSON.stringify({
+      model, temperature: 0, max_completion_tokens: 4096,
+      messages: [{ role: 'user', content: [
+        { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + base64, detail: 'high' } },
+        { type: 'text', text: prompt }
+      ]}]
+    })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error('OCR(GPT) ' + res.status + ': ' + (e?.error?.message || res.statusText));
+  }
+  return (await res.json()).choices[0].message.content;
+}
+
+async function callOcrClaude(base64, prompt, key) {
+  const model = document.getElementById('anthropicModel').value;
+  const endpoint = CLOUD_PROXY_URL
+    ? CLOUD_PROXY_URL.replace(/\/$/, '') + '/v1/messages'
+    : 'https://api.anthropic.com/v1/messages';
+  const headers = { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' };
+  if (!CLOUD_PROXY_URL) headers['anthropic-dangerous-request-allow-browser'] = 'true';
+  const res = await fetch(endpoint, {
+    method: 'POST', headers,
+    body: JSON.stringify({
+      model, max_tokens: 4096,
+      messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
+        { type: 'text', text: prompt }
+      ]}]
+    })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error('OCR(Claude) ' + res.status + ': ' + (e?.error?.message || res.statusText));
+  }
+  return (await res.json()).content[0].text;
+}
+
+async function callOcrGemini(base64, prompt, key) {
+  const model = document.getElementById('geminiModel').value;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+  const res = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [
+        { inline_data: { mime_type: 'image/jpeg', data: base64 } },
+        { text: prompt }
+      ]}],
+      generationConfig: { temperature: 0, maxOutputTokens: 4096 }
+    })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error('OCR(Gemini) ' + res.status + ': ' + (e?.error?.message || res.statusText));
+  }
+  return (await res.json()).candidates[0].content.parts[0].text;
 }
 
 // ═══════════════════ API Calls ═══════════════════
@@ -1653,12 +1753,7 @@ function updateSummary() {
   set('sum-score', S.stats.score);
 }
 
-function fmtTime(sec) {
-  const s = Math.max(0, Math.floor(sec || 0));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
-}
+
 function renderOverallProgress() {
   const total = Math.max(0, Number(S.progress.total) || 0);
   const rawDone = Number(S.progress.done) || 0;
@@ -1667,19 +1762,9 @@ function renderOverallProgress() {
   const bar = document.getElementById('overallBar');
   const pctEl = document.getElementById('overallPct');
   const stepsEl = document.getElementById('overallSteps');
-  const etaEl = document.getElementById('overallEta');
   if (bar) bar.style.width = `${pct}%`;
   if (pctEl) pctEl.textContent = `${pct}%`;
   if (stepsEl) stepsEl.textContent = `${done} / ${total} ステップ`;
-  if (!etaEl) return;
-  if (!S.running || total === 0 || done >= total) {
-    const elapsedDone = S.progress.startAt ? (Date.now() - S.progress.startAt) / 1000 : 0;
-    etaEl.textContent = `経過: ${fmtTime(elapsedDone)} / 残り予測: 00:00`;
-    return;
-  }
-  const elapsed = Math.max(1, (Date.now() - S.progress.startAt) / 1000);
-  const eta = done > 0 ? Math.round((elapsed / done) * (total - done)) : null;
-  etaEl.textContent = `経過: ${fmtTime(elapsed)} / 残り予測: ${eta == null ? '--:--' : fmtTime(eta)}`;
 }
 function initOverallProgress(total) {
   S.progress = { total: Math.max(0, total || 0), done: 0, startAt: Date.now() };
@@ -1788,7 +1873,7 @@ async function startChecking() {
 
   // PDF extraction
   try {
-    const [jpText, enText] = await Promise.all([extractPdf(S.jpFile), extractPdf(S.enFile)]);
+    const [jpText, enText] = await Promise.all([extractPdf(S.jpFile, 'jpCount'), extractPdf(S.enFile, 'enCount')]);
     S.jpText = jpText; S.enText = enText;
     ['jp','en'].forEach(lang => {
       const el = document.getElementById(lang+'Count');
