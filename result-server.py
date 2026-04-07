@@ -26,7 +26,7 @@ from urllib.parse import urlparse, parse_qs
 
 PORT        = int(os.environ.get('PORT', 3002))
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
-DB_FILE     = os.environ.get('DB_PATH', os.path.join(BASE_DIR, 'results.db'))
+DB_FILE     = os.environ.get('DB_PATH', '/data/results.db' if os.path.isdir('/data') else os.path.join(BASE_DIR, 'results.db'))
 CONFIG_FILE = os.path.join(BASE_DIR, 'server-config.json')
 EXPIRE_DAYS = 30
 
