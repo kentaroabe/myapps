@@ -169,6 +169,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._serve_admin_login(error=(pw != ''))
         elif path == '/health':
             self._send_json(200, {'status': 'ok'})
+        elif path == '/debug':
+            self._serve_debug()
         elif path == '/' or path == '':
             self._serve_root()
         else:
@@ -228,6 +230,40 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {'ok': True})
         except Exception as e:
             self._send_json(500, {'error': str(e)})
+
+    def _serve_debug(self):
+        db_mode = 'PostgreSQL (Supabase)' if DATABASE_URL else 'SQLite (一時的・再起動で消える)'
+        db_url_masked = (DATABASE_URL[:30] + '...') if DATABASE_URL else '未設定'
+        try:
+            records = db_list()
+            db_status = f'接続OK・{len(records)}件のレコード'
+        except Exception as e:
+            records = []
+            db_status = f'接続エラー: {e}'
+        rows = ''.join(
+            f'<tr><td>{r["id"]}</td><td>{r["title"]}</td><td>{r["created_at"]}</td></tr>'
+            for r in records
+        )
+        html = f'''<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+<title>デバッグ情報</title>
+<style>body{{font-family:system-ui,sans-serif;max-width:800px;margin:32px auto;padding:0 20px;color:#1e293b}}
+table{{border-collapse:collapse;width:100%}}th,td{{border:1px solid #e2e8f0;padding:8px 10px;text-align:left;font-size:13px}}
+th{{background:#f8fafc}}.ok{{color:#16a34a;font-weight:700}}.ng{{color:#dc2626;font-weight:700}}</style></head>
+<body>
+<h2>🔍 サーバーデバッグ情報</h2>
+<table>
+<tr><th>項目</th><th>値</th></tr>
+<tr><td>DBモード</td><td class="{'ok' if DATABASE_URL else 'ng'}">{db_mode}</td></tr>
+<tr><td>DATABASE_URL</td><td>{db_url_masked}</td></tr>
+<tr><td>DB状態</td><td class="{'ok' if '接続OK' in db_status else 'ng'}">{db_status}</td></tr>
+<tr><td>PORT</td><td>{PORT}</td></tr>
+</table>
+<h3 style="margin-top:24px">保存済みレコード一覧</h3>
+<table><tr><th>ID</th><th>タイトル</th><th>作成日時</th></tr>
+{rows if rows else '<tr><td colspan="3">レコードなし</td></tr>'}
+</table>
+</body></html>'''
+        self._send_html(200, html)
 
     def _serve_root(self):
         host   = self.headers.get('Host', f'localhost:{PORT}')
@@ -397,7 +433,11 @@ def main():
     print('=' * 52)
     print(f'  翻訳チェック結果サーバー 起動完了')
     print(f'  ポート : {PORT}')
+    print(f'  DB    : {"PostgreSQL (Supabase)" if DATABASE_URL else "SQLite (一時的)"}')
+    if DATABASE_URL:
+        print(f'  DB URL: {DATABASE_URL[:40]}...')
     print(f'  管理   : http://localhost:{PORT}/admin')
+    print(f'  デバッグ: http://localhost:{PORT}/debug')
     print(f'  停止   : Ctrl + C')
     print('=' * 52)
     try:
