@@ -582,6 +582,7 @@ table.md-tbl col.col-note   { width: 15%; }
     <button class="tab-btn" onclick="switchTab('p1',this)">Phase 1：専門検証</button>
     <button class="tab-btn" onclick="switchTab('p2',this)">Phase 2：逆翻訳</button>
     <button class="tab-btn" onclick="switchTab('p3',this)">✨ Phase 3：最終レポート</button>
+    <button class="tab-btn" onclick="switchTab('diff',this)">🔀 差分表示</button>
   </div>
 
   <div class="tab-pane active" id="tab-p0">
@@ -622,6 +623,25 @@ table.md-tbl col.col-note   { width: 15%; }
 
   <div class="tab-pane" id="tab-p3">
     <div id="p3-result"><div class="result-box empty">まだ結果がありません</div></div>
+  </div>
+
+  <div class="tab-pane" id="tab-diff">
+    <div style="margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">修正後の翻訳文を貼り付けてください（元の翻訳との差分を色付きで表示します）</div>
+      <textarea id="diffInput" oninput="renderDiff()"
+        style="width:100%;height:180px;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;outline:none;"
+        placeholder="修正後の翻訳テキストをここに貼り付けてください..."></textarea>
+    </div>
+    <div style="display:flex;gap:16px;margin-bottom:10px;font-size:12px;">
+      <span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:4px;">追加（緑）</span>
+      <span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:4px;text-decoration:line-through">削除（赤）</span>
+      <span style="color:var(--muted)">変更なしは通常表示</span>
+      <span id="diffStats" style="margin-left:auto;color:var(--muted);"></span>
+    </div>
+    <div id="diffOutput"
+      style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:#fff;min-height:120px;font-size:13px;line-height:2;white-space:pre-wrap;font-family:inherit;">
+      <span style="color:var(--muted)">修正後のテキストを貼り付けると差分が表示されます</span>
+    </div>
   </div>
 </div>
 
@@ -2170,6 +2190,93 @@ function switchTab(id, btn) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-' + id).classList.add('active');
+  if (id === 'diff') renderDiff();
+}
+
+// ═══════════════════ Diff 差分表示 ═══════════════════
+
+function tokenize(text) {
+  // 単語・空白・改行を個別トークンに分割
+  return text.match(/[^\s]+|\n+|[ \t]+/g) || [];
+}
+
+function computeDiff(aTokens, bTokens) {
+  // ワードレベル LCS diff（大きい場合は行レベルにフォールバック）
+  const MAX = 4000;
+  if (aTokens.length > MAX || bTokens.length > MAX) {
+    return computeLineDiff(
+      aTokens.join('').split('\n'),
+      bTokens.join('').split('\n')
+    );
+  }
+  return lcs(aTokens, bTokens);
+}
+
+function lcs(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m + 1}, () => new Uint16Array(n + 1));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+    }
+  }
+  const result = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i-1] === b[j-1]) {
+      result.unshift({ type: 'eq', val: a[i-1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+      result.unshift({ type: 'add', val: b[j-1] });
+      j--;
+    } else {
+      result.unshift({ type: 'del', val: a[i-1] });
+      i--;
+    }
+  }
+  return result;
+}
+
+function computeLineDiff(aLines, bLines) {
+  const result = [];
+  const diff = lcs(aLines, bLines);
+  for (const d of diff) {
+    const tokens = tokenize(d.val + '\n');
+    tokens.forEach(t => result.push({ type: d.type, val: t }));
+  }
+  return result;
+}
+
+function renderDiff() {
+  const original = S.enText || '';
+  const revised  = (document.getElementById('diffInput') || {}).value || '';
+  const output   = document.getElementById('diffOutput');
+  const stats    = document.getElementById('diffStats');
+  if (!output) return;
+
+  if (!original) {
+    output.innerHTML = '<span style="color:var(--muted)">チェック実行後に使用できます</span>';
+    return;
+  }
+  if (!revised.trim()) {
+    output.innerHTML = '<span style="color:var(--muted)">修正後のテキストを貼り付けると差分が表示されます</span>';
+    if (stats) stats.textContent = '';
+    return;
+  }
+
+  const aTokens = tokenize(original);
+  const bTokens = tokenize(revised);
+  const diff    = computeDiff(aTokens, bTokens);
+
+  let html = '', adds = 0, dels = 0;
+  for (const { type, val } of diff) {
+    const esc = val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (type === 'eq')  html += `<span>${esc}</span>`;
+    else if (type === 'add') { html += `<span style="background:#dcfce7;color:#15803d;border-radius:2px">${esc}</span>`; adds++; }
+    else                     { html += `<span style="background:#fee2e2;color:#dc2626;text-decoration:line-through;border-radius:2px">${esc}</span>`; dels++; }
+  }
+  output.innerHTML = html || '<span style="color:var(--muted)">差分なし（同一テキスト）</span>';
+  if (stats) stats.textContent = `追加 ${adds} / 削除 ${dels} トークン`;
 }
 function switchAiTab(phase, ai, btn) {
   const bar = btn.closest('.ai-bar');
@@ -2434,6 +2541,12 @@ function resetAll() {
 
   document.getElementById('progressCard').classList.add('hidden');
   document.getElementById('resultsCard').classList.add('hidden');
+  const diffInput = document.getElementById('diffInput');
+  if (diffInput) diffInput.value = '';
+  const diffOutput = document.getElementById('diffOutput');
+  if (diffOutput) diffOutput.innerHTML = '<span style="color:var(--muted)">修正後のテキストを貼り付けると差分が表示されます</span>';
+  const diffStats = document.getElementById('diffStats');
+  if (diffStats) diffStats.textContent = '';
 
   ['p0','p1-gpt','p1-claude','p1-gemini','p2a','p2b','p3'].forEach(id => setProgress(id,'idle','待機中'));
 
