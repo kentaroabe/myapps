@@ -77,7 +77,11 @@ ADMIN_PW_HASH = hashlib.sha256(_config['admin_password'].encode()).hexdigest()
 if DATABASE_URL:
     import psycopg2, psycopg2.extras
     def _pg():
-        return psycopg2.connect(DATABASE_URL, sslmode='require')
+        url = DATABASE_URL
+        # sslmode が URL に含まれていない場合のみ付加
+        if 'sslmode=' not in url:
+            url += ('&' if '?' in url else '?') + 'sslmode=require'
+        return psycopg2.connect(url)
     def init_db():
         with _pg() as conn:
             conn.cursor().execute('''CREATE TABLE IF NOT EXISTS results (
