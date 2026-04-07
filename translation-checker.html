@@ -582,7 +582,6 @@ table.md-tbl col.col-note   { width: 15%; }
     <button class="tab-btn" onclick="switchTab('p1',this)">Phase 1：専門検証</button>
     <button class="tab-btn" onclick="switchTab('p2',this)">Phase 2：逆翻訳</button>
     <button class="tab-btn" onclick="switchTab('p3',this)">✨ Phase 3：最終レポート</button>
-    <button class="tab-btn" onclick="switchTab('diff',this)">🔀 差分表示</button>
   </div>
 
   <div class="tab-pane active" id="tab-p0">
@@ -625,24 +624,6 @@ table.md-tbl col.col-note   { width: 15%; }
     <div id="p3-result"><div class="result-box empty">まだ結果がありません</div></div>
   </div>
 
-  <div class="tab-pane" id="tab-diff">
-    <div style="margin-bottom:12px;">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px;">修正後の翻訳文を貼り付けてください（元の翻訳との差分を色付きで表示します）</div>
-      <textarea id="diffInput" oninput="renderDiff()"
-        style="width:100%;height:180px;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;outline:none;"
-        placeholder="修正後の翻訳テキストをここに貼り付けてください..."></textarea>
-    </div>
-    <div style="display:flex;gap:16px;margin-bottom:10px;font-size:12px;">
-      <span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:4px;">追加（緑）</span>
-      <span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:4px;text-decoration:line-through">削除（赤）</span>
-      <span style="color:var(--muted)">変更なしは通常表示</span>
-      <span id="diffStats" style="margin-left:auto;color:var(--muted);"></span>
-    </div>
-    <div id="diffOutput"
-      style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:#fff;min-height:120px;font-size:13px;line-height:2;white-space:pre-wrap;font-family:inherit;">
-      <span style="color:var(--muted)">修正後のテキストを貼り付けると差分が表示されます</span>
-    </div>
-  </div>
 </div>
 
 </div>
@@ -2175,11 +2156,47 @@ function renderTable(lines) {
   const rows = lines.filter(l => !l.match(/^\s*\|[\s:-]+\|\s*$/));
   if (!rows.length) return '';
   const colCount = rows[0].split('|').filter((_,j,a) => j>0 && j<a.length-1).length;
+
+  // 「現在の翻訳文」「正しい翻訳文」列を検出
+  const headerCells = rows[0].split('|').filter((_,j,a) => j>0 && j<a.length-1).map(c => c.trim());
+  const curIdx = headerCells.findIndex(h => h.includes('現在の翻訳文'));
+  const fixIdx = headerCells.findIndex(h => h.includes('正しい翻訳文'));
+  const hasDiff = curIdx >= 0 && fixIdx >= 0;
+
   let html = `<div class="tbl-wrap"><table class="md-tbl">${buildColgroup(colCount)}`;
   rows.forEach((row, ri) => {
     const cells = row.split('|').filter((_,j,a) => j>0 && j<a.length-1);
     const tag = ri === 0 ? 'th' : 'td';
-    html += '<tr>' + cells.map(c => `<${tag}>${escCell(c.trim())}</${tag}>`).join('') + '</tr>';
+
+    if (ri > 0 && hasDiff) {
+      const curText = cells[curIdx]?.trim() || '';
+      const fixText = cells[fixIdx]?.trim() || '';
+      // 差分が意味ある場合のみ計算（空セルや同一は除外）
+      const aTokens = curText ? curText.split(/(\s+)/).filter(Boolean) : [];
+      const bTokens = fixText ? fixText.split(/(\s+)/).filter(Boolean) : [];
+      const diffResult = (aTokens.length > 0 || bTokens.length > 0) && aTokens.length <= 600 && bTokens.length <= 600
+        ? lcs(aTokens, bTokens) : null;
+
+      html += '<tr>' + cells.map((c, ci) => {
+        if (!diffResult || (ci !== curIdx && ci !== fixIdx)) {
+          return `<${tag}>${escCell(c.trim())}</${tag}>`;
+        }
+        let diffHtml = '';
+        for (const { type, val } of diffResult) {
+          const e = esc(val);
+          if (ci === curIdx) {
+            if (type === 'eq')  diffHtml += e;
+            else if (type === 'del') diffHtml += `<span style="background:#fee2e2;color:#dc2626;text-decoration:line-through;border-radius:2px">${e}</span>`;
+          } else {
+            if (type === 'eq')  diffHtml += e;
+            else if (type === 'add') diffHtml += `<span style="background:#dcfce7;color:#15803d;border-radius:2px">${e}</span>`;
+          }
+        }
+        return `<${tag}>${diffHtml || escCell(c.trim())}</${tag}>`;
+      }).join('') + '</tr>';
+    } else {
+      html += '<tr>' + cells.map(c => `<${tag}>${escCell(c.trim())}</${tag}>`).join('') + '</tr>';
+    }
   });
   return html + '</table></div>';
 }
@@ -2190,7 +2207,6 @@ function switchTab(id, btn) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-' + id).classList.add('active');
-  if (id === 'diff') renderDiff();
 }
 
 // ═══════════════════ Diff 差分表示 ═══════════════════
@@ -2541,12 +2557,6 @@ function resetAll() {
 
   document.getElementById('progressCard').classList.add('hidden');
   document.getElementById('resultsCard').classList.add('hidden');
-  const diffInput = document.getElementById('diffInput');
-  if (diffInput) diffInput.value = '';
-  const diffOutput = document.getElementById('diffOutput');
-  if (diffOutput) diffOutput.innerHTML = '<span style="color:var(--muted)">修正後のテキストを貼り付けると差分が表示されます</span>';
-  const diffStats = document.getElementById('diffStats');
-  if (diffStats) diffStats.textContent = '';
 
   ['p0','p1-gpt','p1-claude','p1-gemini','p2a','p2b','p3'].forEach(id => setProgress(id,'idle','待機中'));
 
