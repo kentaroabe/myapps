@@ -141,8 +141,6 @@ else:
         with sqlite3.connect(_DB) as conn:
             conn.execute('DELETE FROM results WHERE id=?', (rid,))
 
-init_db()
-
 
 # ── リクエストハンドラ ─────────────────────────────────────────
 
@@ -193,6 +191,10 @@ class Handler(BaseHTTPRequestHandler):
     # ── ハンドラ実装 ──────────────────────────────────────────
 
     def _handle_save(self, body):
+        try:
+            init_db()  # 未初期化なら初期化を試みる
+        except Exception:
+            pass
         try:
             data  = json.loads(body)
             title = data.get('title', '翻訳チェック結果')
@@ -429,7 +431,19 @@ async function del(id){{
 # ── エントリポイント ──────────────────────────────────────────
 
 def main():
+    # ポートを先にバインド（Render のポートスキャンが通るように）
     server = HTTPServer(('0.0.0.0', PORT), Handler)
+    print(f'[起動] ポート {PORT} をバインドしました')
+
+    # DB 初期化（ポートバインド後に実行）
+    print(f'[起動] DB初期化中... ({"PostgreSQL" if DATABASE_URL else "SQLite"})')
+    try:
+        init_db()
+        print('[起動] DB初期化 完了')
+    except Exception as e:
+        print(f'[警告] DB初期化 失敗: {e}')
+        print('[警告] DBなしで起動します（保存機能は使えません）')
+
     print('=' * 52)
     print(f'  翻訳チェック結果サーバー 起動完了')
     print(f'  ポート : {PORT}')
