@@ -270,6 +270,14 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
       <div>※ APIキーはlocalStorageに保存されます。&nbsp; ※ 3つすべて設定で最大精度。1つでも動作可。</div>
       <button class="btn btn-secondary btn-sm" onclick="clearSavedKeys()" style="white-space:nowrap;color:#b91c1c;border-color:#fca5a5;">🗑 保存済みキーを消去</button>
     </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">結果保存サーバーURL（「URLを発行して保存」に使用）</label>
+      <input type="text" id="resultServerUrl" placeholder="例: https://your-app.railway.app　（空白=ローカル http://localhost:3002）"
+             style="margin-top:6px;" oninput="saveSettings()">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">
+        ローカルで使う場合は空欄のままで OK。公開サーバーにデプロイした場合はそのURLを入力してください。
+      </div>
+    </div>
   </div>
 </div>
 
@@ -607,7 +615,11 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 const CLOUD_PROXY_URL  = 'https://translation-checker.abe-f3a.workers.dev';
-const RESULT_SERVER_URL = 'http://localhost:3002';
+const RESULT_SERVER_FALLBACK = 'http://localhost:3002';
+function getResultServerUrl() {
+  const v = document.getElementById('resultServerUrl')?.value.trim();
+  return v || RESULT_SERVER_FALLBACK;
+}
 
 // ═══════════════════ Style Guide ═══════════════════
 const STYLE_GUIDE = `
@@ -730,8 +742,9 @@ const S = {
 };
 
 // ═══════════════════ Settings ═══════════════════
+const SETTINGS_KEYS = ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel','resultServerUrl'];
 function loadSettings() {
-  ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel'].forEach(id => {
+  SETTINGS_KEYS.forEach(id => {
     const v = localStorage.getItem('tc_' + id);
     if (!v) return;
     if (VALID_MODELS[id] && !VALID_MODELS[id].includes(v)) return;
@@ -739,7 +752,7 @@ function loadSettings() {
   });
 }
 function saveSettings() {
-  ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel'].forEach(id => {
+  SETTINGS_KEYS.forEach(id => {
     localStorage.setItem('tc_' + id, document.getElementById(id).value);
   });
 }
@@ -2205,7 +2218,7 @@ async function saveAndPublish() {
   try {
     const html  = generateResultHtml();
     const title = `翻訳チェック結果 ${new Date().toLocaleDateString('ja-JP')}`;
-    const res   = await fetch(RESULT_SERVER_URL + '/api/save', {
+    const res   = await fetch(getResultServerUrl() + '/api/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, html })

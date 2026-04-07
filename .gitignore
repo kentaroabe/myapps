@@ -4,6 +4,7 @@ server-config.json
 # 保存済み翻訳チェック結果
 saved_results/
 results_db.json
+results.db
 
 # Python
 __pycache__/

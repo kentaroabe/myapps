@@ -1,0 +1,1 @@
+# result-server.py は Python 標準ライブラリのみ使用のため、外部パッケージ不要
