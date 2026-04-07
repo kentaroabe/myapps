@@ -402,7 +402,7 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
             try:
                 dt = datetime.datetime.fromisoformat(e['created_at'])
                 dt_jst = dt + datetime.timedelta(hours=9)
-                created = dt_jst.strftime('%Y-%m-%d %H:%M') + ' JST'
+                created = dt_jst.strftime('%Y-%m-%d %H:%M')
             except Exception:
                 created = e['created_at'][:16].replace('T', ' ')
             expires = e['expires_at'][:10]
