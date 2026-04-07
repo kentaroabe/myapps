@@ -577,11 +577,6 @@ table.md-tbl col.col-note   { width: 15%; }
       <div class="summary-sub">検出密度ベース</div>
     </div>
   </div>
-  <div id="costSection" style="display:none;margin-bottom:14px;border:1px solid var(--border);border-radius:10px;background:#f8fafc;padding:12px 14px;">
-    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">💰 APIコスト概算</div>
-    <div id="costGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;"></div>
-    <div style="font-size:11px;color:var(--muted);margin-top:8px;">※ 料金は参考値です。実際の請求は各APIプロバイダーの価格に従います。</div>
-  </div>
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab('p0',this)">Phase 0：事前分析</button>
     <button class="tab-btn" onclick="switchTab('p1',this)">Phase 1：専門検証</button>
@@ -2066,51 +2061,6 @@ function updateSummary() {
   set('sum-p1', S.stats.p1);
   set('sum-p2', S.stats.p2);
   set('sum-score', S.stats.score);
-  updateCostDisplay();
-}
-
-function updateCostDisplay() {
-  const section = document.getElementById('costSection');
-  const grid = document.getElementById('costGrid');
-  if (!section || !grid) return;
-
-  const apis = [
-    { key: 'gpt',    label: 'OpenAI',    color: '#10a37f' },
-    { key: 'claude', label: 'Claude',    color: '#d97757' },
-    { key: 'gemini', label: 'Gemini',    color: '#4285f4' },
-  ];
-
-  let totalCost = 0;
-  let hasData = false;
-  let cards = '';
-
-  for (const { key, label, color } of apis) {
-    const c = S.cost[key];
-    if (!c.input && !c.output) continue;
-    hasData = true;
-    const cost = calcCost(c.model, c.input, c.output);
-    if (cost != null) totalCost += cost;
-    const costStr = cost != null ? '$' + cost.toFixed(4) : '不明';
-    const inK  = (c.input  / 1000).toFixed(1);
-    const outK = (c.output / 1000).toFixed(1);
-    cards += `<div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;background:#fff;">
-      <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:6px;">${label}${c.model ? ' <span style="font-weight:400;color:var(--muted);font-size:10px;">(' + c.model + ')</span>' : ''}</div>
-      <div style="font-size:20px;font-weight:800;color:var(--text);">${costStr}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:3px;">入力 ${inK}K ／ 出力 ${outK}K トークン</div>
-    </div>`;
-  }
-
-  if (!hasData) { section.style.display = 'none'; return; }
-
-  const totalStr = '$' + totalCost.toFixed(4);
-  cards = `<div style="border:1px solid #a5b4fc;border-radius:8px;padding:10px 12px;background:#eef2ff;">
-    <div style="font-size:11px;font-weight:700;color:#4f46e5;margin-bottom:6px;">合計</div>
-    <div style="font-size:20px;font-weight:800;color:#4f46e5;">${totalStr}</div>
-    <div style="font-size:11px;color:var(--muted);margin-top:3px;">全APIの合算</div>
-  </div>` + cards;
-
-  grid.innerHTML = cards;
-  section.style.display = 'block';
 }
 
 
@@ -2462,8 +2412,6 @@ function resetAll() {
     claude: { model: '', input: 0, output: 0 },
     gemini: { model: '', input: 0, output: 0 },
   };
-  const costSection = document.getElementById('costSection');
-  if (costSection) costSection.style.display = 'none';
 
   ['jp','en'].forEach(lang => {
     document.getElementById(lang+'Zone').classList.remove('filled');

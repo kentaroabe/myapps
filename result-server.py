@@ -32,6 +32,35 @@ EXPIRE_DAYS = 30
 # DATABASE_URL が設定されていれば PostgreSQL、なければ SQLite
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
+# APIコスト単価テーブル（$／100万トークン）
+_MODEL_PRICING = {
+    'gpt-4o':                     (2.50,  10.00),
+    'gpt-4o-mini':                (0.15,  0.60),
+    'gpt-4.1':                    (2.00,  8.00),
+    'gpt-4.1-mini':               (0.40,  1.60),
+    'gpt-4.1-nano':               (0.10,  0.40),
+    'gpt-5.4':                    (2.50,  10.00),
+    'gpt-5.4-mini':               (0.40,  1.60),
+    'gpt-5.4-nano':               (0.10,  0.40),
+    'claude-3-5-sonnet-20241022': (3.00,  15.00),
+    'claude-3-5-haiku-20241022':  (0.80,  4.00),
+    'claude-3-opus-20240229':     (15.00, 75.00),
+    'claude-sonnet-4-6':          (3.00,  15.00),
+    'claude-opus-4':              (15.00, 75.00),
+    'claude-haiku-4-5':           (0.80,  4.00),
+    'gemini-1.5-pro':             (1.25,  5.00),
+    'gemini-1.5-flash':           (0.075, 0.30),
+    'gemini-2.5-pro':             (1.25,  10.00),
+    'gemini-2.5-flash':           (0.15,  0.60),
+    'gemini-2.5-flash-lite':      (0.075, 0.30),
+}
+
+def _calc_cost(model, inp, out):
+    p = _MODEL_PRICING.get(model)
+    if not p:
+        return None
+    return inp / 1_000_000 * p[0] + out / 1_000_000 * p[1]
+
 CORS_HEADERS = [
     ('Access-Control-Allow-Origin',  '*'),
     ('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'),
@@ -382,19 +411,31 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
                 cost_data = json.loads(e.get('api_cost') or '{}')
             except Exception:
                 cost_data = {}
-            total_cost = cost_data.get('_total', None)
-            cost_label = f'${total_cost:.4f}' if isinstance(total_cost, (int, float)) else '-'
-            cost_detail = []
             label_map = {'gpt': 'GPT', 'claude': 'Claude', 'gemini': 'Gemini'}
+            cost_detail = []
+            recalc_total = 0.0
             for k, lbl in label_map.items():
                 c = cost_data.get(k)
-                if c and (c.get('input') or c.get('output')):
-                    c_val = c.get('cost')
-                    c_str = f'${c_val:.4f}' if isinstance(c_val, (int, float)) else '?'
-                    inp = round((c.get('input') or 0) / 1000, 1)
-                    out = round((c.get('output') or 0) / 1000, 1)
-                    cost_detail.append(f'{lbl}: {c_str} ({inp}K/{out}K)')
-            cost_tooltip = ' | '.join(cost_detail) if cost_detail else ''
+                if not c:
+                    continue
+                inp = c.get('input') or 0
+                out = c.get('output') or 0
+                if not inp and not out:
+                    continue
+                # フロント送信値 → なければサーバー側で再計算
+                c_val = c.get('cost')
+                if c_val is None:
+                    c_val = _calc_cost(c.get('model', ''), inp, out)
+                if isinstance(c_val, float):
+                    recalc_total += c_val
+                c_str = f'${c_val:.4f}' if isinstance(c_val, (int, float)) else '?'
+                cost_detail.append(f'{lbl}({c.get("model","?")}): {c_str} ({round(inp/1000,1)}K in / {round(out/1000,1)}K out)')
+            # _total: フロント送信値 → なければ再計算合計
+            total_cost = cost_data.get('_total')
+            if not isinstance(total_cost, (int, float)) and cost_detail:
+                total_cost = recalc_total
+            cost_label = f'${total_cost:.4f}' if isinstance(total_cost, (int, float)) and cost_detail else '-'
+            cost_tooltip = ' | '.join(cost_detail)
             cost_cell = (f'<span title="{cost_tooltip}" style="cursor:help;border-bottom:1px dotted #94a3b8">'
                          f'{cost_label}</span>' if cost_tooltip else cost_label)
 
