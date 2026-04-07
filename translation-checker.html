@@ -104,15 +104,20 @@ textarea { min-height: 96px; resize: vertical; font-family: inherit; line-height
 .upload-hint  { font-size: 11px; color: var(--muted); }
 .upload-name  { font-size: 12px; color: var(--success); font-weight: 600; margin-top: 5px; word-break: break-all; }
 .char-count   { font-size: 11px; color: var(--muted); margin-top: 3px; }
-.file-queue   { list-style: none; margin: 10px 0 0; padding: 0; border: 1px solid var(--border); border-radius: 10px; background: #fff; max-height: 220px; overflow-y: auto; }
-.file-queue li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12px; cursor: grab; }
+.file-queue   { list-style: none; margin: 10px 0 0; padding: 0; border: 1px solid var(--border); border-radius: 10px; background: #fff; max-height: 220px; overflow-y: auto; position: relative; }
+.file-queue li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12px; transition: transform .18s cubic-bezier(.25,.8,.25,1), opacity .18s, background .15s; will-change: transform; background: #fff; }
 .file-queue li:last-child { border-bottom: none; }
-.file-queue li.dragging { opacity: 0.5; }
-.file-queue .fq-grip { color: var(--muted); cursor: grab; user-select: none; }
+.file-queue li.fq-source  { opacity: 0; pointer-events: none; }
+.file-queue li.fq-shifted-down { transform: translateY(100%); }
+.file-queue li.fq-shifted-up   { transform: translateY(-100%); }
+.file-queue .fq-ghost { position: fixed; z-index: 9999; pointer-events: none; background: #fff; border: 1.5px solid var(--primary); border-radius: 8px; box-shadow: 0 8px 28px rgba(79,70,229,.22); opacity: .95; transition: box-shadow .1s; padding: 8px 10px; display: flex; align-items: center; gap: 8px; font-size: 12px; min-width: 180px; max-width: 360px; }
+.file-queue .fq-drop-indicator { position: absolute; left: 8px; right: 8px; height: 2px; background: var(--primary); border-radius: 2px; pointer-events: none; transition: top .14s cubic-bezier(.25,.8,.25,1); z-index: 10; }
+.file-queue .fq-grip { color: var(--muted); cursor: grab; user-select: none; touch-action: none; }
+.file-queue .fq-grip:active { cursor: grabbing; }
 .file-queue .fq-name { flex: 1; min-width: 0; word-break: break-all; }
 .file-queue .fq-type { font-size: 10px; color: var(--muted); flex-shrink: 0; }
 .file-queue .fq-btns { display: flex; gap: 4px; flex-shrink: 0; }
-.file-queue .fq-btns button { padding: 2px 8px; font-size: 11px; border: 1px solid var(--border); border-radius: 5px; background: #f8fafc; cursor: pointer; }
+.file-queue .fq-btns button { padding: 2px 8px; font-size: 11px; border: 1px solid var(--border); border-radius: 5px; background: #f8fafc; cursor: pointer; transition: background .12s; }
 .file-queue .fq-btns button:hover { background: #e2e8f0; }
 .file-queue .fq-btns .fq-del { color: #b91c1c; border-color: #fecaca; }
 
@@ -174,12 +179,19 @@ textarea { min-height: 96px; resize: vertical; font-family: inherit; line-height
 .rb-technical { background: #fee2e2; color: var(--technical); }
 .rb-complete  { background: #cffafe; color: var(--complete); }
 
-.tbl-wrap { overflow-x: auto; margin: 8px 0; }
-table.md-tbl { border-collapse: collapse; width: 100%; font-size: 12px; }
-table.md-tbl th { background: #eef2ff; padding: 8px 10px; border: 1px solid var(--border); font-weight: 800; text-align: left; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
-table.md-tbl td { padding: 7px 10px; border: 1px solid var(--border); vertical-align: top; }
+.tbl-wrap { margin: 8px 0; }
+table.md-tbl { border-collapse: collapse; width: 100%; font-size: 12px; table-layout: fixed; word-break: break-word; }
+table.md-tbl th { background: #eef2ff; padding: 8px 10px; border: 1px solid var(--border); font-weight: 800; text-align: left; word-break: keep-all; overflow-wrap: break-word; position: sticky; top: 0; z-index: 1; }
+table.md-tbl td { padding: 7px 10px; border: 1px solid var(--border); vertical-align: top; overflow-wrap: break-word; }
 table.md-tbl tr:nth-child(even) td { background: #fbfdff; }
 table.md-tbl tr:hover td { background: #f3f8ff; }
+table.md-tbl col.col-page   { width: 5%; }
+table.md-tbl col.col-src    { width: 18%; }
+table.md-tbl col.col-cur    { width: 20%; }
+table.md-tbl col.col-fix    { width: 22%; }
+table.md-tbl col.col-type   { width: 12%; }
+table.md-tbl col.col-conf   { width: 8%; }
+table.md-tbl col.col-note   { width: 15%; }
 
 .collapse-toggle { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer; color: var(--muted); margin-bottom: 8px; }
 .collapse-toggle:hover { background: var(--border); }
@@ -280,14 +292,6 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
     <div class="info-box" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
       <div>※ APIキーはlocalStorageに保存されます。&nbsp; ※ 3つすべて設定で最大精度。1つでも動作可。</div>
       <button class="btn btn-secondary btn-sm" onclick="clearSavedKeys()" style="white-space:nowrap;color:#b91c1c;border-color:#fca5a5;">🗑 保存済みキーを消去</button>
-    </div>
-    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
-      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">結果保存サーバーURL（「URLを発行して保存」に使用）</label>
-      <input type="text" id="resultServerUrl" placeholder="例: https://your-app.railway.app　（空白=ローカル http://localhost:3002）"
-             style="margin-top:6px;" oninput="saveSettings()">
-      <div style="font-size:11px;color:var(--muted);margin-top:4px;">
-        ローカルで使う場合は空欄のままで OK。公開サーバーにデプロイした場合はそのURLを入力してください。
-      </div>
     </div>
   </div>
 </div>
@@ -626,11 +630,8 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 const CLOUD_PROXY_URL  = 'https://translation-checker.abe-f3a.workers.dev';
-const RESULT_SERVER_FALLBACK = 'http://localhost:3002';
-function getResultServerUrl() {
-  const v = document.getElementById('resultServerUrl')?.value.trim();
-  return v || RESULT_SERVER_FALLBACK;
-}
+const RESULT_SERVER_URL = 'https://myapps-hl7r.onrender.com';
+function getResultServerUrl() { return RESULT_SERVER_URL; }
 
 // ═══════════════════ Style Guide ═══════════════════
 const STYLE_GUIDE = `
@@ -753,7 +754,7 @@ const S = {
 };
 
 // ═══════════════════ Settings ═══════════════════
-const SETTINGS_KEYS = ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel','resultServerUrl'];
+const SETTINGS_KEYS = ['openaiKey','anthropicKey','geminiKey','openaiModel','anthropicModel','geminiModel'];
 function loadSettings() {
   SETTINGS_KEYS.forEach(id => {
     const v = localStorage.getItem('tc_' + id);
@@ -894,49 +895,142 @@ function moveFile(lang, index, delta) {
   [arr[index], arr[j]] = [arr[j], arr[index]];
   renderFileQueue(lang);
 }
-let _fqDrag = { lang: null, index: null };
+// ── File Queue ─────────────────────────────────────────────────────────────
+function makeLiHtml(f, i) {
+  const shortType = f.type === 'application/pdf' ? '📄 PDF' : '🖼 画像';
+  return `<span class="fq-grip" title="ドラッグで並べ替え">⋮⋮</span>
+    <span class="fq-name">${esc(f.name)}</span>
+    <span class="fq-type">${shortType}</span>
+    <span class="fq-btns">
+      <button type="button" title="上へ">↑</button>
+      <button type="button" title="下へ">↓</button>
+      <button type="button" class="fq-del" title="削除">✕</button>
+    </span>`;
+}
+
 function renderFileQueue(lang) {
   const ul = document.getElementById(lang + 'FileList');
   const arr = getFileArr(lang);
   ul.innerHTML = '';
   arr.forEach((f, i) => {
     const li = document.createElement('li');
-    li.draggable = true;
     li.dataset.index = String(i);
-    const shortType = f.type === 'application/pdf' ? 'PDF' : '画像';
-    li.innerHTML = `<span class="fq-grip" title="ドラッグで並べ替え">⋮⋮</span>
-      <span class="fq-name">${esc(f.name)}</span><span class="fq-type">${shortType}</span>
-      <span class="fq-btns">
-        <button type="button" title="上へ">↑</button>
-        <button type="button" title="下へ">↓</button>
-        <button type="button" class="fq-del" title="削除">✕</button>
-      </span>`;
+    li.innerHTML = makeLiHtml(f, i);
     li.querySelectorAll('.fq-btns button')[0].onclick = () => moveFile(lang, i, -1);
     li.querySelectorAll('.fq-btns button')[1].onclick = () => moveFile(lang, i, 1);
     li.querySelector('.fq-del').onclick = () => removeFile(lang, i);
-    li.addEventListener('dragstart', ev => {
-      _fqDrag = { lang, index: i };
-      li.classList.add('dragging');
-      ev.dataTransfer.effectAllowed = 'move';
-      ev.dataTransfer.setData('text/plain', String(i));
-    });
-    li.addEventListener('dragend', () => li.classList.remove('dragging'));
-    li.addEventListener('dragover', ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; });
-    li.addEventListener('drop', ev => {
-      ev.preventDefault();
-      if (_fqDrag.lang !== lang) return;
-      const from = _fqDrag.index;
-      const to = i;
-      if (from === to) return;
-      const a = getFileArr(lang);
-      const [item] = a.splice(from, 1);
-      let insertAt = to;
-      if (from < to) insertAt--;
-      a.splice(insertAt, 0, item);
-      renderFileQueue(lang);
-    });
+    li.querySelector('.fq-grip').addEventListener('pointerdown', ev => fqDragStart(ev, lang, i));
     ul.appendChild(li);
   });
+}
+
+// ── Pointer-based drag & drop ───────────────────────────────────────────────
+let _fq = {
+  active: false, lang: null, fromIndex: null,
+  ghost: null, indicator: null,
+  liHeight: 0, items: [], ul: null, toIndex: null,
+  startX: 0, startY: 0,
+};
+
+function fqDragStart(ev, lang, fromIndex) {
+  ev.preventDefault();
+  const ul    = document.getElementById(lang + 'FileList');
+  const items = Array.from(ul.querySelectorAll('li'));
+  const li    = items[fromIndex];
+  const rect  = li.getBoundingClientRect();
+
+  // Ghost
+  const ghost = document.createElement('div');
+  ghost.className = 'fq-ghost';
+  ghost.innerHTML = makeLiHtml(getFileArr(lang)[fromIndex], fromIndex);
+  ghost.style.width  = rect.width + 'px';
+  ghost.style.top    = rect.top  + 'px';
+  ghost.style.left   = rect.left + 'px';
+  document.body.appendChild(ghost);
+
+  // Drop indicator line
+  const indicator = document.createElement('div');
+  indicator.className = 'fq-drop-indicator';
+  indicator.style.display = 'none';
+  ul.appendChild(indicator);
+
+  // Mark source
+  li.classList.add('fq-source');
+
+  Object.assign(_fq, {
+    active: true, lang, fromIndex, toIndex: fromIndex,
+    ghost, indicator, items,
+    liHeight: rect.height,
+    ul,
+    startX: ev.clientX - rect.left,
+    startY: ev.clientY - rect.top,
+  });
+
+  document.addEventListener('pointermove', fqDragMove);
+  document.addEventListener('pointerup',   fqDragEnd);
+  document.addEventListener('pointercancel', fqDragEnd);
+}
+
+function fqDragMove(ev) {
+  if (!_fq.active) return;
+  const { ghost, indicator, items, fromIndex, liHeight, ul, startX, startY } = _fq;
+
+  // Move ghost
+  ghost.style.left = (ev.clientX - startX) + 'px';
+  ghost.style.top  = (ev.clientY - startY) + 'px';
+
+  // Determine insertionIndex (0 = before first, n = after last)
+  const ulRect = ul.getBoundingClientRect();
+  const relY   = ev.clientY - ulRect.top + ul.scrollTop;
+  let toIndex  = Math.round(relY / liHeight);
+  toIndex = Math.max(0, Math.min(items.length, toIndex));
+  _fq.toIndex  = toIndex;
+
+  // Shift animations
+  items.forEach((li, i) => {
+    li.style.transition = 'transform .15s cubic-bezier(.25,.8,.25,1)';
+    if (i === fromIndex) return;
+    const effectiveFrom = fromIndex < toIndex ? fromIndex : fromIndex + 1;
+    const effectiveTo   = fromIndex < toIndex ? toIndex   : toIndex;
+    if (fromIndex < toIndex) {
+      li.style.transform = (i > fromIndex && i <= toIndex - 1) ? 'translateY(-100%)' : '';
+    } else {
+      li.style.transform = (i >= toIndex && i < fromIndex) ? 'translateY(100%)' : '';
+    }
+  });
+
+  // Drop indicator position
+  const clampedTop = Math.max(0, Math.min(toIndex * liHeight - 1, items.length * liHeight - 2));
+  indicator.style.display = 'block';
+  indicator.style.top = clampedTop + 'px';
+}
+
+function fqDragEnd(ev) {
+  if (!_fq.active) return;
+  document.removeEventListener('pointermove', fqDragMove);
+  document.removeEventListener('pointerup',   fqDragEnd);
+  document.removeEventListener('pointercancel', fqDragEnd);
+
+  const { lang, fromIndex, toIndex, ghost, indicator, items, ul } = _fq;
+  _fq.active = false;
+
+  // Clean up ghost & indicator immediately
+  ghost.remove();
+  indicator.remove();
+
+  // Reset transforms
+  items.forEach(li => { li.style.transform = ''; li.classList.remove('fq-source'); });
+
+  // Reorder data
+  if (toIndex !== null && toIndex !== fromIndex) {
+    const arr  = getFileArr(lang);
+    const [item] = arr.splice(fromIndex, 1);
+    let insertAt = toIndex;
+    if (fromIndex < toIndex) insertAt--;
+    arr.splice(insertAt, 0, item);
+  }
+
+  renderFileQueue(lang);
 }
 function checkStart() {
   if (S.running) { document.getElementById('startBtn').disabled = true; return; }
@@ -1974,14 +2068,30 @@ function renderMd(text) {
   }
   return out.join('');
 }
+function escCell(s) {
+  // エスケープ後に <span style="color:...">...</span> だけ復元して色付けを許可する
+  return esc(s)
+    .replace(/&lt;span style="color:([a-zA-Z#0-9]+)"&gt;([\s\S]*?)&lt;\/span&gt;/g,
+             (_, color, inner) => `<span style="color:${color}">${inner}</span>`);
+}
+// 列数に応じた均等幅 colgroup を生成（7列以上は専用クラス、それ以外は均等）
+const COL_CLASSES = ['col-page','col-src','col-cur','col-fix','col-type','col-conf','col-note'];
+function buildColgroup(colCount) {
+  if (colCount === COL_CLASSES.length) {
+    return '<colgroup>' + COL_CLASSES.map(c => `<col class="${c}">`).join('') + '</colgroup>';
+  }
+  const w = (100 / colCount).toFixed(2) + '%';
+  return '<colgroup>' + Array(colCount).fill(`<col style="width:${w}">`).join('') + '</colgroup>';
+}
 function renderTable(lines) {
   const rows = lines.filter(l => !l.match(/^\s*\|[\s:-]+\|\s*$/));
   if (!rows.length) return '';
-  let html = '<div class="tbl-wrap"><table class="md-tbl">';
+  const colCount = rows[0].split('|').filter((_,j,a) => j>0 && j<a.length-1).length;
+  let html = `<div class="tbl-wrap"><table class="md-tbl">${buildColgroup(colCount)}`;
   rows.forEach((row, ri) => {
     const cells = row.split('|').filter((_,j,a) => j>0 && j<a.length-1);
     const tag = ri === 0 ? 'th' : 'td';
-    html += '<tr>' + cells.map(c => `<${tag}>${esc(c.trim())}</${tag}>`).join('') + '</tr>';
+    html += '<tr>' + cells.map(c => `<${tag}>${escCell(c.trim())}</${tag}>`).join('') + '</tr>';
   });
   return html + '</table></div>';
 }
@@ -2315,11 +2425,13 @@ function generateResultHtml() {
     .sum-lbl{font-size:11px;color:#64748b;margin-top:3px}
     .sec-title{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin:28px 0 8px;padding-bottom:5px;border-bottom:1px solid #e2e8f0}
     .rbox{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px;font-size:13px;line-height:1.72}
-    .tbl-wrap{overflow-x:auto;margin:8px 0}
-    table.md-tbl{border-collapse:collapse;width:100%;font-size:12px}
-    table.md-tbl th{background:#eef2ff;padding:8px 10px;border:1px solid #e2e8f0;font-weight:800;text-align:left;white-space:nowrap}
-    table.md-tbl td{padding:7px 10px;border:1px solid #e2e8f0;vertical-align:top}
+    .tbl-wrap{margin:8px 0}
+    table.md-tbl{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed;word-break:break-word}
+    table.md-tbl th{background:#eef2ff;padding:8px 10px;border:1px solid #e2e8f0;font-weight:800;text-align:left;word-break:keep-all;overflow-wrap:break-word}
+    table.md-tbl td{padding:7px 10px;border:1px solid #e2e8f0;vertical-align:top;overflow-wrap:break-word}
     table.md-tbl tr:nth-child(even) td{background:#f8fafc}
+    table.md-tbl col.col-page{width:5%}table.md-tbl col.col-src{width:18%}table.md-tbl col.col-cur{width:20%}
+    table.md-tbl col.col-fix{width:22%}table.md-tbl col.col-type{width:12%}table.md-tbl col.col-conf{width:8%}table.md-tbl col.col-note{width:15%}
     hr{border:none;border-top:1px solid #e2e8f0;margin:10px 0}
     .footer{margin-top:40px;text-align:center;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:16px}
     @media print{body{background:#fff}}
