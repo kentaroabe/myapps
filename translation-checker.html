@@ -104,6 +104,17 @@ textarea { min-height: 96px; resize: vertical; font-family: inherit; line-height
 .upload-hint  { font-size: 11px; color: var(--muted); }
 .upload-name  { font-size: 12px; color: var(--success); font-weight: 600; margin-top: 5px; word-break: break-all; }
 .char-count   { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.file-queue   { list-style: none; margin: 10px 0 0; padding: 0; border: 1px solid var(--border); border-radius: 10px; background: #fff; max-height: 220px; overflow-y: auto; }
+.file-queue li { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12px; cursor: grab; }
+.file-queue li:last-child { border-bottom: none; }
+.file-queue li.dragging { opacity: 0.5; }
+.file-queue .fq-grip { color: var(--muted); cursor: grab; user-select: none; }
+.file-queue .fq-name { flex: 1; min-width: 0; word-break: break-all; }
+.file-queue .fq-type { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.file-queue .fq-btns { display: flex; gap: 4px; flex-shrink: 0; }
+.file-queue .fq-btns button { padding: 2px 8px; font-size: 11px; border: 1px solid var(--border); border-radius: 5px; background: #f8fafc; cursor: pointer; }
+.file-queue .fq-btns button:hover { background: #e2e8f0; }
+.file-queue .fq-btns .fq-del { color: #b91c1c; border-color: #fecaca; }
 
 .btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 22px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; border: none; transition: all .18s; }
 .btn-primary { background: var(--primary); color: #fff; }
@@ -409,25 +420,25 @@ table.md-tbl tr:hover td { background: #f3f8ff; }
   </div>
   <div class="pdf-row">
     <div>
-      <label id="srcLabel">日本語PDF（原文）</label>
+      <label id="srcLabel">日本語（原文）</label>
       <div class="upload-zone" id="jpZone" ondragover="onDragOver(event,'jpZone')" ondragleave="onDragLeave(event,'jpZone')" ondrop="onDrop(event,'jp')">
-        <input type="file" accept=".pdf" id="jpFile" onchange="onFileSelect(event,'jp')">
+        <input type="file" multiple accept=".pdf,image/jpeg,image/png,image/gif,image/webp" id="jpFile" onchange="onFileSelect(event,'jp')">
         <div class="upload-icon" id="srcIcon">🇯🇵</div>
-        <div class="upload-title" id="srcTitle">日本語PDFをドロップ</div>
-        <div class="upload-hint">またはクリックして選択</div>
-        <div class="upload-name hidden" id="jpName"></div>
+        <div class="upload-title" id="srcTitle">PDF・画像をドロップ</div>
+        <div class="upload-hint" id="srcHint">複数選択可。下の一覧で並べ替えできます。</div>
       </div>
+      <ul class="file-queue" id="jpFileList" aria-label="原文ファイル一覧"></ul>
       <div class="char-count hidden" id="jpCount"></div>
     </div>
     <div>
-      <label id="tgtLabel">英語PDF（翻訳文）</label>
+      <label id="tgtLabel">英語（翻訳文）</label>
       <div class="upload-zone" id="enZone" ondragover="onDragOver(event,'enZone')" ondragleave="onDragLeave(event,'enZone')" ondrop="onDrop(event,'en')">
-        <input type="file" accept=".pdf" id="enFile" onchange="onFileSelect(event,'en')">
+        <input type="file" multiple accept=".pdf,image/jpeg,image/png,image/gif,image/webp" id="enFile" onchange="onFileSelect(event,'en')">
         <div class="upload-icon" id="tgtIcon">🇬🇧</div>
-        <div class="upload-title" id="tgtTitle">英語PDFをドロップ</div>
-        <div class="upload-hint">またはクリックして選択</div>
-        <div class="upload-name hidden" id="enName"></div>
+        <div class="upload-title" id="tgtTitle">PDF・画像をドロップ</div>
+        <div class="upload-hint" id="tgtHint">複数選択可。下の一覧で並べ替えできます。</div>
       </div>
+      <ul class="file-queue" id="enFileList" aria-label="翻訳ファイル一覧"></ul>
       <div class="char-count hidden" id="enCount"></div>
     </div>
   </div>
@@ -730,7 +741,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 
 // ═══════════════════ State ═══════════════════
 const S = {
-  jpFile: null, enFile: null,
+  jpFiles: [], enFiles: [],
   jpText: '', enText: '',
   p0: null,
   p1: { gpt: null, claude: null, gemini: null },
@@ -830,47 +841,122 @@ function buildPageChunks(src, tgt, pagesPerChunk = 8) {
 }
 function updateDirectionUI() {
   const jp = getDir() === 'jp-en';
-  document.getElementById('srcLabel').textContent = jp ? '日本語PDF（原文）'  : '英語PDF（原文）';
-  document.getElementById('tgtLabel').textContent = jp ? '英語PDF（翻訳文）'  : '日本語PDF（翻訳文）';
+  document.getElementById('srcLabel').textContent = jp ? '日本語（原文）'  : '英語（原文）';
+  document.getElementById('tgtLabel').textContent = jp ? '英語（翻訳文）'  : '日本語（翻訳文）';
   document.getElementById('srcIcon').textContent  = jp ? '🇯🇵' : '🇬🇧';
   document.getElementById('tgtIcon').textContent  = jp ? '🇬🇧' : '🇯🇵';
-  document.getElementById('srcTitle').textContent = jp ? '日本語PDFをドロップ' : '英語PDFをドロップ';
-  document.getElementById('tgtTitle').textContent = jp ? '英語PDFをドロップ'  : '日本語PDFをドロップ';
+  document.getElementById('srcTitle').textContent = jp ? 'PDF・画像をドロップ' : 'PDF・画像をドロップ';
+  document.getElementById('tgtTitle').textContent = jp ? 'PDF・画像をドロップ'  : 'PDF・画像をドロップ';
+  const hint = '複数選択可。下の一覧で並べ替えできます。';
+  document.getElementById('srcHint').textContent = hint;
+  document.getElementById('tgtHint').textContent = hint;
 }
 
 // ═══════════════════ File Upload ═══════════════════
+function isAllowedFile(f) {
+  if (!f || !f.type) return false;
+  if (f.type === 'application/pdf') return true;
+  return /^image\/(jpeg|png|gif|webp)$/i.test(f.type);
+}
 function onDragOver(e, z)  { e.preventDefault(); document.getElementById(z).classList.add('drag-over'); }
 function onDragLeave(e, z) { document.getElementById(z).classList.remove('drag-over'); }
 function onDrop(e, lang) {
   e.preventDefault();
   document.getElementById(lang+'Zone').classList.remove('drag-over');
-  const f = e.dataTransfer.files[0];
-  if (f && f.type === 'application/pdf') applyFile(lang, f);
+  const arr = Array.from(e.dataTransfer.files).filter(isAllowedFile);
+  if (arr.length) addFiles(lang, arr);
 }
-function onFileSelect(e, lang) { const f = e.target.files[0]; if (f) applyFile(lang, f); }
-function applyFile(lang, file) {
-  if (lang === 'jp') S.jpFile = file; else S.enFile = file;
+function onFileSelect(e, lang) {
+  const arr = Array.from(e.target.files || []).filter(isAllowedFile);
+  if (arr.length) addFiles(lang, arr);
+  e.target.value = '';
+}
+function getFileArr(lang) { return lang === 'jp' ? S.jpFiles : S.enFiles; }
+function addFiles(lang, files) {
+  const arr = getFileArr(lang);
+  files.forEach(f => arr.push(f));
   document.getElementById(lang+'Zone').classList.add('filled');
-  const nm = document.getElementById(lang+'Name');
-  nm.textContent = '✓ ' + file.name;
-  nm.classList.remove('hidden');
+  renderFileQueue(lang);
   checkStart();
+}
+function removeFile(lang, index) {
+  const arr = getFileArr(lang);
+  if (index < 0 || index >= arr.length) return;
+  arr.splice(index, 1);
+  if (!arr.length) document.getElementById(lang+'Zone').classList.remove('filled');
+  renderFileQueue(lang);
+  checkStart();
+}
+function moveFile(lang, index, delta) {
+  const arr = getFileArr(lang);
+  const j = index + delta;
+  if (j < 0 || j >= arr.length) return;
+  [arr[index], arr[j]] = [arr[j], arr[index]];
+  renderFileQueue(lang);
+}
+let _fqDrag = { lang: null, index: null };
+function renderFileQueue(lang) {
+  const ul = document.getElementById(lang + 'FileList');
+  const arr = getFileArr(lang);
+  ul.innerHTML = '';
+  arr.forEach((f, i) => {
+    const li = document.createElement('li');
+    li.draggable = true;
+    li.dataset.index = String(i);
+    const shortType = f.type === 'application/pdf' ? 'PDF' : '画像';
+    li.innerHTML = `<span class="fq-grip" title="ドラッグで並べ替え">⋮⋮</span>
+      <span class="fq-name">${esc(f.name)}</span><span class="fq-type">${shortType}</span>
+      <span class="fq-btns">
+        <button type="button" title="上へ">↑</button>
+        <button type="button" title="下へ">↓</button>
+        <button type="button" class="fq-del" title="削除">✕</button>
+      </span>`;
+    li.querySelectorAll('.fq-btns button')[0].onclick = () => moveFile(lang, i, -1);
+    li.querySelectorAll('.fq-btns button')[1].onclick = () => moveFile(lang, i, 1);
+    li.querySelector('.fq-del').onclick = () => removeFile(lang, i);
+    li.addEventListener('dragstart', ev => {
+      _fqDrag = { lang, index: i };
+      li.classList.add('dragging');
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('text/plain', String(i));
+    });
+    li.addEventListener('dragend', () => li.classList.remove('dragging'));
+    li.addEventListener('dragover', ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'move'; });
+    li.addEventListener('drop', ev => {
+      ev.preventDefault();
+      if (_fqDrag.lang !== lang) return;
+      const from = _fqDrag.index;
+      const to = i;
+      if (from === to) return;
+      const a = getFileArr(lang);
+      const [item] = a.splice(from, 1);
+      let insertAt = to;
+      if (from < to) insertAt--;
+      a.splice(insertAt, 0, item);
+      renderFileQueue(lang);
+    });
+    ul.appendChild(li);
+  });
 }
 function checkStart() {
   if (S.running) { document.getElementById('startBtn').disabled = true; return; }
-  const hasFiles = !!(S.jpFile && S.enFile);
+  const hasFiles = S.jpFiles.length > 0 && S.enFiles.length > 0;
   const hasKey   = !!(document.getElementById('openaiKey').value.trim() ||
                       document.getElementById('anthropicKey').value.trim() ||
                       document.getElementById('geminiKey').value.trim());
   document.getElementById('startBtn').disabled = !(hasFiles && hasKey);
 }
 
-// ═══════════════════ PDF Extraction ═══════════════════
-async function extractPdf(file, countElId) {
+// ═══════════════════ PDF / 画像 抽出 ═══════════════════
+async function extractOnePdf(file, countElId, pageStart, ctx) {
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const n = pdf.numPages;
+  const sideLabel = ctx.sideLabel;
+  const countEl = countElId ? document.getElementById(countElId) : null;
+  const stepsEl = document.getElementById('overallSteps');
   let text = '';
-  for (let p = 1; p <= pdf.numPages; p++) {
+  for (let p = 1; p <= n; p++) {
     const page    = await pdf.getPage(p);
     const content = await page.getTextContent();
     const lines   = [];
@@ -884,29 +970,88 @@ async function extractPdf(file, countElId) {
       lastY = item.transform[5];
     });
     if (line.trim()) lines.push(line.trim());
-    text += `\n=== ページ ${p} ===\n${lines.join('\n')}\n`;
+    const pg = pageStart + p - 1;
+    text += `\n=== ページ ${pg} ===\n${lines.join('\n')}\n`;
   }
 
-  // スキャン検知: 平均50文字/ページ未満ならAI-OCRにフォールバック
   const contentChars = text.replace(/=== ページ \d+ ===\n?/g, '').replace(/\s+/g, '').length;
-  if (contentChars / pdf.numPages < 50) {
-    const countEl = countElId ? document.getElementById(countElId) : null;
-    const fileLabel = countElId === 'jpCount' ? '原文PDF' : '翻訳文PDF';
-    const stepsEl = document.getElementById('overallSteps');
+  if (contentChars / n < 50) {
     text = '';
-    for (let p = 1; p <= pdf.numPages; p++) {
-      const msg = `🔍 AI-OCR中 (${fileLabel}): ${p} / ${pdf.numPages} ページ`;
+    for (let p = 1; p <= n; p++) {
+      const pg = pageStart + p - 1;
+      const msg = ctx.fileTotal > 1
+        ? `🔍 AI-OCR中 (${sideLabel}): ファイル${ctx.fileIdx}/${ctx.fileTotal} ${ctx.fileName} — ${p}/${n}ページ`
+        : `🔍 AI-OCR中 (${sideLabel}): ${p} / ${n} ページ`;
       if (countEl) { countEl.textContent = msg; countEl.classList.remove('hidden'); }
       setOverallTitle(msg);
-      if (stepsEl) stepsEl.textContent = `${p} / ${pdf.numPages} ページ`;
+      if (stepsEl) stepsEl.textContent = `${p} / ${n} ページ`;
       const base64 = await pdfPageToBase64(pdf, p);
       const pageText = await callOcrBest(base64);
-      text += `\n=== ページ ${p} ===\n${pageText}\n`;
+      text += `\n=== ページ ${pg} ===\n${pageText}\n`;
     }
-    setOverallTitle('全体進捗（開始）');
-    if (stepsEl) stepsEl.textContent = `0 / 0 ステップ`;
   }
-  return text;
+  return { text, pages: n };
+}
+
+async function imageFileToJpegBase64(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error('画像の読み込みに失敗しました'));
+      i.src = url;
+    });
+    const maxSide = 2048;
+    let w = img.naturalWidth, h = img.naturalHeight;
+    if (w > maxSide || h > maxSide) {
+      const r = Math.min(maxSide / w, maxSide / h);
+      w = Math.round(w * r); h = Math.round(h * r);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function extractFromFiles(files, countElId) {
+  let combined = '';
+  let pageStart = 1;
+  const sideLabel = countElId === 'jpCount' ? '原文' : '翻訳文';
+  const countEl = countElId ? document.getElementById(countElId) : null;
+  const stepsEl = document.getElementById('overallSteps');
+  const total = files.length;
+  for (let i = 0; i < total; i++) {
+    const f = files[i];
+    const ctx = { fileIdx: i + 1, fileTotal: total, fileName: f.name, sideLabel };
+    if (f.type === 'application/pdf') {
+      if (total > 1) combined += `\n--- ファイル ${i + 1}/${total}: ${f.name} ---\n`;
+      const r = await extractOnePdf(f, countElId, pageStart, ctx);
+      combined += r.text;
+      pageStart += r.pages;
+    } else if (/^image\/(jpeg|png|gif|webp)$/i.test(f.type)) {
+      if (total > 1) combined += `\n--- ファイル ${i + 1}/${total}: ${f.name} ---\n`;
+      const msg = total > 1
+        ? `🔍 AI-OCR中 (${sideLabel}): 画像 ${i + 1}/${total} — ${f.name}`
+        : `🔍 AI-OCR中 (${sideLabel}): 画像 1枚 — ${f.name}`;
+      if (countEl) { countEl.textContent = msg; countEl.classList.remove('hidden'); }
+      setOverallTitle(msg);
+      if (stepsEl) stepsEl.textContent = `${i + 1} / ${total} 画像`;
+      const base64 = await imageFileToJpegBase64(f);
+      const t = await callOcrBest(base64);
+      combined += `\n=== ページ ${pageStart} ===\n${t}\n`;
+      pageStart += 1;
+    } else {
+      throw new Error('未対応の形式: ' + f.name);
+    }
+  }
+  setOverallTitle('全体進捗（開始）');
+  if (stepsEl) stepsEl.textContent = `0 / 0 ステップ`;
+  return combined;
 }
 
 async function pdfPageToBase64(pdf, pageNum, scale = 2.0) {
@@ -1873,7 +2018,7 @@ async function copyFinalReport() {
 // ═══════════════════ Main Workflow ═══════════════════
 async function startChecking() {
   if (S.running) return;
-  if (!S.jpFile || !S.enFile) { alert('両方のPDFをアップロードしてください'); return; }
+  if (!S.jpFiles.length || !S.enFiles.length) { alert('原文と翻訳の両方に、1件以上のファイル（PDFまたは画像）を追加してください'); return; }
 
   const gptKey    = document.getElementById('openaiKey').value.trim();
   const claudeKey = document.getElementById('anthropicKey').value.trim();
@@ -1890,9 +2035,12 @@ async function startChecking() {
   document.getElementById('progressCard').classList.remove('hidden');
   document.getElementById('resultsCard').classList.remove('hidden');
 
-  // PDF extraction
+  // 原文・翻訳のテキスト抽出（PDF / 画像）
   try {
-    const [jpText, enText] = await Promise.all([extractPdf(S.jpFile, 'jpCount'), extractPdf(S.enFile, 'enCount')]);
+    const [jpText, enText] = await Promise.all([
+      extractFromFiles(S.jpFiles, 'jpCount'),
+      extractFromFiles(S.enFiles, 'enCount')
+    ]);
     S.jpText = jpText; S.enText = enText;
     ['jp','en'].forEach(lang => {
       const el = document.getElementById(lang+'Count');
@@ -1900,7 +2048,7 @@ async function startChecking() {
       el.classList.remove('hidden');
     });
   } catch (err) {
-    alert('PDF解析エラー: ' + err.message);
+    alert('ファイルの抽出エラー: ' + err.message);
     S.running = false;
     document.getElementById('startBtn').disabled = false; checkStart(); return;
   }
@@ -2087,7 +2235,7 @@ async function startChecking() {
 // ═══════════════════ Reset ═══════════════════
 function resetAll() {
   S.running = false;
-  S.jpFile = null; S.enFile = null; S.jpText = ''; S.enText = '';
+  S.jpFiles = []; S.enFiles = []; S.jpText = ''; S.enText = '';
   S.p0 = null;
   S.p1 = { gpt:null, claude:null, gemini:null };
   S.p2bt = null; S.p2cmp = null; S.p3 = null;
@@ -2096,9 +2244,9 @@ function resetAll() {
 
   ['jp','en'].forEach(lang => {
     document.getElementById(lang+'Zone').classList.remove('filled');
-    const nm = document.getElementById(lang+'Name'); nm.classList.add('hidden'); nm.textContent = '';
     document.getElementById(lang+'File').value = '';
     document.getElementById(lang+'Count').classList.add('hidden');
+    renderFileQueue(lang);
   });
 
   document.getElementById('progressCard').classList.add('hidden');
@@ -2238,6 +2386,8 @@ async function saveAndPublish() {
 
 // ═══════════════════ Init ═══════════════════
 loadSettings();
+updateDirectionUI();
+['jp','en'].forEach(lang => renderFileQueue(lang));
 ['openaiKey','anthropicKey','geminiKey'].forEach(id => {
   document.getElementById(id).addEventListener('input', checkStart);
 });

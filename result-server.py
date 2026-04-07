@@ -137,6 +137,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._serve_admin_login(error=(pw != ''))
         elif path == '/health':
             self._send_json(200, {'status': 'ok'})
+        elif path == '/' or path == '':
+            self._serve_root()
         else:
             self._send_html(404, self._wrap('404 Not Found', '<p>ページが見つかりません。</p>'))
 
@@ -194,6 +196,31 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, {'ok': True})
         except Exception as e:
             self._send_json(500, {'error': str(e)})
+
+    def _serve_root(self):
+        host   = self.headers.get('Host', f'localhost:{PORT}')
+        scheme = 'https' if not host.startswith('localhost') else 'http'
+        base   = f'{scheme}://{host}'
+        html   = f'''<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>翻訳チェック結果サーバー</title>
+<style>
+body{{font-family:system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 20px;color:#1e293b;line-height:1.6}}
+h1{{font-size:1.35rem}}
+p{{color:#475569;font-size:14px}}
+ul{{padding-left:1.2rem}}
+a{{color:#4f46e5}}
+code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
+</style></head><body>
+<h1>翻訳チェック結果サーバー</h1>
+<p>このURLは <code>translation-checker.html</code> の「URLを発行して保存」用のバックエンドです。トップページにはコンテンツはありません。</p>
+<ul>
+  <li><a href="{base}/health">動作確認（/health）</a></li>
+  <li><a href="{base}/admin">管理ページ（URL一覧・パスワード）</a></li>
+</ul>
+<p>発行された結果は <code>{base}/r/（ID）</code> で閲覧できます。</p>
+</body></html>'''
+        self._send_html(200, html)
 
     def _serve_result(self, rid):
         entry = db_get(rid)
