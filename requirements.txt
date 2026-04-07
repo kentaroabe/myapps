@@ -1,1 +1,2 @@
-# result-server.py は Python 標準ライブラリのみ使用のため、外部パッケージ不要
+# PostgreSQL 接続用（DATABASE_URL が設定されている場合に使用）
+psycopg2-binary
