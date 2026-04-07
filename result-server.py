@@ -411,47 +411,56 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
                 cost_data = json.loads(e.get('api_cost') or '{}')
             except Exception:
                 cost_data = {}
-            label_map = {'gpt': 'GPT', 'claude': 'Claude', 'gemini': 'Gemini'}
-            cost_detail = []
-            recalc_total = 0.0
-            for k, lbl in label_map.items():
-                c = cost_data.get(k)
+            def _cost_cell(provider):
+                c = cost_data.get(provider)
                 if not c:
-                    continue
+                    return '-'
                 inp = c.get('input') or 0
                 out = c.get('output') or 0
                 if not inp and not out:
-                    continue
-                # フロントで計算済みの cost → なければサーバー側で再計算
+                    return '-'
                 c_val = c.get('cost')
                 if c_val is None:
                     c_val = _calc_cost(c.get('model', ''), inp, out)
-                if isinstance(c_val, (int, float)):
+                cost_str = f'${c_val:.4f}' if isinstance(c_val, (int, float)) else '?'
+                detail = c.get('detail', f'{round(inp/1000,1)}K/{round(out/1000,1)}K')
+                return f'<span title="{detail}" style="cursor:help">{cost_str}</span>'
+
+            cell_gpt    = _cost_cell('gpt')
+            cell_claude = _cost_cell('claude')
+            cell_gemini = _cost_cell('gemini')
+
+            recalc_total = 0.0
+            has_any = False
+            for k in ('gpt', 'claude', 'gemini'):
+                c = cost_data.get(k)
+                if not c: continue
+                c_val = c.get('cost')
+                if c_val is None:
+                    c_val = _calc_cost(c.get('model',''), c.get('input',0), c.get('output',0))
+                if isinstance(c_val, (int, float)) and (c.get('input') or c.get('output')):
                     recalc_total += c_val
-                c_str = f'${c_val:.4f}' if isinstance(c_val, (int, float)) else '?'
-                # モデル別詳細がある場合はそのまま、なければ従来形式
-                detail_str = c.get('detail') or f'{c.get("model","?")} ({round(inp/1000,1)}K in/{round(out/1000,1)}K out)'
-                cost_detail.append(f'{lbl}: {c_str} [{detail_str}]')
+                    has_any = True
             total_cost = cost_data.get('_total')
-            if not isinstance(total_cost, (int, float)) and cost_detail:
-                total_cost = recalc_total
-            cost_label = f'${total_cost:.4f}' if isinstance(total_cost, (int, float)) and cost_detail else '-'
-            cost_tooltip = ' | '.join(cost_detail)
-            cost_cell = (f'<span title="{cost_tooltip}" style="cursor:help;border-bottom:1px dotted #94a3b8">'
-                         f'{cost_label}</span>' if cost_tooltip else cost_label)
+            if not isinstance(total_cost, (int, float)):
+                total_cost = recalc_total if has_any else None
+            cell_total = f'${total_cost:.4f}' if isinstance(total_cost, (int, float)) and has_any else '-'
 
             rows += f'''<tr>
               <td>{e["title"]}</td>
               <td style="white-space:nowrap">{created}</td>
               <td style="white-space:nowrap">{expires}</td>
               <td style="white-space:nowrap;font-family:monospace;font-size:12px">{ip}</td>
-              <td style="white-space:nowrap;text-align:right">{cost_cell}</td>
+              <td style="text-align:right;white-space:nowrap">{cell_gpt}</td>
+              <td style="text-align:right;white-space:nowrap">{cell_claude}</td>
+              <td style="text-align:right;white-space:nowrap">{cell_gemini}</td>
+              <td style="text-align:right;white-space:nowrap;font-weight:700">{cell_total}</td>
               <td><a href="{url}" target="_blank"
                      style="word-break:break-all">{url}</a></td>
               <td><button onclick="del('{e["id"]}')">🗑</button></td>
             </tr>'''
         if not rows:
-            rows = ('<tr><td colspan="7" style="text-align:center;color:#94a3b8;'
+            rows = ('<tr><td colspan="10" style="text-align:center;color:#94a3b8;'
                     'padding:28px;">保存された結果はありません</td></tr>')
         html = f'''<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8"><title>管理ページ - 結果一覧</title>
@@ -482,7 +491,7 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
   <table>
     <thead>
       <tr><th>タイトル</th><th>保存日</th><th>有効期限</th>
-          <th>IPアドレス</th><th>APIコスト</th><th>URL</th><th>削除</th></tr>
+          <th>IPアドレス</th><th>GPT</th><th>Claude</th><th>Gemini</th><th>合計</th><th>URL</th><th>削除</th></tr>
     </thead>
     <tbody>{rows}</tbody>
   </table>
