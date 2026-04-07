@@ -2682,6 +2682,8 @@ async function postResult() {
     totalCost += providerCost;
   }
   apiCost._total = totalCost;
+  console.log('[postResult] S.cost:', JSON.stringify(S.cost));
+  console.log('[postResult] apiCost:', JSON.stringify(apiCost));
 
   const res = await fetch(getResultServerUrl() + '/api/save', {
     method: 'POST',

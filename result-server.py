@@ -307,7 +307,8 @@ class Handler(BaseHTTPRequestHandler):
             records = []
             db_status = f'接続エラー: {e}'
         rows = ''.join(
-            f'<tr><td>{r["id"]}</td><td>{r["title"]}</td><td>{r["created_at"]}</td></tr>'
+            f'<tr><td>{r["id"]}</td><td>{r["title"]}</td><td>{r["created_at"]}</td>'
+            f'<td style="font-size:11px;max-width:400px;word-break:break-all">{(r.get("api_cost") or "")[:200]}</td></tr>'
             for r in records
         )
         html = f'''<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
@@ -325,7 +326,7 @@ th{{background:#f8fafc}}.ok{{color:#16a34a;font-weight:700}}.ng{{color:#dc2626;f
 <tr><td>PORT</td><td>{PORT}</td></tr>
 </table>
 <h3 style="margin-top:24px">保存済みレコード一覧</h3>
-<table><tr><th>ID</th><th>タイトル</th><th>作成日時</th></tr>
+<table><tr><th>ID</th><th>タイトル</th><th>作成日時</th><th>api_cost (raw)</th></tr>
 {rows if rows else '<tr><td colspan="3">レコードなし</td></tr>'}
 </table>
 </body></html>'''
