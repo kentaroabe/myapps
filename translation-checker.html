@@ -750,6 +750,7 @@ const S = {
   p3: null,
   stats: { p1: 0, p2: 0, total: 0, score: '-' },
   progress: { total: 0, done: 0, startAt: 0 },
+  publishedUrl: null, publishedExpires: null,
   running: false,
 };
 
@@ -2340,6 +2341,9 @@ async function startChecking() {
   setOverallTitle('全体進捗（完了）');
   document.getElementById('startBtn').disabled = false;
   checkStart();
+
+  // 完了後に自動保存
+  autoSave();
 }
 
 // ═══════════════════ Reset ═══════════════════
@@ -2351,6 +2355,7 @@ function resetAll() {
   S.p2bt = null; S.p2cmp = null; S.p3 = null;
   S.stats = { p1: 0, p2: 0, total: 0, score: '-' };
   S.progress = { total: 0, done: 0, startAt: 0 };
+  S.publishedUrl = null; S.publishedExpires = null;
 
   ['jp','en'].forEach(lang => {
     document.getElementById(lang+'Zone').classList.remove('filled');
@@ -2379,6 +2384,8 @@ function resetAll() {
   document.querySelectorAll('#tab-p1 .ai-btn').forEach((b,i) => b.classList.toggle('on', i===0));
 
   document.getElementById('bt-text-wrap').classList.add('hidden');
+  const pb = document.getElementById('publishBtn');
+  if (pb) { pb.disabled = false; pb.textContent = '📤 URLを発行して保存'; }
   setOverallTitle('全体進捗');
   renderOverallProgress();
   updateSummary();
@@ -2471,28 +2478,52 @@ ${parts.join('\n')}
 </html>`;
 }
 
+async function postResult() {
+  const html  = generateResultHtml();
+  const title = `翻訳チェック結果 ${new Date().toLocaleDateString('ja-JP')}`;
+  const res   = await fetch(getResultServerUrl() + '/api/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, html })
+  });
+  if (!res.ok) throw new Error('サーバー応答エラー: ' + res.status);
+  return await res.json();
+}
+
+async function autoSave() {
+  const btn = document.getElementById('publishBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 自動保存中...'; }
+  try {
+    const data    = await postResult();
+    S.publishedUrl = data.url;
+    S.publishedExpires = (data.expires_at || '').slice(0, 10);
+    if (btn) { btn.disabled = false; btn.textContent = '🔗 URLをコピー'; }
+  } catch (err) {
+    console.warn('自動保存に失敗:', err.message);
+    if (btn) { btn.disabled = false; btn.textContent = '📤 URLを発行して保存'; }
+  }
+}
+
 async function saveAndPublish() {
+  // 自動保存済みのURLがあればそれをそのままコピー・表示
+  if (S.publishedUrl) {
+    try { await navigator.clipboard.writeText(S.publishedUrl); } catch {}
+    alert(`✅ 結果URL\n\n${S.publishedUrl}\n\n有効期限: ${S.publishedExpires}（30日間）\n\nURLをクリップボードにコピーしました。`);
+    return;
+  }
   if (!S.p3) { alert('最終レポートがまだありません。チェック完了後に保存してください。'); return; }
   const btn = document.getElementById('publishBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ 保存中...'; }
   try {
-    const html  = generateResultHtml();
-    const title = `翻訳チェック結果 ${new Date().toLocaleDateString('ja-JP')}`;
-    const res   = await fetch(getResultServerUrl() + '/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, html })
-    });
-    if (!res.ok) throw new Error('サーバー応答エラー: ' + res.status);
-    const data    = await res.json();
-    const url     = data.url;
-    const expires = (data.expires_at || '').slice(0, 10);
-    try { await navigator.clipboard.writeText(url); } catch {}
-    alert(`✅ URLを発行しました！\n\n${url}\n\n有効期限: ${expires}（30日間）\n\nURLをクリップボードにコピーしました。`);
+    const data    = await postResult();
+    S.publishedUrl = data.url;
+    S.publishedExpires = (data.expires_at || '').slice(0, 10);
+    try { await navigator.clipboard.writeText(data.url); } catch {}
+    alert(`✅ URLを発行しました！\n\n${data.url}\n\n有効期限: ${S.publishedExpires}（30日間）\n\nURLをクリップボードにコピーしました。`);
   } catch (err) {
-    alert('❌ 保存に失敗しました。\n\nresult-server.py が起動しているか確認してください。\n\n' + err.message);
+    alert('❌ 保存に失敗しました。\n\n' + err.message);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '📤 URLを発行して保存'; }
+    if (btn) { btn.disabled = false; btn.textContent = '🔗 URLをコピー'; }
   }
 }
 
