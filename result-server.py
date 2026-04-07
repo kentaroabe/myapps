@@ -84,18 +84,31 @@ if DATABASE_URL:
         return psycopg2.connect(url)
     def init_db():
         with _pg() as conn:
-            conn.cursor().execute('''CREATE TABLE IF NOT EXISTS results (
+            cur = conn.cursor()
+            cur.execute('''CREATE TABLE IF NOT EXISTS results (
                 id         TEXT PRIMARY KEY,
                 title      TEXT NOT NULL,
                 html       TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL
+                expires_at TEXT NOT NULL,
+                ip_address TEXT NOT NULL DEFAULT ''
             )''')
-    def db_save(rid, title, html, created_at, expires_at):
+            # 既存テーブルに列が無い場合は追加
+            cur.execute("""
+                DO $$ BEGIN
+                  IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name='results' AND column_name='ip_address'
+                  ) THEN
+                    ALTER TABLE results ADD COLUMN ip_address TEXT NOT NULL DEFAULT '';
+                  END IF;
+                END $$;
+            """)
+    def db_save(rid, title, html, created_at, expires_at, ip_address=''):
         with _pg() as conn:
             conn.cursor().execute(
-                'INSERT INTO results VALUES (%s,%s,%s,%s,%s)',
-                (rid, title, html, created_at, expires_at))
+                'INSERT INTO results VALUES (%s,%s,%s,%s,%s,%s)',
+                (rid, title, html, created_at, expires_at, ip_address))
     def db_get(rid):
         with _pg() as conn:
             cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -106,7 +119,7 @@ if DATABASE_URL:
         with _pg() as conn:
             cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             cur.execute('DELETE FROM results WHERE expires_at < %s', (now,))
-            cur.execute('SELECT id,title,created_at,expires_at FROM results ORDER BY created_at DESC')
+            cur.execute('SELECT id,title,created_at,expires_at,ip_address FROM results ORDER BY created_at DESC')
             return [dict(r) for r in cur.fetchall()]
     def db_delete(rid):
         with _pg() as conn:
@@ -118,25 +131,29 @@ else:
         with sqlite3.connect(_DB) as conn:
             conn.execute('''CREATE TABLE IF NOT EXISTS results (
                 id TEXT PRIMARY KEY, title TEXT NOT NULL, html TEXT NOT NULL,
-                created_at TEXT NOT NULL, expires_at TEXT NOT NULL)''')
-    def db_save(rid, title, html, created_at, expires_at):
+                created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
+                ip_address TEXT NOT NULL DEFAULT '')''')
+            cols = [r[1] for r in conn.execute('PRAGMA table_info(results)').fetchall()]
+            if 'ip_address' not in cols:
+                conn.execute("ALTER TABLE results ADD COLUMN ip_address TEXT NOT NULL DEFAULT ''")
+    def db_save(rid, title, html, created_at, expires_at, ip_address=''):
         with sqlite3.connect(_DB) as conn:
-            conn.execute('INSERT INTO results VALUES (?,?,?,?,?)',
-                         (rid, title, html, created_at, expires_at))
+            conn.execute('INSERT INTO results VALUES (?,?,?,?,?,?)',
+                         (rid, title, html, created_at, expires_at, ip_address))
     def db_get(rid):
         with sqlite3.connect(_DB) as conn:
             row = conn.execute(
-                'SELECT id,title,html,created_at,expires_at FROM results WHERE id=?', (rid,)
+                'SELECT id,title,html,created_at,expires_at,ip_address FROM results WHERE id=?', (rid,)
             ).fetchone()
-        return dict(zip(['id','title','html','created_at','expires_at'], row)) if row else None
+        return dict(zip(['id','title','html','created_at','expires_at','ip_address'], row)) if row else None
     def db_list():
         now = datetime.datetime.utcnow().isoformat()
         with sqlite3.connect(_DB) as conn:
             conn.execute('DELETE FROM results WHERE expires_at < ?', (now,))
             rows = conn.execute(
-                'SELECT id,title,created_at,expires_at FROM results ORDER BY created_at DESC'
+                'SELECT id,title,created_at,expires_at,ip_address FROM results ORDER BY created_at DESC'
             ).fetchall()
-        return [dict(zip(['id','title','created_at','expires_at'], r)) for r in rows]
+        return [dict(zip(['id','title','created_at','expires_at','ip_address'], r)) for r in rows]
     def db_delete(rid):
         with sqlite3.connect(_DB) as conn:
             conn.execute('DELETE FROM results WHERE id=?', (rid,))
@@ -207,7 +224,12 @@ class Handler(BaseHTTPRequestHandler):
             now        = datetime.datetime.utcnow()
             expires_at = (now + datetime.timedelta(days=EXPIRE_DAYS)).isoformat()
 
-            db_save(rid, title, html, now.isoformat(), expires_at)
+            # IPアドレス取得（Render/Cloudflare等のリバースプロキシ対応）
+            ip = (self.headers.get('X-Forwarded-For', '') or '').split(',')[0].strip()
+            if not ip:
+                ip = self.client_address[0]
+
+            db_save(rid, title, html, now.isoformat(), expires_at, ip)
 
             # 発行URLはリクエストの Host ヘッダを使って自動生成
             host     = self.headers.get('Host', f'localhost:{PORT}')
@@ -337,6 +359,7 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
         for e in results:
             created = e['created_at'][:10]
             expires = e['expires_at'][:10]
+            ip      = e.get('ip_address') or '-'
             host    = self.headers.get('Host', f'localhost:{PORT}')
             scheme  = 'https' if not host.startswith('localhost') else 'http'
             url     = f'{scheme}://{host}/r/{e["id"]}'
@@ -344,12 +367,13 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
               <td>{e["title"]}</td>
               <td style="white-space:nowrap">{created}</td>
               <td style="white-space:nowrap">{expires}</td>
+              <td style="white-space:nowrap;font-family:monospace;font-size:12px">{ip}</td>
               <td><a href="{url}" target="_blank"
                      style="word-break:break-all">{url}</a></td>
               <td><button onclick="del('{e["id"]}')">🗑</button></td>
             </tr>'''
         if not rows:
-            rows = ('<tr><td colspan="5" style="text-align:center;color:#94a3b8;'
+            rows = ('<tr><td colspan="6" style="text-align:center;color:#94a3b8;'
                     'padding:28px;">保存された結果はありません</td></tr>')
         html = f'''<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8"><title>管理ページ - 結果一覧</title>
@@ -380,7 +404,7 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
   <table>
     <thead>
       <tr><th>タイトル</th><th>保存日</th><th>有効期限</th>
-          <th>URL</th><th>削除</th></tr>
+          <th>IPアドレス</th><th>URL</th><th>削除</th></tr>
     </thead>
     <tbody>{rows}</tbody>
   </table>
