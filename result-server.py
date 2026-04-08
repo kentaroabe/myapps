@@ -107,7 +107,6 @@ if DATABASE_URL:
     import psycopg2, psycopg2.extras
     def _pg():
         url = DATABASE_URL
-        # sslmode が URL に含まれていない場合のみ付加
         if 'sslmode=' not in url:
             url += ('&' if '?' in url else '?') + 'sslmode=require'
         return psycopg2.connect(url)
@@ -123,7 +122,15 @@ if DATABASE_URL:
                 ip_address TEXT NOT NULL DEFAULT '',
                 api_cost   TEXT NOT NULL DEFAULT '{}'
             )''')
-            # 既存テーブルに列が無い場合は追加
+            cur.execute('''CREATE TABLE IF NOT EXISTS result_files (
+                id           TEXT PRIMARY KEY,
+                result_id    TEXT NOT NULL,
+                filename     TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                role         TEXT NOT NULL DEFAULT '',
+                data_b64     TEXT NOT NULL,
+                created_at   TEXT NOT NULL
+            )''')
             cur.execute("""
                 DO $$ BEGIN
                   IF NOT EXISTS (
@@ -159,7 +166,28 @@ if DATABASE_URL:
             return [dict(r) for r in cur.fetchall()]
     def db_delete(rid):
         with _pg() as conn:
-            conn.cursor().execute('DELETE FROM results WHERE id=%s', (rid,))
+            cur = conn.cursor()
+            cur.execute('DELETE FROM result_files WHERE result_id=%s', (rid,))
+            cur.execute('DELETE FROM results WHERE id=%s', (rid,))
+    def db_save_files(result_id, files, created_at):
+        with _pg() as conn:
+            cur = conn.cursor()
+            for f in files:
+                fid = uuid.uuid4().hex[:16]
+                cur.execute(
+                    'INSERT INTO result_files VALUES (%s,%s,%s,%s,%s,%s,%s)',
+                    (fid, result_id, f['name'], f['type'], f.get('role',''), f['data_b64'], created_at))
+    def db_get_files(result_id):
+        with _pg() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute('SELECT id,filename,content_type,role FROM result_files WHERE result_id=%s ORDER BY role,filename', (result_id,))
+            return [dict(r) for r in cur.fetchall()]
+    def db_get_file(file_id):
+        with _pg() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute('SELECT id,filename,content_type,data_b64 FROM result_files WHERE id=%s', (file_id,))
+            r = cur.fetchone()
+            return dict(r) if r else None
 else:
     import sqlite3
     _DB = os.path.join(BASE_DIR, 'results.db')
@@ -170,6 +198,11 @@ else:
                 created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
                 ip_address TEXT NOT NULL DEFAULT '',
                 api_cost TEXT NOT NULL DEFAULT '{}')''')
+            conn.execute('''CREATE TABLE IF NOT EXISTS result_files (
+                id TEXT PRIMARY KEY, result_id TEXT NOT NULL,
+                filename TEXT NOT NULL, content_type TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT '', data_b64 TEXT NOT NULL,
+                created_at TEXT NOT NULL)''')
             cols = [r[1] for r in conn.execute('PRAGMA table_info(results)').fetchall()]
             if 'ip_address' not in cols:
                 conn.execute("ALTER TABLE results ADD COLUMN ip_address TEXT NOT NULL DEFAULT ''")
@@ -195,7 +228,26 @@ else:
         return [dict(zip(['id','title','created_at','expires_at','ip_address','api_cost'], r)) for r in rows]
     def db_delete(rid):
         with sqlite3.connect(_DB) as conn:
+            conn.execute('DELETE FROM result_files WHERE result_id=?', (rid,))
             conn.execute('DELETE FROM results WHERE id=?', (rid,))
+    def db_save_files(result_id, files, created_at):
+        with sqlite3.connect(_DB) as conn:
+            for f in files:
+                fid = uuid.uuid4().hex[:16]
+                conn.execute('INSERT INTO result_files VALUES (?,?,?,?,?,?,?)',
+                             (fid, result_id, f['name'], f['type'], f.get('role',''), f['data_b64'], created_at))
+    def db_get_files(result_id):
+        with sqlite3.connect(_DB) as conn:
+            rows = conn.execute(
+                'SELECT id,filename,content_type,role FROM result_files WHERE result_id=? ORDER BY role,filename', (result_id,)
+            ).fetchall()
+        return [dict(zip(['id','filename','content_type','role'], r)) for r in rows]
+    def db_get_file(file_id):
+        with sqlite3.connect(_DB) as conn:
+            row = conn.execute(
+                'SELECT id,filename,content_type,data_b64 FROM result_files WHERE id=?', (file_id,)
+            ).fetchone()
+        return dict(zip(['id','filename','content_type','data_b64'], row)) if row else None
 
 
 # ── リクエストハンドラ ─────────────────────────────────────────
@@ -215,6 +267,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if path.startswith('/r/'):
             self._serve_result(path[3:])
+        elif path.startswith('/file/'):
+            self._serve_file(path[6:])
         elif path == '/admin':
             pw = qs.get('pw', [''])[0]
             if hashlib.sha256(pw.encode()).hexdigest() == ADMIN_PW_HASH:
@@ -239,6 +293,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == '/api/save':
             self._handle_save(body)
+        elif path == '/api/save-files':
+            self._handle_save_files(body)
         elif path == '/admin/delete':
             self._handle_delete(body, qs.get('pw', [''])[0])
         else:
@@ -283,6 +339,50 @@ class Handler(BaseHTTPRequestHandler):
                 'url':        f'{base_url}/r/{rid}',
                 'expires_at': expires_at,
             })
+        except Exception as e:
+            self._send_json(500, {'error': str(e)})
+
+    def _handle_save_files(self, body):
+        try:
+            data      = json.loads(body)
+            result_id = data.get('result_id', '')
+            files     = data.get('files', [])
+            if not result_id or not files:
+                self._send_json(400, {'error': 'result_id and files required'})
+                return
+            MAX_FILE_BYTES = 20 * 1024 * 1024  # base64 で約20MB
+            valid = []
+            for f in files:
+                b64 = f.get('data_b64', '')
+                # base64 の長さでサイズを推定
+                if len(b64) > MAX_FILE_BYTES * 4 // 3:
+                    continue
+                valid.append({'name': f.get('name','file'), 'type': f.get('type','application/octet-stream'),
+                               'role': f.get('role',''), 'data_b64': b64})
+            now = datetime.datetime.utcnow().isoformat()
+            db_save_files(result_id, valid, now)
+            self._send_json(200, {'ok': True, 'saved': len(valid)})
+        except Exception as e:
+            self._send_json(500, {'error': str(e)})
+
+    def _serve_file(self, file_id):
+        import base64
+        try:
+            f = db_get_file(file_id)
+            if not f:
+                self._send_html(404, self._wrap('404', '<p>ファイルが見つかりません。</p>'))
+                return
+            raw = base64.b64decode(f['data_b64'])
+            ct  = f['content_type'] or 'application/octet-stream'
+            fname = f['filename'].encode('utf-8', errors='replace').decode('latin-1', errors='replace')
+            self.send_response(200)
+            self.send_header('Content-Type', ct)
+            self.send_header('Content-Length', str(len(raw)))
+            self.send_header('Content-Disposition', f'attachment; filename="{fname}"')
+            for k, v in CORS_HEADERS:
+                self.send_header(k, v)
+            self.end_headers()
+            self.wfile.write(raw)
         except Exception as e:
             self._send_json(500, {'error': str(e)})
 
@@ -398,6 +498,8 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
 
     def _serve_admin_dashboard(self, pw):
         results = db_list()
+        host   = self.headers.get('Host', f'localhost:{PORT}')
+        scheme = 'https' if not host.startswith('localhost') else 'http'
         rows = ''
         for e in results:
             try:
@@ -408,8 +510,6 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
                 created = e['created_at'][:16].replace('T', ' ')
             expires = e['expires_at'][:10]
             ip      = e.get('ip_address') or '-'
-            host    = self.headers.get('Host', f'localhost:{PORT}')
-            scheme  = 'https' if not host.startswith('localhost') else 'http'
             url     = f'{scheme}://{host}/r/{e["id"]}'
 
             # APIコスト情報を整形
@@ -452,6 +552,25 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
                 total_cost = recalc_total if has_any else None
             cell_total = f'${total_cost:.4f}' if isinstance(total_cost, (int, float)) and has_any else '-'
 
+            # 添付ファイル一覧
+            try:
+                file_list = db_get_files(e['id'])
+            except Exception:
+                file_list = []
+            if file_list:
+                icons = {'application/pdf': '📄', 'image/': '🖼'}
+                file_links = ''
+                for fi in file_list:
+                    icon = '📄' if 'pdf' in fi['content_type'] else ('🖼' if fi['content_type'].startswith('image') else '📎')
+                    role_label = '(原文)' if fi['role'] == 'jp' else '(翻訳)' if fi['role'] == 'en' else ''
+                    file_links += (f'<a href="{scheme}://{host}/file/{fi["id"]}" '
+                                   f'title="{fi["filename"]}" style="display:block;white-space:nowrap;margin:1px 0">'
+                                   f'{icon} {fi["filename"][:28]}{"…" if len(fi["filename"])>28 else ""} '
+                                   f'<span style="color:#94a3b8;font-size:11px">{role_label}</span></a>')
+                cell_files = file_links
+            else:
+                cell_files = '<span style="color:#94a3b8">-</span>'
+
             rows += f'''<tr>
               <td>{e["title"]}</td>
               <td style="white-space:nowrap">{created}</td>
@@ -461,12 +580,12 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
               <td style="text-align:right;white-space:nowrap">{cell_claude}</td>
               <td style="text-align:right;white-space:nowrap">{cell_gemini}</td>
               <td style="text-align:right;white-space:nowrap;font-weight:700">{cell_total}</td>
-              <td><a href="{url}" target="_blank"
-                     style="word-break:break-all">{url}</a></td>
+              <td><a href="{url}" target="_blank" style="word-break:break-all">{url}</a></td>
+              <td style="min-width:160px">{cell_files}</td>
               <td><button onclick="del('{e["id"]}')">🗑</button></td>
             </tr>'''
         if not rows:
-            rows = ('<tr><td colspan="10" style="text-align:center;color:#94a3b8;'
+            rows = ('<tr><td colspan="11" style="text-align:center;color:#94a3b8;'
                     'padding:28px;">保存された結果はありません</td></tr>')
         html = f'''<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8"><title>管理ページ - 結果一覧</title>
@@ -476,7 +595,7 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
        background:#f1f5f9;color:#1e293b}}
   h1{{font-size:20px;margin:0 0 20px}}
   .card{{background:#fff;border-radius:12px;padding:24px;
-         box-shadow:0 2px 8px rgba(0,0,0,.06)}}
+         box-shadow:0 2px 8px rgba(0,0,0,.06);overflow-x:auto}}
   .meta{{font-size:13px;color:#64748b;margin-bottom:14px}}
   table{{width:100%;border-collapse:collapse}}
   th,td{{padding:10px 12px;text-align:left;
@@ -497,14 +616,15 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
   <table>
     <thead>
       <tr><th>タイトル</th><th>保存日</th><th>有効期限</th>
-          <th>IPアドレス</th><th>GPT</th><th>Claude</th><th>Gemini</th><th>合計</th><th>URL</th><th>削除</th></tr>
+          <th>IPアドレス</th><th>GPT</th><th>Claude</th><th>Gemini</th><th>合計</th>
+          <th>URL</th><th>添付ファイル</th><th>削除</th></tr>
     </thead>
     <tbody>{rows}</tbody>
   </table>
 </div>
 <script>
 async function del(id){{
-  if(!confirm('この結果を削除しますか？'))return;
+  if(!confirm('この結果を削除しますか？（添付ファイルも削除されます）'))return;
   const pw=new URLSearchParams(location.search).get('pw')||'';
   const r=await fetch('/admin/delete?pw='+encodeURIComponent(pw),{{
     method:'POST',headers:{{'Content-Type':'application/json'}},

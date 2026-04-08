@@ -2673,6 +2673,49 @@ ${parts.join('\n')}
 </html>`;
 }
 
+// ファイルを base64 に変換
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result.split(',')[1] || '');
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// アップロードファイルをサーバーに保存
+async function saveFiles(resultId) {
+  const MAX_B64_CHARS = 25 * 1024 * 1024; // 約18MB ファイル相当
+  const pairs = [['jp', S.jpFiles], ['en', S.enFiles]];
+  const files = [];
+  for (const [role, arr] of pairs) {
+    for (const f of arr) {
+      try {
+        const b64 = await fileToBase64(f);
+        if (b64.length > MAX_B64_CHARS) {
+          console.warn(`[saveFiles] ${f.name} がサイズ上限を超えたためスキップ`);
+          continue;
+        }
+        files.push({ name: f.name, type: f.type, role, data_b64: b64 });
+      } catch (err) {
+        console.warn(`[saveFiles] ${f.name} の読み込みに失敗:`, err);
+      }
+    }
+  }
+  if (!files.length) return;
+  try {
+    const res = await fetch(getResultServerUrl() + '/api/save-files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ result_id: resultId, files })
+    });
+    if (!res.ok) console.warn('[saveFiles] サーバー応答エラー:', res.status);
+    else console.log('[saveFiles] ファイル保存完了:', files.length, '件');
+  } catch (err) {
+    console.warn('[saveFiles] 送信失敗:', err);
+  }
+}
+
 async function postResult() {
   const html  = generateResultHtml();
   const title = `翻訳チェック結果 ${new Date().toLocaleDateString('ja-JP')}`;
@@ -2715,6 +2758,7 @@ async function autoSave() {
     const data    = await postResult();
     S.publishedUrl = data.url;
     S.publishedExpires = (data.expires_at || '').slice(0, 10);
+    saveFiles(data.id).catch(() => {}); // バックグラウンドでファイル保存
     if (btn) { btn.disabled = false; btn.textContent = '🔗 URLをコピー'; }
   } catch (err) {
     console.warn('自動保存に失敗:', err.message);
@@ -2736,6 +2780,7 @@ async function saveAndPublish() {
     const data    = await postResult();
     S.publishedUrl = data.url;
     S.publishedExpires = (data.expires_at || '').slice(0, 10);
+    saveFiles(data.id).catch(() => {}); // バックグラウンドでファイル保存
     try { await navigator.clipboard.writeText(data.url); } catch {}
     alert(`✅ URLを発行しました！\n\n${data.url}\n\n有効期限: ${S.publishedExpires}（30日間）\n\nURLをクリップボードにコピーしました。`);
   } catch (err) {
