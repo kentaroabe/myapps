@@ -529,8 +529,16 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
                 if c_val is None:
                     c_val = _calc_cost(c.get('model', ''), inp, out)
                 cost_str = f'${c_val:.4f}' if isinstance(c_val, (int, float)) else '?'
-                detail = c.get('detail', f'{round(inp/1000,1)}K/{round(out/1000,1)}K')
-                return f'<span title="{detail}" style="cursor:help">{cost_str}</span>'
+                detail = c.get('detail', '')
+                # detail 文字列からモデル名を抽出（例: "gpt-4o-mini: $0.01 (10K in / 5K out)"）
+                model_names = []
+                for part in detail.split(' + '):
+                    if ':' in part:
+                        model_names.append(part.split(':')[0].strip())
+                model_str = ' + '.join(model_names) if model_names else c.get('model', '')
+                model_html = (f'<span style="display:block;font-size:11px;color:#94a3b8;'
+                              f'white-space:nowrap;margin-bottom:1px">{model_str}</span>') if model_str else ''
+                return f'{model_html}<span style="font-weight:600">{cost_str}</span>'
 
             cell_gpt    = _cost_cell('gpt')
             cell_claude = _cost_cell('claude')
