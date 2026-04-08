@@ -436,19 +436,8 @@ table.md-tbl col.col-note   { width: 15%; }
         <div class="upload-hint" id="srcHint">PDF / Excel(.xlsx) / 画像 対応。複数選択可。</div>
       </div>
       <ul class="file-queue" id="jpFileList" aria-label="原文ファイル一覧"></ul>
-      <div id="jpExcelConfig" style="display:none;margin-top:8px;padding:8px 12px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;font-size:13px;align-items:center;gap:10px;flex-wrap:wrap;">
-        <span style="color:#0284c7;font-weight:600;">📊 抽出モード:</span>
-        <select id="jpExcelColSel" onchange="S.jpExcelCol=excelSelToCol(this.value);checkStart()"
-          style="padding:3px 8px;border:1px solid #bae6fd;border-radius:5px;font-size:13px;background:#fff;">
-          <option value="all" selected>全列（書類・フォーム全体）</option>
-          <option value="A">A列のみ</option>
-          <option value="B">B列のみ</option>
-          <option value="C">C列のみ</option>
-          <option value="D">D列のみ</option>
-          <option value="E">E列のみ</option>
-          <option value="F">F列のみ</option>
-        </select>
-        <span id="jpExcelHint" style="color:#64748b;font-size:11px;">全セルを行順に読み取り、書類全体を照合します</span>
+      <div id="jpExcelConfig" style="display:none;margin-top:8px;padding:7px 12px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;font-size:12px;color:#0284c7;">
+        📊 全セルを行順に読み取り、書類全体を照合します
       </div>
       <div class="char-count hidden" id="jpCount"></div>
     </div>
@@ -461,19 +450,8 @@ table.md-tbl col.col-note   { width: 15%; }
         <div class="upload-hint" id="tgtHint">PDF / Excel(.xlsx) / 画像 対応。複数選択可。</div>
       </div>
       <ul class="file-queue" id="enFileList" aria-label="翻訳ファイル一覧"></ul>
-      <div id="enExcelConfig" style="display:none;margin-top:8px;padding:8px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #86efac;font-size:13px;align-items:center;gap:10px;flex-wrap:wrap;">
-        <span style="color:#16a34a;font-weight:600;">📊 抽出モード:</span>
-        <select id="enExcelColSel" onchange="S.enExcelCol=excelSelToCol(this.value);checkStart()"
-          style="padding:3px 8px;border:1px solid #86efac;border-radius:5px;font-size:13px;background:#fff;">
-          <option value="all" selected>全列（書類・フォーム全体）</option>
-          <option value="A">A列のみ</option>
-          <option value="B">B列のみ</option>
-          <option value="C">C列のみ</option>
-          <option value="D">D列のみ</option>
-          <option value="E">E列のみ</option>
-          <option value="F">F列のみ</option>
-        </select>
-        <span id="enExcelHint" style="color:#64748b;font-size:11px;">全セルを行順に読み取り、書類全体を照合します</span>
+      <div id="enExcelConfig" style="display:none;margin-top:8px;padding:7px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #86efac;font-size:12px;color:#16a34a;">
+        📊 全セルを行順に読み取り、書類全体を照合します
       </div>
       <div class="char-count hidden" id="enCount"></div>
     </div>
@@ -777,7 +755,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 // ═══════════════════ State ═══════════════════
 const S = {
   jpFiles: [], enFiles: [],
-  jpExcelCol: -1, enExcelCol: -1,  // Excel列インデックス（-1=全列, 0=A, 1=B, ...）
   jpText: '', enText: '',
   p0: null,
   p1: { gpt: null, claude: null, gemini: null },
@@ -1207,44 +1184,26 @@ async function imageFileToJpegBase64(file) {
   }
 }
 
-// セレクター値をインデックスに変換（'all'→-1, 'A'→0, 'B'→1, ...）
-function excelSelToCol(val) {
-  return val === 'all' ? -1 : val.charCodeAt(0) - 65;
-}
-
-// Excel ファイルからテキストを抽出
-async function extractExcel(file, colIndex) {
+// Excel ファイルから全列・全行のテキストを抽出（行ごとにセルを結合）
+async function extractExcel(file) {
   if (!window.XLSX) throw new Error('SheetJSライブラリが読み込まれていません');
   const buffer = await file.arrayBuffer();
   const wb = window.XLSX.read(buffer, { type: 'array' });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-
-  if (colIndex === -1) {
-    // ── 全列モード：行ごとにセルを横結合して書類全体を再現 ──
-    const lines = [];
-    for (const row of rows) {
-      const parts = row.map(c => String(c || '').trim()).filter(Boolean);
-      if (parts.length) lines.push(parts.join('　'));  // 全角スペースで列を結合
-    }
-    if (!lines.length) throw new Error(`${file.name} にデータが見つかりません`);
-    return lines.join('\n');
-  } else {
-    // ── 単一列モード：指定列のセルを1項目ずつ抽出 ──
-    const cells = rows
-      .map(row => String(row[colIndex] != null ? row[colIndex] : '').trim())
-      .filter(Boolean);
-    if (!cells.length) throw new Error(`${file.name} の${String.fromCharCode(65 + colIndex)}列にデータが見つかりません`);
-    return cells.map((c, i) => `=== 項目 ${i + 1} ===\n${c}`).join('\n\n');
+  const lines = [];
+  for (const row of rows) {
+    const parts = row.map(c => String(c || '').trim()).filter(Boolean);
+    if (parts.length) lines.push(parts.join('　'));
   }
+  if (!lines.length) throw new Error(`${file.name} にデータが見つかりません`);
+  return lines.join('\n');
 }
 
 async function extractFromFiles(files, countElId) {
   let combined = '';
   let pageStart = 1;
-  const isJp = countElId === 'jpCount';
-  const sideLabel = isJp ? '原文' : '翻訳文';
-  const excelCol  = isJp ? S.jpExcelCol : S.enExcelCol;
+  const sideLabel = countElId === 'jpCount' ? '原文' : '翻訳文';
   const countEl = countElId ? document.getElementById(countElId) : null;
   const stepsEl = document.getElementById('overallSteps');
   const total = files.length;
@@ -1257,7 +1216,7 @@ async function extractFromFiles(files, countElId) {
       setOverallTitle(msg);
       if (stepsEl) stepsEl.textContent = `${i + 1} / ${total} ファイル`;
       if (total > 1) combined += `\n--- ファイル ${i + 1}/${total}: ${f.name} ---\n`;
-      combined += await extractExcel(f, excelCol);
+      combined += await extractExcel(f);
     } else if (f.type === 'application/pdf') {
       if (total > 1) combined += `\n--- ファイル ${i + 1}/${total}: ${f.name} ---\n`;
       const r = await extractOnePdf(f, countElId, pageStart, ctx);
@@ -2627,11 +2586,6 @@ async function startChecking() {
 function resetAll() {
   S.running = false;
   S.jpFiles = []; S.enFiles = []; S.jpText = ''; S.enText = '';
-  S.jpExcelCol = -1; S.enExcelCol = -1;
-  const jpSel = document.getElementById('jpExcelColSel');
-  const enSel = document.getElementById('enExcelColSel');
-  if (jpSel) jpSel.value = 'all';
-  if (enSel) enSel.value = 'all';
   S.p0 = null;
   S.p1 = { gpt:null, claude:null, gemini:null };
   S.p2bt = null; S.p2cmp = null; S.p3 = null;
