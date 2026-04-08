@@ -775,7 +775,7 @@ const S = {
   progress: { total: 0, done: 0, startAt: 0 },
   publishedUrl: null, publishedExpires: null,
   running: false,
-  cost: { gpt: {}, claude: {}, gemini: {} },
+  cost: { gpt: {}, claude: {}, gemini: {}, _phases: { ocr: 0, p0: 0, p1: 0, p2: 0, p3: 0 } },
   jpPageImages: [],   // AI-OCRしたページ画像 [{page, base64}]（再OCR用）
   enPageImages: [],
   ocrValidation: null,
@@ -2563,6 +2563,7 @@ async function startChecking() {
 
   S.running = true;
   S.stats = { p1: 0, p2: 0, total: 0, score: '-' };
+  S.cost = { gpt: {}, claude: {}, gemini: {}, _phases: { ocr: 0, p0: 0, p1: 0, p2: 0, p3: 0 } };
   updateSummary();
   document.getElementById('startBtn').disabled = true;
   document.getElementById('progressCard').classList.remove('hidden');
