@@ -1181,20 +1181,23 @@ async function imageFileToJpegBase64(file) {
   }
 }
 
-// Excel ファイルから全セルを独立して抽出（1セル = 1行）
+// Excel ファイルから全シート・全セルを独立して抽出（1セル = 1行）
 async function extractExcel(file) {
   if (!window.XLSX) throw new Error('SheetJSライブラリが読み込まれていません');
   const buffer = await file.arrayBuffer();
   const wb = window.XLSX.read(buffer, { type: 'array' });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
   const lines = [];
-  for (const row of rows) {
-    for (const cell of row) {
-      const v = String(cell || '').trim();
-      if (v) lines.push(v);
+  wb.SheetNames.forEach((name, si) => {
+    const ws = wb.Sheets[name];
+    const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    if (wb.SheetNames.length > 1) lines.push(`=== シート ${si + 1}: ${name} ===`);
+    for (const row of rows) {
+      for (const cell of row) {
+        const v = String(cell || '').trim();
+        if (v) lines.push(v);
+      }
     }
-  }
+  });
   if (!lines.length) throw new Error(`${file.name} にデータが見つかりません`);
   return lines.join('\n');
 }
