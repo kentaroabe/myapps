@@ -2042,6 +2042,18 @@ ${tgt.substring(0, 15000)}${tgt.length > 15000 ? '\n（以下省略）' : ''}
 
 ## 最終レポート作成の指示
 
+### セクション0: 抜け漏れ検出（原文に対応なし項目）
+
+翻訳文の各項目を原文と照合し、**原文に対応するテキストが見つからない項目**を以下の表に列挙してください。
+これは原文のOCR・抽出時の取りこぼしによるチェック漏れの可能性を示します。
+
+| 翻訳文の項目 | 理由・備考 |
+|---|---|
+
+見つからない場合は「抜け漏れなし」と記載してください。
+
+---
+
 ### セクション1: 最終翻訳ミスリスト（表形式）
 
 | ページ | 原文 | 現在の翻訳文 | 正しい翻訳文 | 誤りの種類 | 信頼度 | 備考 |
@@ -2395,6 +2407,25 @@ async function startChecking() {
       el.textContent = `テキスト抽出: ${(lang==='jp'?jpText:enText).length.toLocaleString()} 文字`;
       el.classList.remove('hidden');
     });
+    // 抜け漏れ警告：原文が翻訳文の60%未満の場合は警告
+    if (jpText.length > 0 && enText.length > 0) {
+      const ratio = jpText.length / enText.length;
+      if (ratio < 0.6) {
+        const proceed = confirm(
+          `⚠️ 抜け漏れの可能性があります\n\n` +
+          `原文の抽出文字数: ${jpText.length.toLocaleString()} 文字\n` +
+          `翻訳文の抽出文字数: ${enText.length.toLocaleString()} 文字\n\n` +
+          `原文の抽出量が翻訳文の ${Math.round(ratio * 100)}% しかありません。\n` +
+          `PDF の OCR でページ末尾の項目が取りこぼされた可能性があります。\n\n` +
+          `このまま続行しますか？\n` +
+          `（「キャンセル」でリセットし、ファイルを確認してください）`
+        );
+        if (!proceed) {
+          S.running = false;
+          document.getElementById('startBtn').disabled = false; checkStart(); return;
+        }
+      }
+    }
   } catch (err) {
     alert('ファイルの抽出エラー: ' + err.message);
     S.running = false;
