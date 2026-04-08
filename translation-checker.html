@@ -155,11 +155,24 @@ textarea { min-height: 96px; resize: vertical; font-family: inherit; line-height
 .spin { display: inline-block; animation: spin .8s linear infinite; }
 
 .tab-bar { display: flex; gap: 2px; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto; }
-.tab-btn { padding: 7px 16px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all .15s; }
+.tab-btn { position: relative; padding: 7px 16px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all .15s; }
 .tab-btn:hover { color: var(--primary); }
 .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
 .tab-pane { display: none; }
 .tab-pane.active { display: block; }
+
+.tab-badge { position: absolute; top: 2px; right: 4px; min-width: 16px; height: 16px; border-radius: 999px; font-size: 9px; font-weight: 800; line-height: 16px; text-align: center; color: #fff; background: #ef4444; box-shadow: 0 0 0 2px #fff; animation: tab-pulse 2s ease-in-out infinite; pointer-events: none; }
+@keyframes tab-pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: .75; } }
+
+.tab-guide { display: flex; align-items: center; gap: 10px; background: linear-gradient(135deg,#eff6ff,#f0f9ff); border: 1px solid #bfdbfe; border-radius: 10px; padding: 10px 16px; margin-bottom: 12px; font-size: 13px; color: #1e40af; line-height: 1.5; animation: tab-guide-in .4s ease; }
+.tab-guide.all-done { background: linear-gradient(135deg,#f0fdf4,#ecfdf5); border-color: #86efac; color: #166534; }
+@keyframes tab-guide-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.tab-guide-steps { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab-guide-step { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; border: 1.5px solid #bfdbfe; background: #fff; cursor: pointer; transition: all .15s; }
+.tab-guide-step:hover { border-color: #60a5fa; background: #eff6ff; }
+.tab-guide-step.visited { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.tab-guide-step.visited::before { content: '✓ '; }
+.tab-guide-step.current { border-color: var(--primary); background: #eef2ff; color: var(--primary); }
 
 .ai-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .ai-btn { padding: 5px 14px; border-radius: 20px; border: 2px solid var(--border); background: none; cursor: pointer; font-size: 12px; font-weight: 700; transition: all .15s; }
@@ -600,11 +613,22 @@ table.md-tbl col.col-note   { width: 15%; }
       <div class="summary-sub">開始〜完了</div>
     </div>
   </div>
-  <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('p0',this)">Phase 0：事前分析</button>
-    <button class="tab-btn" onclick="switchTab('p1',this)">Phase 1：専門検証</button>
-    <button class="tab-btn" onclick="switchTab('p2',this)">Phase 2：逆翻訳</button>
-    <button class="tab-btn" onclick="switchTab('p3',this)">✨ Phase 3：最終レポート</button>
+  <div id="tabGuide" class="tab-guide hidden">
+    <div style="flex:1">
+      <div style="font-weight:800;margin-bottom:4px" id="tabGuideTitle">📋 各フェーズの詳細もご確認ください</div>
+      <div class="tab-guide-steps" id="tabGuideSteps">
+        <span class="tab-guide-step" data-tab="p0" onclick="guideClick('p0')">Phase 0</span>
+        <span class="tab-guide-step" data-tab="p1" onclick="guideClick('p1')">Phase 1</span>
+        <span class="tab-guide-step" data-tab="p2" onclick="guideClick('p2')">Phase 2</span>
+        <span class="tab-guide-step" data-tab="p3" onclick="guideClick('p3')">Phase 3</span>
+      </div>
+    </div>
+  </div>
+  <div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" data-tab="p0" onclick="switchTab('p0',this)">Phase 0：事前分析</button>
+    <button class="tab-btn" data-tab="p1" onclick="switchTab('p1',this)">Phase 1：専門検証</button>
+    <button class="tab-btn" data-tab="p2" onclick="switchTab('p2',this)">Phase 2：逆翻訳</button>
+    <button class="tab-btn" data-tab="p3" onclick="switchTab('p3',this)">✨ Phase 3：最終レポート</button>
   </div>
 
   <div class="tab-pane active" id="tab-p0">
@@ -2789,6 +2813,68 @@ function switchTab(id, btn) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('tab-' + id).classList.add('active');
+  markTabVisited(id);
+}
+
+function guideClick(id) {
+  const btn = document.querySelector(`.tab-btn[data-tab="${id}"]`);
+  if (btn) switchTab(id, btn);
+}
+
+function markTabVisited(id) {
+  if (!S._visitedTabs) return;
+  S._visitedTabs.add(id);
+  const badge = document.querySelector(`.tab-btn[data-tab="${id}"] .tab-badge`);
+  if (badge) badge.remove();
+  const step = document.querySelector(`.tab-guide-step[data-tab="${id}"]`);
+  if (step) { step.classList.add('visited'); step.classList.remove('current'); }
+  document.querySelectorAll('.tab-guide-step').forEach(s => s.classList.remove('current'));
+  const cur = document.querySelector(`.tab-guide-step[data-tab="${id}"]`);
+  if (cur) cur.classList.add('current');
+  updateTabGuideStatus();
+}
+
+function updateTabGuideStatus() {
+  if (!S._visitedTabs) return;
+  const allDone = ['p0','p1','p2','p3'].every(t => S._visitedTabs.has(t));
+  const guide = document.getElementById('tabGuide');
+  const title = document.getElementById('tabGuideTitle');
+  if (allDone) {
+    guide.classList.add('all-done');
+    title.textContent = '✅ すべてのフェーズを確認しました';
+    setTimeout(() => {
+      guide.style.transition = 'opacity .5s, max-height .5s';
+      guide.style.opacity = '0';
+      guide.style.maxHeight = '0';
+      guide.style.overflow = 'hidden';
+      guide.style.marginBottom = '0';
+      guide.style.padding = '0 16px';
+    }, 2500);
+  }
+}
+
+function showTabGuide() {
+  S._visitedTabs = new Set();
+  const guide = document.getElementById('tabGuide');
+  guide.classList.remove('hidden', 'all-done');
+  guide.style.cssText = '';
+  const title = document.getElementById('tabGuideTitle');
+  title.textContent = '📋 各フェーズの詳細もご確認ください';
+  document.querySelectorAll('.tab-guide-step').forEach(s => {
+    s.classList.remove('visited', 'current');
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const existing = btn.querySelector('.tab-badge');
+    if (existing) existing.remove();
+    const tab = btn.getAttribute('data-tab');
+    if (tab !== 'p3') {
+      const dot = document.createElement('span');
+      dot.className = 'tab-badge';
+      dot.textContent = '!';
+      btn.appendChild(dot);
+    }
+  });
+  markTabVisited('p3');
 }
 
 // ═══════════════════ Diff 差分表示 ═══════════════════
@@ -3163,6 +3249,7 @@ async function startChecking() {
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn')[3].classList.add('active');
     document.getElementById('tab-p3').classList.add('active');
+    showTabGuide();
   } catch (err) {
     setProgress('p3', 'err', 'エラー');
     stepOverallProgress();
@@ -3195,8 +3282,12 @@ function resetAll() {
   S.jpPageImages = []; S.enPageImages = []; S.ocrValidation = null;
   S.ocrDiagnostics = [];
   S.startTime = null; S.elapsedMs = null;
+  S._visitedTabs = null;
   const elCard = document.getElementById('sum-elapsed-card');
   if (elCard) elCard.style.display = 'none';
+  const guide = document.getElementById('tabGuide');
+  if (guide) { guide.classList.add('hidden'); guide.style.cssText = ''; }
+  document.querySelectorAll('.tab-badge').forEach(b => b.remove());
 
   ['jp','en'].forEach(lang => {
     document.getElementById(lang+'Zone').classList.remove('filled');
