@@ -134,25 +134,42 @@ textarea { min-height: 96px; resize: vertical; font-family: inherit; line-height
 .phase-section-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
 .phase-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 .prog-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
-.prog-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
 .prog-icon { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; }
 .prog-icon.idle    { background: #f1f5f9; }
-.prog-icon.running { background: #dbeafe; }
-.prog-icon.done    { background: #d1fae5; }
+.prog-icon.running { background: #dbeafe; animation: icon-pulse 1.5s ease-in-out infinite; }
+.prog-icon.done    { background: #d1fae5; animation: icon-pop .4s cubic-bezier(.34,1.56,.64,1); }
 .prog-icon.err     { background: #fee2e2; }
 .prog-icon.skip    { background: #f8fafc; color: var(--muted); }
+@keyframes icon-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(99,102,241,.3); } 50% { box-shadow: 0 0 0 6px rgba(99,102,241,0); } }
+@keyframes icon-pop { 0% { transform: scale(.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 .prog-name { font-size: 12px; font-weight: 700; }
 .prog-role { font-size: 11px; color: var(--muted); margin-top: 1px; }
-.prog-sub  { font-size: 11px; color: var(--muted); }
+.prog-sub  { font-size: 11px; color: var(--muted); transition: opacity .15s; }
+.prog-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; transition: border-color .3s, box-shadow .3s, background .3s; }
+.prog-item.active { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(99,102,241,.12); background: linear-gradient(135deg,#eef2ff,#f5f3ff); animation: item-glow 2.5s ease-in-out infinite; }
+.prog-item.completed { border-color: #86efac; background: #f0fdf4; }
+@keyframes item-glow { 0%,100% { box-shadow: 0 0 0 3px rgba(99,102,241,.10); } 50% { box-shadow: 0 0 0 6px rgba(99,102,241,.18); } }
 .overall-progress { border: 1px solid var(--border); border-radius: 10px; background: #f8fafc; padding: 12px 14px; margin-bottom: 12px; }
 .overall-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .overall-title { font-size: 13px; font-weight: 800; }
 .overall-pct { font-size: 13px; font-weight: 800; color: var(--primary); white-space: nowrap; }
-.overall-bar { width: 100%; height: 9px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
-.overall-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1 0%, #22c55e 100%); transition: width .25s ease; }
+.overall-bar { width: 100%; height: 9px; border-radius: 999px; background: #e2e8f0; overflow: hidden; position: relative; }
+.overall-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #6366f1 0%, #818cf8 50%, #22c55e 100%); transition: width .4s cubic-bezier(.4,0,.2,1); position: relative; }
+.overall-fill.animating::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.35) 50%, transparent 100%); animation: bar-shimmer 1.8s ease-in-out infinite; }
+@keyframes bar-shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
 .overall-meta { margin-top: 7px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+.live-timer { font-variant-numeric: tabular-nums; font-weight: 700; color: #6366f1; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { display: inline-block; animation: spin .8s linear infinite; }
+.activity-log { margin-top: 8px; padding: 8px 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; font-size: 11px; max-height: 80px; overflow-y: auto; display: none; }
+.activity-log.visible { display: block; }
+.activity-entry { display: flex; gap: 6px; padding: 2px 0; color: var(--muted); line-height: 1.5; animation: log-in .3s ease; }
+.activity-entry .act-time { color: #94a3b8; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.activity-entry .act-msg { flex: 1; }
+.activity-entry:first-child { color: var(--text); font-weight: 600; }
+@keyframes log-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.thinking-dots::after { content: ''; animation: dots 1.5s steps(4,end) infinite; }
+@keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
 
 .tab-bar { display: flex; gap: 2px; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto; }
 .tab-btn { position: relative; padding: 7px 16px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all .15s; }
@@ -482,8 +499,10 @@ table.md-tbl col.col-note   { width: 15%; }
     <div class="overall-bar"><div class="overall-fill" id="overallBar"></div></div>
     <div class="overall-meta">
       <div id="overallSteps">0 / 0 ステップ</div>
+      <div id="liveTimer" class="live-timer" style="display:none">⏱ 0:00</div>
     </div>
   </div>
+  <div class="activity-log" id="activityLog"></div>
 
   <div class="phase-section">
     <div class="phase-section-title">📷 OCR整合性検証（抜け漏れ自動補完）</div>
@@ -2579,6 +2598,21 @@ function setProgress(id, state, desc) {
   icon.innerHTML = map[state] || '⏸';
   if (d && desc) d.textContent = desc;
   if (state === 'running' && desc) setOverallTitle(`全体進捗（現在: ${desc}）`);
+
+  const item = icon.closest('.prog-item');
+  if (item) {
+    item.classList.remove('active', 'completed');
+    if (state === 'running') item.classList.add('active');
+    else if (state === 'done') item.classList.add('completed');
+  }
+
+  if (state === 'running' && desc) {
+    addActivity(desc);
+  } else if (state === 'done' && desc) {
+    addActivity('✅ ' + desc);
+  } else if (state === 'err' && desc) {
+    addActivity('❌ ' + desc);
+  }
 }
 function setLoading(id) {
   const el = document.getElementById(id);
@@ -2640,6 +2674,52 @@ function updateSummary() {
 }
 
 
+let _liveTimerInterval = null;
+function startLiveTimer() {
+  stopLiveTimer();
+  const el = document.getElementById('liveTimer');
+  if (el) el.style.display = '';
+  const bar = document.getElementById('overallBar');
+  if (bar) bar.classList.add('animating');
+  _liveTimerInterval = setInterval(updateLiveTimer, 1000);
+  updateLiveTimer();
+}
+function updateLiveTimer() {
+  if (!S.startTime) return;
+  const sec = Math.floor((Date.now() - S.startTime) / 1000);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const h = Math.floor(m / 60);
+  const el = document.getElementById('liveTimer');
+  if (!el) return;
+  if (h > 0) el.textContent = `⏱ ${h}:${String(m % 60).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  else el.textContent = `⏱ ${m}:${String(s).padStart(2,'0')}`;
+}
+function stopLiveTimer() {
+  if (_liveTimerInterval) { clearInterval(_liveTimerInterval); _liveTimerInterval = null; }
+  const bar = document.getElementById('overallBar');
+  if (bar) bar.classList.remove('animating');
+}
+
+function addActivity(msg) {
+  const log = document.getElementById('activityLog');
+  if (!log) return;
+  log.classList.add('visible');
+  const sec = S.startTime ? Math.floor((Date.now() - S.startTime) / 1000) : 0;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const ts = `${m}:${String(s).padStart(2, '0')}`;
+  const entry = document.createElement('div');
+  entry.className = 'activity-entry';
+  entry.innerHTML = `<span class="act-time">${ts}</span><span class="act-msg">${msg}</span>`;
+  log.prepend(entry);
+  while (log.children.length > 30) log.lastChild.remove();
+}
+function clearActivity() {
+  const log = document.getElementById('activityLog');
+  if (log) { log.innerHTML = ''; log.classList.remove('visible'); }
+}
+
 function renderOverallProgress() {
   const total = Math.max(0, Number(S.progress.total) || 0);
   const rawDone = Number(S.progress.done) || 0;
@@ -2669,6 +2749,8 @@ function setOverallTitle(text) {
 function finalizeOverallProgress() {
   S.progress.done = S.progress.total;
   renderOverallProgress();
+  stopLiveTimer();
+  addActivity('🎉 すべての処理が完了しました');
 }
 
 // ═══════════════════ Markdown Renderer ═══════════════════
@@ -2994,6 +3076,9 @@ async function startChecking() {
   const geminiKey = document.getElementById('geminiKey').value.trim();
   S.startTime = Date.now();
   S.elapsedMs = null;
+  clearActivity();
+  startLiveTimer();
+  addActivity('翻訳チェックを開始しました');
   const nouns     = document.getElementById('properNouns').value;
   const dir       = getDir();
 
@@ -3283,6 +3368,10 @@ function resetAll() {
   S.ocrDiagnostics = [];
   S.startTime = null; S.elapsedMs = null;
   S._visitedTabs = null;
+  stopLiveTimer();
+  clearActivity();
+  const timerEl = document.getElementById('liveTimer');
+  if (timerEl) { timerEl.style.display = 'none'; timerEl.textContent = '⏱ 0:00'; }
   const elCard = document.getElementById('sum-elapsed-card');
   if (elCard) elCard.style.display = 'none';
   const guide = document.getElementById('tabGuide');
