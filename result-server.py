@@ -572,7 +572,6 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
                 cell_files = '<span style="color:#94a3b8">-</span>'
 
             rows += f'''<tr>
-              <td>{e["title"]}</td>
               <td style="white-space:nowrap">{created}</td>
               <td style="white-space:nowrap">{expires}</td>
               <td style="white-space:nowrap;font-family:monospace;font-size:12px">{ip}</td>
@@ -585,7 +584,7 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
               <td><button onclick="del('{e["id"]}')">🗑</button></td>
             </tr>'''
         if not rows:
-            rows = ('<tr><td colspan="11" style="text-align:center;color:#94a3b8;'
+            rows = ('<tr><td colspan="10" style="text-align:center;color:#94a3b8;'
                     'padding:28px;">保存された結果はありません</td></tr>')
         html = f'''<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8"><title>管理ページ - 結果一覧</title>
@@ -615,7 +614,7 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
   <div class="meta">全 {len(results)} 件（有効期限切れは自動削除）</div>
   <table>
     <thead>
-      <tr><th>タイトル</th><th>保存日</th><th>有効期限</th>
+      <tr><th>保存日</th><th>有効期限</th>
           <th>IPアドレス</th><th>GPT</th><th>Claude</th><th>Gemini</th><th>合計</th>
           <th>URL</th><th>添付ファイル</th><th>削除</th></tr>
     </thead>
