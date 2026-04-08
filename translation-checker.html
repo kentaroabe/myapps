@@ -899,15 +899,14 @@ function buildPageChunks(src, tgt, pagesPerChunk = 8) {
 }
 function updateDirectionUI() {
   const jp = getDir() === 'jp-en';
-  document.getElementById('srcLabel').textContent = jp ? '日本語（原文）'  : '英語（原文）';
-  document.getElementById('tgtLabel').textContent = jp ? '英語（翻訳文）'  : '日本語（翻訳文）';
-  document.getElementById('srcIcon').textContent  = jp ? '🇯🇵' : '🇬🇧';
-  document.getElementById('tgtIcon').textContent  = jp ? '🇬🇧' : '🇯🇵';
-  document.getElementById('srcTitle').textContent = jp ? 'PDF・画像をドロップ' : 'PDF・画像をドロップ';
-  document.getElementById('tgtTitle').textContent = jp ? 'PDF・画像をドロップ'  : 'PDF・画像をドロップ';
-  const hint = '複数選択可。下の一覧で並べ替えできます。';
-  document.getElementById('srcHint').textContent = hint;
-  document.getElementById('tgtHint').textContent = hint;
+  document.getElementById('srcLabel').textContent  = jp ? '日本語（原文）' : '英語（原文）';
+  document.getElementById('tgtLabel').textContent  = jp ? '英語（翻訳文）' : '日本語（翻訳文）';
+  document.getElementById('srcIcon').textContent   = jp ? '🇯🇵' : '🇬🇧';
+  document.getElementById('srcTitle').textContent  = 'PDF・Excel・画像をドロップ';
+  document.getElementById('srcHint').textContent   = 'PDF / Excel(.xlsx) / 画像 対応。複数選択可。';
+  document.getElementById('tgtIcon').textContent   = '📊';
+  document.getElementById('tgtTitle').textContent  = 'Excel をドロップ（推奨）';
+  document.getElementById('tgtHint').textContent   = 'Excel(.xlsx) 推奨。PDF・画像も可。複数選択可。';
 }
 
 // ═══════════════════ File Upload ═══════════════════
