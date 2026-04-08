@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF 印鑑押印ツール</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    :root {
+      --primary: #667eea; --primary-dark: #5a6fd6;
+      --danger: #dc3545; --success: #28a745;
+      --bg: #f0f2f5; --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans JP', Arial, sans-serif; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Header */
+    .page-header {
+      display: flex; align-items: center; gap: 16px;
+      padding: 12px 20px; background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      z-index: 10; flex-shrink: 0;
+    }
+    .page-header a {
+      padding: 6px 14px; background: #6c757d; color: white;
+      border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 500;
+    }
+    .page-header a:hover { background: #545b62; }
+    .page-header h1 { font-size: 1.05rem; font-weight: 700; color: #333; }
+    .header-spacer { flex: 1; }
+
+    /* App layout */
+    #app { display: flex; flex: 1; overflow: hidden; }
+
+    /* Sidebar */
+    #sidebar {
+      width: 270px; flex-shrink: 0;
+      background: white; border-right: 1px solid #e8e8e8;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sb-section { padding: 12px; border-bottom: 1px solid #f0f0f0; }
+    .sb-title {
+      font-size: 0.72rem; font-weight: 700; color: #999;
+      text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;
+    }
+
+    /* Drop zone in sidebar */
+    .drop-zone-sm {
+      border: 2px dashed #ccc; border-radius: 8px;
+      padding: 14px; text-align: center; cursor: pointer;
+      color: #aaa; font-size: 0.82rem; transition: all 0.2s;
+    }
+    .drop-zone-sm:hover, .drop-zone-sm.highlight {
+      border-color: var(--primary); color: var(--primary); background: #f4f6ff;
+    }
+    .drop-zone-sm .dz-icon { font-size: 22px; display: block; margin-bottom: 4px; }
+
+    /* File list */
+    #file-list-wrap { flex: 1; overflow-y: auto; padding: 8px; }
+    .fl-empty { color: #bbb; font-size: 0.82rem; text-align: center; padding: 16px 0; }
+    .fl-item {
+      display: flex; align-items: center; gap: 6px;
+      background: #f8f9fa; border: 1px solid #e8e8e8; border-radius: 8px;
+      padding: 7px 9px; margin-bottom: 5px; cursor: pointer;
+      font-size: 0.8rem; transition: all 0.15s;
+    }
+    .fl-item:hover { background: #eef1ff; border-color: var(--primary); }
+    .fl-item.active {
+      background: linear-gradient(135deg, var(--primary), #764ba2);
+      border-color: var(--primary); color: white;
+    }
+    .fl-icon { font-size: 15px; flex-shrink: 0; }
+    .fl-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+    .fl-pages { font-size: 0.72rem; opacity: 0.65; flex-shrink: 0; }
+    .fl-del {
+      width: 18px; height: 18px; flex-shrink: 0;
+      background: none; border: none; cursor: pointer;
+      border-radius: 3px; font-size: 11px; color: #aaa;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .fl-item:not(.active) .fl-del:hover { background: #fde8e8; color: var(--danger); }
+    .fl-item.active .fl-del { color: rgba(255,255,255,0.6); }
+    .fl-item.active .fl-del:hover { color: white; background: rgba(255,255,255,0.2); }
+
+    /* Seal section */
+    #seal-section { padding: 12px; background: #fafafa; margin-top: auto; border-top: 1px solid #eee; }
+    .seal-row { display: flex; align-items: center; gap: 10px; }
+    #seal-thumb {
+      width: 54px; height: 54px; border: 1px solid #e0e0e0;
+      border-radius: 6px; object-fit: contain; background: white; flex-shrink: 0;
+      display: none;
+    }
+    #seal-thumb-placeholder {
+      width: 54px; height: 54px; border: 2px dashed #ddd;
+      border-radius: 6px; flex-shrink: 0; display: flex;
+      align-items: center; justify-content: center; color: #ccc; font-size: 20px;
+    }
+    .seal-btn {
+      font-size: 0.78rem; padding: 5px 12px;
+      background: #f0f0f0; border: 1px solid #ddd;
+      border-radius: 6px; cursor: pointer; color: #555;
+      transition: background 0.15s;
+    }
+    .seal-btn:hover { background: #e4e4e4; }
+    #seal-filename { font-size: 0.72rem; color: #999; margin-top: 3px; }
+    #seal-status { font-size: 0.72rem; margin-top: 3px; }
+
+    /* Main panel */
+    #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Controls bar */
+    #controls {
+      background: white; border-bottom: 1px solid #e8e8e8;
+      padding: 9px 16px; display: flex; align-items: center;
+      gap: 14px; flex-wrap: wrap; flex-shrink: 0;
+    }
+    .ctrl-group { display: flex; align-items: center; gap: 6px; }
+    .ctrl-label { font-size: 0.78rem; color: #666; white-space: nowrap; }
+    select {
+      border: 1px solid #ddd; border-radius: 6px;
+      padding: 5px 8px; font-size: 0.8rem; color: #333;
+      background: white; cursor: pointer; font-family: inherit;
+    }
+    select:focus { outline: none; border-color: var(--primary); }
+    input[type="range"] { cursor: pointer; accent-color: var(--primary); width: 90px; }
+    .range-val { font-size: 0.78rem; color: #888; min-width: 38px; }
+
+    .btn {
+      padding: 7px 16px; border: none; border-radius: 8px;
+      font-size: 0.85rem; font-weight: 700; cursor: pointer;
+      transition: all 0.2s; font-family: inherit; white-space: nowrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #764ba2); color: white;
+    }
+    .btn-primary:hover:not(:disabled) {
+      opacity: 0.88; transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102,126,234,0.35);
+    }
+    .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+
+    .nav-btn {
+      width: 26px; height: 26px; background: #f0f0f0; border: 1px solid #ddd;
+      border-radius: 5px; cursor: pointer; font-size: 11px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) { background: #e0e5ff; border-color: var(--primary); }
+    .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    #page-info { font-size: 0.78rem; color: #555; min-width: 110px; text-align: center; }
+    .spacer { flex: 1; }
+    #pos-display { font-size: 0.72rem; color: #aaa; }
+
+    /* Preview wrapper */
+    #preview-wrapper {
+      flex: 1; overflow: auto;
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px; background: #525659;
+    }
+
+    #empty-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 10px; color: rgba(255,255,255,0.4);
+      min-height: 300px; width: 100%; text-align: center;
+    }
+    #empty-state .ei { font-size: 60px; opacity: 0.5; }
+    #empty-state .et { font-size: 0.95rem; }
+
+    #preview-container {
+      position: relative; display: none;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      border-radius: 2px; cursor: crosshair;
+    }
+    #pdf-canvas { display: block; }
+
+    #seal-overlay {
+      position: absolute; cursor: grab;
+      user-select: none; pointer-events: all;
+      display: none; touch-action: none;
+    }
+    #seal-overlay:active { cursor: grabbing; }
+    #seal-overlay.visible { display: block; }
+
+    /* Per-page indicator badge */
+    #per-page-badge {
+      position: absolute; bottom: 6px; right: 6px;
+      background: rgba(102,126,234,0.85); color: white;
+      font-size: 10px; padding: 2px 8px; border-radius: 20px;
+      pointer-events: none; display: none;
+    }
+
+    /* Loading overlay */
+    #loading {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center;
+      z-index: 200; gap: 12px; color: white; font-size: 1rem;
+    }
+    #loading.show { display: flex; }
+    .spinner {
+      width: 30px; height: 30px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: white; border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <a href="index.html">← 戻る</a>
+  <h1>📄 PDF 印鑑押印ツール</h1>
+  <span class="header-spacer"></span>
+</header>
+
+<div id="app">
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sb-section">
+      <div class="sb-title">PDFファイル</div>
+      <div class="drop-zone-sm" id="drop-zone">
+        <span class="dz-icon">📂</span>
+        クリックまたはドロップ<br>
+        <small style="font-size:0.72rem;color:#bbb">複数ファイル対応</small>
+      </div>
+      <input type="file" id="pdf-input" accept=".pdf" multiple style="display:none">
+    </div>
+
+    <div id="file-list-wrap">
+      <div class="fl-empty" id="fl-empty">ファイルを追加してください</div>
+      <div id="file-list"></div>
+    </div>
+
+    <div id="seal-section">
+      <div class="sb-title">印鑑画像</div>
+      <div class="seal-row">
+        <div id="seal-thumb-placeholder">🔖</div>
+        <img id="seal-thumb" src="" alt="印鑑">
+        <div style="flex:1">
+          <button class="seal-btn" onclick="document.getElementById('seal-input').click()">画像を選択</button>
+          <input type="file" id="seal-input" accept="image/*" style="display:none">
+          <div id="seal-filename">未選択</div>
+          <div id="seal-status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+
+    <!-- Controls bar -->
+    <div id="controls">
+      <div class="ctrl-group">
+        <span class="ctrl-label">位置モード:</span>
+        <select id="position-mode">
+          <option value="same">全ページ同一位置</option>
+          <option value="per-page">ページごとに個別設定</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <span class="ctrl-label">印鑑サイズ:</span>
+        <input type="range" id="seal-size" min="20" max="500" value="100">
+        <span class="range-val" id="seal-size-label">100px</span>
+      </div>
+      <div class="ctrl-group">
+        <button class="nav-btn" id="btn-prev-file" title="前のファイル" disabled>⏮</button>
+        <button class="nav-btn" id="btn-prev-page" title="前のページ" disabled>◀</button>
+        <span id="page-info">ファイルなし</span>
+        <button class="nav-btn" id="btn-next-page" title="次のページ" disabled>▶</button>
+        <button class="nav-btn" id="btn-next-file" title="次のファイル" disabled>⏭</button>
+      </div>
+      <span class="spacer"></span>
+      <span id="pos-display"></span>
+      <button class="btn btn-primary" id="btn-output" disabled>📥 PDF出力</button>
+    </div>
+
+    <!-- Preview -->
+    <div id="preview-wrapper">
+      <div id="empty-state">
+        <div class="ei">📄</div>
+        <div class="et">PDFファイルをアップロードしてください</div>
+      </div>
+      <div id="preview-container">
+        <canvas id="pdf-canvas"></canvas>
+        <img id="seal-overlay" src="" draggable="false" alt="">
+        <div id="per-page-badge">このページのみ設定</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loading">
+  <div class="spinner"></div>
+  <span id="loading-msg">処理中...</span>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── State ──────────────────────────────────────────────────────────────────────
+const S = {
+  files: [],          // { name, arrayBuffer, pdfDoc, numPages, viewports[], positions[] }
+  sealDataUrl: null,
+  sealBytes: null,
+  sealMime: null,     // 'image/png' | 'image/jpeg' | ...
+  sealNW: 0, sealNH: 0,
+  fileIdx: -1,
+  pageIdx: 0,
+  renderScale: 1.5,
+  sealWidth: 100,     // pixels on canvas
+  mode: 'same',       // 'same' | 'per-page'
+  samePos: { x: 50, y: 50 },
+  dragging: false,
+  dragMouse: { x: 0, y: 0 },
+  dragSeal: { x: 0, y: 0 },
+};
+
+// ── DOM ────────────────────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const dropZone      = $('drop-zone');
+const pdfInput      = $('pdf-input');
+const fileList      = $('file-list');
+const flEmpty       = $('fl-empty');
+const sealInput     = $('seal-input');
+const sealThumb     = $('seal-thumb');
+const sealThumbPH   = $('seal-thumb-placeholder');
+const sealFilename  = $('seal-filename');
+const sealStatus    = $('seal-status');
+const posMode       = $('position-mode');
+const sealSizeSlider= $('seal-size');
+const sealSizeLabel = $('seal-size-label');
+const btnPrevFile   = $('btn-prev-file');
+const btnPrevPage   = $('btn-prev-page');
+const btnNextPage   = $('btn-next-page');
+const btnNextFile   = $('btn-next-file');
+const pageInfo      = $('page-info');
+const posDisplay    = $('pos-display');
+const btnOutput     = $('btn-output');
+const previewWrapper= $('preview-wrapper');
+const emptyState    = $('empty-state');
+const previewCont   = $('preview-container');
+const pdfCanvas     = $('pdf-canvas');
+const sealOverlay   = $('seal-overlay');
+const perPageBadge  = $('per-page-badge');
+const loadingDiv    = $('loading');
+const loadingMsg    = $('loading-msg');
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function showLoad(msg) { loadingMsg.textContent = msg || '処理中...'; loadingDiv.classList.add('show'); }
+function hideLoad()    { loadingDiv.classList.remove('show'); }
+
+function sealH() {
+  if (!S.sealNW) return S.sealWidth;
+  return Math.round(S.sealWidth * S.sealNH / S.sealNW);
+}
+
+function getPos() {
+  if (S.mode === 'same') return { ...S.samePos };
+  const f = S.files[S.fileIdx];
+  if (!f) return { x: 50, y: 50 };
+  return f.positions[S.pageIdx] ? { ...f.positions[S.pageIdx] } : { ...S.samePos };
+}
+
+function savePos(x, y) {
+  if (S.mode === 'same') {
+    S.samePos = { x, y };
+  } else {
+    const f = S.files[S.fileIdx];
+    if (f) f.positions[S.pageIdx] = { x, y };
+  }
+}
+
+function clamp(x, y) {
+  const f = S.files[S.fileIdx];
+  if (!f) return { x, y };
+  const vp = f.viewports[S.pageIdx];
+  if (!vp) return { x, y };
+  return {
+    x: Math.max(0, Math.min(x, vp.width  - S.sealWidth)),
+    y: Math.max(0, Math.min(y, vp.height - sealH())),
+  };
+}
+
+function refreshPosDisplay(x, y) {
+  const f = S.files[S.fileIdx];
+  if (!f) { posDisplay.textContent = ''; return; }
+  const vp = f.viewports[S.pageIdx];
+  if (!vp) { posDisplay.textContent = ''; return; }
+  const px = Math.round(x / S.renderScale);
+  const py = Math.round((vp.height - y - sealH()) / S.renderScale);
+  posDisplay.textContent = `位置: (${Math.round(x)}, ${Math.round(y)}) px | PDF座標: (${px}, ${py}) pt`;
+}
+
+// ── Seal overlay ──────────────────────────────────────────────────────────────
+function refreshSeal() {
+  if (!S.sealDataUrl || S.fileIdx < 0) {
+    sealOverlay.classList.remove('visible');
+    return;
+  }
+  const pos = getPos();
+  sealOverlay.src = S.sealDataUrl;
+  sealOverlay.style.width  = S.sealWidth + 'px';
+  sealOverlay.style.height = sealH() + 'px';
+  sealOverlay.style.left   = pos.x + 'px';
+  sealOverlay.style.top    = pos.y + 'px';
+  sealOverlay.classList.add('visible');
+
+  // Per-page badge
+  if (S.mode === 'per-page') {
+    const f = S.files[S.fileIdx];
+    const hasOwn = f && f.positions[S.pageIdx] != null;
+    perPageBadge.style.display = hasOwn ? 'block' : 'none';
+  } else {
+    perPageBadge.style.display = 'none';
+  }
+
+  refreshPosDisplay(pos.x, pos.y);
+}
+
+// ── Render page ───────────────────────────────────────────────────────────────
+async function renderPage() {
+  if (S.fileIdx < 0) return;
+  const f = S.files[S.fileIdx];
+  const pdfDoc = f.pdfDoc;
+
+  const page = await pdfDoc.getPage(S.pageIdx + 1);
+  const vp = page.getViewport({ scale: S.renderScale });
+  f.viewports[S.pageIdx] = vp;
+
+  pdfCanvas.width  = vp.width;
+  pdfCanvas.height = vp.height;
+  previewCont.style.width  = vp.width  + 'px';
+  previewCont.style.height = vp.height + 'px';
+
+  const ctx = pdfCanvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+  emptyState.style.display = 'none';
+  previewCont.style.display = 'inline-block';
+  refreshSeal();
+}
+
+// ── File list ─────────────────────────────────────────────────────────────────
+function refreshFileList() {
+  fileList.innerHTML = '';
+  flEmpty.style.display = S.files.length ? 'none' : 'block';
+  S.files.forEach((f, i) => {
+    const el = document.createElement('div');
+    el.className = 'fl-item' + (i === S.fileIdx ? ' active' : '');
+    el.innerHTML =
+      `<span class="fl-icon">📄</span>` +
+      `<span class="fl-name" title="${f.name}">${f.name}</span>` +
+      `<span class="fl-pages">${f.numPages}p</span>` +
+      `<button class="fl-del" data-i="${i}">✕</button>`;
+    el.addEventListener('click', e => {
+      if (e.target.classList.contains('fl-del')) {
+        e.stopPropagation();
+        deleteFile(+e.target.dataset.i);
+      } else {
+        selectFile(i);
+      }
+    });
+    fileList.appendChild(el);
+  });
+}
+
+function refreshNav() {
+  const f = S.files[S.fileIdx];
+  const np = f ? f.numPages : 0;
+  btnPrevFile.disabled = S.fileIdx <= 0;
+  btnNextFile.disabled = S.fileIdx >= S.files.length - 1;
+  btnPrevPage.disabled = S.pageIdx <= 0;
+  btnNextPage.disabled = S.pageIdx >= np - 1;
+  if (f) {
+    const name = f.name.length > 16 ? f.name.slice(0, 15) + '…' : f.name;
+    pageInfo.textContent = `${name}  (${S.pageIdx + 1} / ${np})`;
+  } else {
+    pageInfo.textContent = 'ファイルなし';
+  }
+  btnOutput.disabled = !(S.files.length > 0 && S.sealDataUrl);
+}
+
+function selectFile(i) {
+  S.fileIdx = i;
+  S.pageIdx = 0;
+  refreshFileList();
+  refreshNav();
+  renderPage();
+}
+
+function deleteFile(i) {
+  S.files.splice(i, 1);
+  if (S.fileIdx >= S.files.length) S.fileIdx = S.files.length - 1;
+  S.pageIdx = 0;
+  refreshFileList();
+  refreshNav();
+  if (S.fileIdx >= 0) {
+    renderPage();
+  } else {
+    emptyState.style.display = 'flex';
+    previewCont.style.display = 'none';
+  }
+}
+
+async function loadPDF(file) {
+  const ab = await file.arrayBuffer();
+  const pdfDoc = await pdfjsLib.getDocument({ data: ab.slice(0) }).promise;
+  S.files.push({
+    name: file.name,
+    arrayBuffer: ab,
+    pdfDoc,
+    numPages: pdfDoc.numPages,
+    viewports: new Array(pdfDoc.numPages).fill(null),
+    positions: new Array(pdfDoc.numPages).fill(null),
+  });
+}
+
+async function handlePDFDrop(files) {
+  const pdfs = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+  if (!pdfs.length) return;
+  showLoad(`PDF読み込み中… 0 / ${pdfs.length}`);
+  for (let i = 0; i < pdfs.length; i++) {
+    loadingMsg.textContent = `PDF読み込み中… ${i + 1} / ${pdfs.length}`;
+    try { await loadPDF(pdfs[i]); } catch(e) { console.error(e); }
+  }
+  hideLoad();
+  const wasEmpty = S.fileIdx < 0;
+  refreshFileList();
+  if (wasEmpty && S.files.length > 0) selectFile(0);
+  else refreshNav();
+}
+
+// ── Seal load ─────────────────────────────────────────────────────────────────
+function loadSeal(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    S.sealDataUrl = e.target.result;
+    S.sealMime = file.type || 'image/png';
+    const img = new Image();
+    img.onload = () => {
+      S.sealNW = img.naturalWidth;
+      S.sealNH = img.naturalHeight;
+      sealThumb.src = S.sealDataUrl;
+      sealThumb.style.display = 'block';
+      sealThumbPH.style.display = 'none';
+      sealFilename.textContent = file.name;
+      sealStatus.textContent = '';
+      refreshSeal();
+      refreshNav();
+    };
+    img.src = S.sealDataUrl;
+  };
+  reader.readAsDataURL(file);
+
+  const r2 = new FileReader();
+  r2.onload = e => { S.sealBytes = new Uint8Array(e.target.result); };
+  r2.readAsArrayBuffer(file);
+}
+
+async function tryAutoLoad() {
+  try {
+    const res = await fetch('会社印鑑.png');
+    if (!res.ok) return;
+    const blob = await res.blob();
+    loadSeal(new File([blob], '会社印鑑.png', { type: 'image/png' }));
+    sealStatus.textContent = '✅ 自動読み込み成功';
+  } catch(e) {
+    sealStatus.textContent = '画像を選択してください';
+  }
+}
+
+// ── Drag ──────────────────────────────────────────────────────────────────────
+sealOverlay.addEventListener('mousedown', e => {
+  e.preventDefault();
+  S.dragging = true;
+  S.dragMouse = { x: e.clientX, y: e.clientY };
+  S.dragSeal  = getPos();
+});
+
+document.addEventListener('mousemove', e => {
+  if (!S.dragging) return;
+  const dx = e.clientX - S.dragMouse.x;
+  const dy = e.clientY - S.dragMouse.y;
+  const { x, y } = clamp(S.dragSeal.x + dx, S.dragSeal.y + dy);
+  savePos(x, y);
+  sealOverlay.style.left = x + 'px';
+  sealOverlay.style.top  = y + 'px';
+  refreshPosDisplay(x, y);
+
+  // Update per-page badge
+  if (S.mode === 'per-page') perPageBadge.style.display = 'block';
+});
+
+document.addEventListener('mouseup', () => {
+  if (S.dragging) S.dragging = false;
+});
+
+// Click canvas to position seal center
+previewCont.addEventListener('click', e => {
+  if (S.dragging || e.target === sealOverlay) return;
+  if (S.fileIdx < 0 || !S.sealDataUrl) return;
+  const rect = previewCont.getBoundingClientRect();
+  const { x, y } = clamp(
+    e.clientX - rect.left - S.sealWidth / 2,
+    e.clientY - rect.top  - sealH() / 2
+  );
+  savePos(x, y);
+  refreshSeal();
+});
+
+// Touch support
+sealOverlay.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  S.dragging = true;
+  S.dragMouse = { x: t.clientX, y: t.clientY };
+  S.dragSeal  = getPos();
+}, { passive: false });
+
+document.addEventListener('touchmove', e => {
+  if (!S.dragging) return;
+  const t = e.touches[0];
+  const dx = t.clientX - S.dragMouse.x;
+  const dy = t.clientY - S.dragMouse.y;
+  const { x, y } = clamp(S.dragSeal.x + dx, S.dragSeal.y + dy);
+  savePos(x, y);
+  sealOverlay.style.left = x + 'px';
+  sealOverlay.style.top  = y + 'px';
+  if (S.mode === 'per-page') perPageBadge.style.display = 'block';
+}, { passive: false });
+
+document.addEventListener('touchend', () => { S.dragging = false; });
+
+// ── PDF output ────────────────────────────────────────────────────────────────
+async function generatePDF(fileIdx) {
+  const f = S.files[fileIdx];
+  const { PDFDocument } = PDFLib;
+  const doc = await PDFDocument.load(f.arrayBuffer);
+
+  // Embed seal
+  let sealImg;
+  const getBytes = () => {
+    if (S.sealBytes) return S.sealBytes;
+    const b64 = S.sealDataUrl.split(',')[1];
+    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  };
+  const mime = S.sealMime || 'image/png';
+  if (mime.includes('jpeg') || mime.includes('jpg')) {
+    sealImg = await doc.embedJpg(getBytes());
+  } else {
+    sealImg = await doc.embedPng(getBytes());
+  }
+
+  const pages = doc.getPages();
+  for (let pi = 0; pi < pages.length; pi++) {
+    const page = pages[pi];
+    const { width: pW, height: pH } = page.getSize();
+
+    // Canvas position
+    let pos;
+    if (S.mode === 'same') {
+      pos = S.samePos;
+    } else {
+      pos = f.positions[pi] || S.samePos;
+    }
+
+    // Get or compute viewport for scale
+    let vp = f.viewports[pi];
+    if (!vp) {
+      const p = await f.pdfDoc.getPage(pi + 1);
+      vp = p.getViewport({ scale: S.renderScale });
+      f.viewports[pi] = vp;
+    }
+
+    // Convert canvas px → PDF points
+    const scaleX = pW / vp.width;
+    const scaleY = pH / vp.height;
+
+    const imgW = S.sealWidth * scaleX;
+    const imgH = sealH() * scaleY;
+    const imgX = pos.x * scaleX;
+    const imgY = pH - (pos.y + sealH()) * scaleY;   // flip Y
+
+    page.drawImage(sealImg, { x: imgX, y: imgY, width: imgW, height: imgH });
+  }
+
+  return doc.save();
+}
+
+async function handleOutput() {
+  if (!S.files.length || !S.sealDataUrl) return;
+  showLoad(`PDF生成中… 0 / ${S.files.length}`);
+  for (let i = 0; i < S.files.length; i++) {
+    loadingMsg.textContent = `PDF生成中… ${i + 1} / ${S.files.length}`;
+    try {
+      const bytes = await generatePDF(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = S.files[i].name.replace(/\.pdf$/i, '') + '_印鑑.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+      await new Promise(r => setTimeout(r, 250));
+    } catch(e) {
+      alert(`${S.files[i].name} の生成に失敗しました:\n${e.message}`);
+      console.error(e);
+    }
+  }
+  hideLoad();
+}
+
+// ── Event listeners ───────────────────────────────────────────────────────────
+
+// PDF drop zone
+dropZone.addEventListener('click', () => pdfInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('highlight'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('highlight'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('highlight');
+  handlePDFDrop(e.dataTransfer.files);
+});
+pdfInput.addEventListener('change', e => { handlePDFDrop(e.target.files); e.target.value = ''; });
+
+// Also accept drop on entire preview area
+previewWrapper.addEventListener('dragover', e => { e.preventDefault(); });
+previewWrapper.addEventListener('drop', e => {
+  e.preventDefault();
+  handlePDFDrop(e.dataTransfer.files);
+});
+
+// Seal input
+sealInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadSeal(e.target.files[0]);
+  e.target.value = '';
+});
+
+// Position mode
+posMode.addEventListener('change', e => {
+  S.mode = e.target.value;
+  refreshSeal();
+});
+
+// Seal size
+sealSizeSlider.addEventListener('input', e => {
+  S.sealWidth = +e.target.value;
+  sealSizeLabel.textContent = S.sealWidth + 'px';
+  // Re-clamp current position
+  const { x, y } = clamp(getPos().x, getPos().y);
+  savePos(x, y);
+  refreshSeal();
+});
+
+// Navigation
+btnPrevFile.addEventListener('click', () => { if (S.fileIdx > 0) selectFile(S.fileIdx - 1); });
+btnNextFile.addEventListener('click', () => { if (S.fileIdx < S.files.length - 1) selectFile(S.fileIdx + 1); });
+btnPrevPage.addEventListener('click', () => {
+  if (S.pageIdx > 0) { S.pageIdx--; refreshNav(); renderPage(); }
+});
+btnNextPage.addEventListener('click', () => {
+  const f = S.files[S.fileIdx];
+  if (f && S.pageIdx < f.numPages - 1) { S.pageIdx++; refreshNav(); renderPage(); }
+});
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'ArrowLeft'  && !e.altKey) btnPrevPage.click();
+  if (e.key === 'ArrowRight' && !e.altKey) btnNextPage.click();
+  if (e.key === 'ArrowLeft'  &&  e.altKey) btnPrevFile.click();
+  if (e.key === 'ArrowRight' &&  e.altKey) btnNextFile.click();
+});
+
+// Output
+btnOutput.addEventListener('click', handleOutput);
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+tryAutoLoad();
+</script>
+</body>
+</html>
