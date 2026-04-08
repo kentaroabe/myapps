@@ -1466,17 +1466,20 @@ function replacePageText(fullText, pageNum, newText) {
  * より詳細なプロンプトで抜け漏れを補完する。
  */
 async function reOcrAllPages(pageImages, missingHints) {
-  const hintText = missingHints.length > 0
-    ? `\n・特に以下の数値・データを見落とさないこと: ${missingHints.slice(0, 5).join(', ')}`
+  const extraHint = missingHints.length > 0
+    ? `以下の数値・データを見落とさないこと: ${missingHints.slice(0, 5).join(', ')}`
     : '';
-  const repassPrompt = buildOcrPrompt(hintText ? hintText.replace(/^\n・/, '') : '');
+  const repassPrompt = buildOcrPrompt(extraHint);
 
   const gptKey    = document.getElementById('openaiKey').value.trim();
   const claudeKey = document.getElementById('anthropicKey').value.trim();
   const geminiKey = document.getElementById('geminiKey').value.trim();
 
   const results = [];
-  for (const img of pageImages) {
+  for (let idx = 0; idx < pageImages.length; idx++) {
+    const img = pageImages[idx];
+    setProgress('ocr-v', 'running',
+      `再OCR中... ページ ${img.page}（${idx + 1}/${pageImages.length}）`);
     let newText = null;
     try {
       if (gptKey)         newText = await callOcrGPT(img.base64, repassPrompt, gptKey);
