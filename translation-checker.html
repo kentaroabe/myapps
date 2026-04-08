@@ -765,6 +765,10 @@ const S = {
 };
 
 // フルモデル → ミニモデルのマッピング
+// OCR専用モデル（精度優先。翻訳チェックのモデル選択とは独立）
+const OCR_MODEL_GPT    = 'gpt-4o';           // Vision精度が最も高い
+const OCR_MODEL_GEMINI = 'gemini-2.5-pro';   // 高精度・比較的低コスト
+
 const MINI_MODEL_MAP = {
   'gpt-5.4':             'gpt-5.4-mini',
   'gpt-5.4-mini':        'gpt-5.4-nano',
@@ -1258,7 +1262,14 @@ async function callOcrBest(base64) {
   const gptKey    = document.getElementById('openaiKey').value.trim();
   const claudeKey = document.getElementById('anthropicKey').value.trim();
   const geminiKey = document.getElementById('geminiKey').value.trim();
-  const prompt = 'このページに書かれているすべてのテキストを正確に書き起こしてください。段落・改行・番号の順序を保持してください。余計なコメントや説明は不要です。テキストのみを出力してください。';
+  const prompt = [
+    'このページに書かれているすべてのテキストを正確に書き起こしてください。',
+    '・ページの上端から下端まで、すべての行を1行も漏らさず抽出すること',
+    '・表形式のデータは各セルの内容を独立した行として書き起こすこと',
+    '・ページ最下部・欄外のテキストも必ず含めること',
+    '・段落・改行・番号の順序を保持してください',
+    '余計なコメントや説明は不要です。テキストのみを出力してください。'
+  ].join('\n');
   if (gptKey)    return await callOcrGPT(base64, prompt, gptKey);
   if (claudeKey) return await callOcrClaude(base64, prompt, claudeKey);
   if (geminiKey) return await callOcrGemini(base64, prompt, geminiKey);
@@ -1266,7 +1277,7 @@ async function callOcrBest(base64) {
 }
 
 async function callOcrGPT(base64, prompt, key) {
-  const model = document.getElementById('openaiModel').value;
+  const model = OCR_MODEL_GPT;  // 精度優先で固定
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
@@ -1282,7 +1293,15 @@ async function callOcrGPT(base64, prompt, key) {
     const e = await res.json().catch(() => ({}));
     throw new Error('OCR(GPT) ' + res.status + ': ' + (e?.error?.message || res.statusText));
   }
-  return (await res.json()).choices[0].message.content;
+  const data = await res.json();
+  // コスト追跡
+  if (data.usage) {
+    if (!S.cost.gpt[model]) S.cost.gpt[model] = { input: 0, output: 0 };
+    S.cost.gpt[model].input  += data.usage.prompt_tokens || 0;
+    S.cost.gpt[model].output += data.usage.completion_tokens || 0;
+    S.cost._phases.ocr += calcCost(model, data.usage.prompt_tokens || 0, data.usage.completion_tokens || 0) || 0;
+  }
+  return data.choices[0].message.content;
 }
 
 async function callOcrClaude(base64, prompt, key) {
@@ -1306,11 +1325,18 @@ async function callOcrClaude(base64, prompt, key) {
     const e = await res.json().catch(() => ({}));
     throw new Error('OCR(Claude) ' + res.status + ': ' + (e?.error?.message || res.statusText));
   }
-  return (await res.json()).content[0].text;
+  const data = await res.json();
+  if (data.usage) {
+    if (!S.cost.claude[model]) S.cost.claude[model] = { input: 0, output: 0 };
+    S.cost.claude[model].input  += data.usage.input_tokens || 0;
+    S.cost.claude[model].output += data.usage.output_tokens || 0;
+    S.cost._phases.ocr += calcCost(model, data.usage.input_tokens || 0, data.usage.output_tokens || 0) || 0;
+  }
+  return data.content[0].text;
 }
 
 async function callOcrGemini(base64, prompt, key) {
-  const model = document.getElementById('geminiModel').value;
+  const model = OCR_MODEL_GEMINI;  // 精度優先で固定
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1326,7 +1352,14 @@ async function callOcrGemini(base64, prompt, key) {
     const e = await res.json().catch(() => ({}));
     throw new Error('OCR(Gemini) ' + res.status + ': ' + (e?.error?.message || res.statusText));
   }
-  return (await res.json()).candidates[0].content.parts[0].text;
+  const data = await res.json();
+  if (data.usageMetadata) {
+    if (!S.cost.gemini[model]) S.cost.gemini[model] = { input: 0, output: 0 };
+    S.cost.gemini[model].input  += data.usageMetadata.promptTokenCount || 0;
+    S.cost.gemini[model].output += data.usageMetadata.candidatesTokenCount || 0;
+    S.cost._phases.ocr += calcCost(model, data.usageMetadata.promptTokenCount || 0, data.usageMetadata.candidatesTokenCount || 0) || 0;
+  }
+  return data.candidates[0].content.parts[0].text;
 }
 
 // ═══════════════════ API Calls ═══════════════════
@@ -1353,6 +1386,10 @@ async function callGPT(system, user, opts = {}) {
     if (!S.cost.gpt[model]) S.cost.gpt[model] = { input: 0, output: 0 };
     S.cost.gpt[model].input  += gptData.usage.prompt_tokens || 0;
     S.cost.gpt[model].output += gptData.usage.completion_tokens || 0;
+    if (opts.phase && S.cost._phases) {
+      S.cost._phases[opts.phase] = (S.cost._phases[opts.phase] || 0) +
+        (calcCost(model, gptData.usage.prompt_tokens || 0, gptData.usage.completion_tokens || 0) || 0);
+    }
   }
   return gptData.choices[0].message.content;
 }
@@ -1389,6 +1426,10 @@ async function callClaude(system, user, opts = {}) {
     if (!S.cost.claude[model]) S.cost.claude[model] = { input: 0, output: 0 };
     S.cost.claude[model].input  += claudeData.usage.input_tokens || 0;
     S.cost.claude[model].output += claudeData.usage.output_tokens || 0;
+    if (opts.phase && S.cost._phases) {
+      S.cost._phases[opts.phase] = (S.cost._phases[opts.phase] || 0) +
+        (calcCost(model, claudeData.usage.input_tokens || 0, claudeData.usage.output_tokens || 0) || 0);
+    }
   }
   return claudeData.content[0].text;
 }
@@ -1419,6 +1460,10 @@ async function callGemini(system, user, opts = {}) {
     if (!S.cost.gemini[model]) S.cost.gemini[model] = { input: 0, output: 0 };
     S.cost.gemini[model].input  += geminiData.usageMetadata.promptTokenCount || 0;
     S.cost.gemini[model].output += geminiData.usageMetadata.candidatesTokenCount || 0;
+    if (opts.phase && S.cost._phases) {
+      S.cost._phases[opts.phase] = (S.cost._phases[opts.phase] || 0) +
+        (calcCost(model, geminiData.usageMetadata.promptTokenCount || 0, geminiData.usageMetadata.candidatesTokenCount || 0) || 0);
+    }
   }
   return geminiData.candidates[0].content.parts[0].text;
 }
@@ -2407,25 +2452,6 @@ async function startChecking() {
       el.textContent = `テキスト抽出: ${(lang==='jp'?jpText:enText).length.toLocaleString()} 文字`;
       el.classList.remove('hidden');
     });
-    // 抜け漏れ警告：原文が翻訳文の60%未満の場合は警告
-    if (jpText.length > 0 && enText.length > 0) {
-      const ratio = jpText.length / enText.length;
-      if (ratio < 0.6) {
-        const proceed = confirm(
-          `⚠️ 抜け漏れの可能性があります\n\n` +
-          `原文の抽出文字数: ${jpText.length.toLocaleString()} 文字\n` +
-          `翻訳文の抽出文字数: ${enText.length.toLocaleString()} 文字\n\n` +
-          `原文の抽出量が翻訳文の ${Math.round(ratio * 100)}% しかありません。\n` +
-          `PDF の OCR でページ末尾の項目が取りこぼされた可能性があります。\n\n` +
-          `このまま続行しますか？\n` +
-          `（「キャンセル」でリセットし、ファイルを確認してください）`
-        );
-        if (!proceed) {
-          S.running = false;
-          document.getElementById('startBtn').disabled = false; checkStart(); return;
-        }
-      }
-    }
   } catch (err) {
     alert('ファイルの抽出エラー: ' + err.message);
     S.running = false;
@@ -2443,7 +2469,7 @@ async function startChecking() {
   try {
     setProgress('p0', 'running', `用語・数値・構造を抽出中...（${chunks.length}回に分けて確認）`);
     setLoading('p0-result');
-    const p0Res = await callBest(sysPrep(), promptPrep(src, tgt, nouns), { maxTokens: 8192, mini: true });
+    const p0Res = await callBest(sysPrep(), promptPrep(src, tgt, nouns), { maxTokens: 8192, mini: true, phase: 'p0' });
     S.p0 = p0Res.result;
     prepData = S.p0;
     const aiName = { gpt:'GPT', claude:'Claude', gemini:'Gemini' }[p0Res.ai];
@@ -2481,7 +2507,7 @@ async function startChecking() {
     setProgress('p1-gpt', 'running', `15パターン検査中...（1/${chunks.length}）`);
     setLoading('p1-gpt');
     p1Tasks.push(chunked(
-      (c) => callGPT(sysSemantic(), promptSemantic(c.src, c.tgt, nouns, prepData), { maxTokens: 8192, mini: true }),
+      (c) => callGPT(sysSemantic(), promptSemantic(c.src, c.tgt, nouns, prepData), { maxTokens: 8192, mini: true, phase: 'p1' }),
       (i, n) => setProgress('p1-gpt', 'running', `15パターン検査中...（${i}/${n}）`)
     ).then(({ text, findings }) => {
         S.p1.gpt = text;
@@ -2496,7 +2522,7 @@ async function startChecking() {
     setProgress('p1-claude', 'running', `数値レジストリ照合中...（1/${chunks.length}）`);
     setLoading('p1-claude');
     p1Tasks.push(chunked(
-      (c) => callClaude(sysTechnical(dir), promptTechnical(c.src, c.tgt, nouns, dir, prepData), { maxTokens: 8192, mini: true }),
+      (c) => callClaude(sysTechnical(dir), promptTechnical(c.src, c.tgt, nouns, dir, prepData), { maxTokens: 8192, mini: true, phase: 'p1' }),
       (i, n) => setProgress('p1-claude', 'running', `数値レジストリ照合中...（${i}/${n}）`)
     ).then(({ text, findings }) => {
         S.p1.claude = text;
@@ -2511,7 +2537,7 @@ async function startChecking() {
     setProgress('p1-gemini', 'running', `用語対応表照合中...（1/${chunks.length}）`);
     setLoading('p1-gemini');
     p1Tasks.push(chunked(
-      (c) => callGemini(sysCompleteness(), promptCompleteness(c.src, c.tgt, nouns, prepData), { maxTokens: 8192, mini: true }),
+      (c) => callGemini(sysCompleteness(), promptCompleteness(c.src, c.tgt, nouns, prepData), { maxTokens: 8192, mini: true, phase: 'p1' }),
       (i, n) => setProgress('p1-gemini', 'running', `用語対応表照合中...（${i}/${n}）`)
     ).then(({ text, findings }) => {
         S.p1.gemini = text;
@@ -2536,7 +2562,7 @@ async function startChecking() {
     for (let i = 0; i < chunks.length; i++) {
       const c = chunks[i];
       setProgress('p2a', 'running', `逆翻訳を生成中...（${i + 1}/${chunks.length}）`);
-      const btRes = await callBest(sysBackTranslate(), promptBackTranslate(c.tgt), { maxTokens: 16384, mini: true });
+      const btRes = await callBest(sysBackTranslate(), promptBackTranslate(c.tgt), { maxTokens: 16384, mini: true, phase: 'p2' });
       btChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${btRes.result}`);
       btAIs.push(btRes.ai);
       stepOverallProgress();
@@ -2561,7 +2587,7 @@ async function startChecking() {
         setProgress('p2b', 'running', `セグメント対照比較中...（${i + 1}/${chunks.length}）`);
         const btBody = btChunks[i]?.replace(/^##[^\n]+\n/, '') || '';
         const cmpRes = await callBest(sysBackCompare(), promptBackCompare(c.src, btBody, nouns),
-          { exclude: btAIs[i] ? [btAIs[i]] : [], maxTokens: 8192, mini: true });
+          { exclude: btAIs[i] ? [btAIs[i]] : [], maxTokens: 8192, mini: true, phase: 'p2' });
         p2Findings += countFindings(cmpRes.result);
         cmpChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${cmpRes.result}`);
         stepOverallProgress();
@@ -2587,7 +2613,7 @@ async function startChecking() {
   try {
     const r3 = await callBest(sysFinalSynthesis(),
       promptFinalSynthesis(S.p0, S.p1, S.p2cmp, src, tgt, nouns, dir),
-      { maxTokens: 16384 });
+      { maxTokens: 16384, phase: 'p3' });
     S.p3 = r3.result;
     setProgress('p3', 'done', '完了');
     stepOverallProgress();
@@ -2624,7 +2650,7 @@ function resetAll() {
   S.stats = { p1: 0, p2: 0, total: 0, score: '-' };
   S.progress = { total: 0, done: 0, startAt: 0 };
   S.publishedUrl = null; S.publishedExpires = null;
-  S.cost = { gpt: {}, claude: {}, gemini: {} };
+  S.cost = { gpt: {}, claude: {}, gemini: {}, _phases: { ocr: 0, p0: 0, p1: 0, p2: 0, p3: 0 } };
 
   ['jp','en'].forEach(lang => {
     document.getElementById(lang+'Zone').classList.remove('filled');
@@ -2813,6 +2839,7 @@ async function postResult() {
     totalCost += providerCost;
   }
   apiCost._total = totalCost;
+  apiCost._phases = S.cost._phases || {};
   console.log('[postResult] S.cost:', JSON.stringify(S.cost));
   console.log('[postResult] apiCost:', JSON.stringify(apiCost));
 

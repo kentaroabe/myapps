@@ -579,6 +579,16 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
             else:
                 cell_files = '<span style="color:#94a3b8">-</span>'
 
+            # フェーズ別コスト
+            phases = cost_data.get('_phases', {})
+            phase_labels = [('ocr','OCR'),('p0','P0'),('p1','P1'),('p2','P2'),('p3','P3')]
+            phase_parts = []
+            for key_p, label in phase_labels:
+                v = phases.get(key_p)
+                if isinstance(v, (int, float)) and v > 0:
+                    phase_parts.append(f'{label}:${v:.4f}')
+            cell_phases = '<br>'.join(phase_parts) if phase_parts else '-'
+
             rows += f'''<tr>
               <td style="white-space:nowrap">{created}</td>
               <td style="white-space:nowrap">{expires}</td>
@@ -587,12 +597,13 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
               <td style="text-align:right;white-space:nowrap">{cell_claude}</td>
               <td style="text-align:right;white-space:nowrap">{cell_gemini}</td>
               <td style="text-align:right;white-space:nowrap;font-weight:700">{cell_total}</td>
+              <td style="font-size:11px;white-space:nowrap;color:#64748b;line-height:1.6">{cell_phases}</td>
               <td><a href="{url}" target="_blank" style="word-break:break-all">{url}</a></td>
               <td style="min-width:160px">{cell_files}</td>
               <td><button onclick="del('{e["id"]}')">🗑</button></td>
             </tr>'''
         if not rows:
-            rows = ('<tr><td colspan="10" style="text-align:center;color:#94a3b8;'
+            rows = ('<tr><td colspan="11" style="text-align:center;color:#94a3b8;'
                     'padding:28px;">保存された結果はありません</td></tr>')
         html = f'''<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8"><title>管理ページ - 結果一覧</title>
@@ -624,7 +635,7 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
     <thead>
       <tr><th>保存日</th><th>有効期限</th>
           <th>IPアドレス</th><th>GPT</th><th>Claude</th><th>Gemini</th><th>合計</th>
-          <th>URL</th><th>添付ファイル</th><th>削除</th></tr>
+          <th>フェーズ別</th><th>URL</th><th>添付ファイル</th><th>削除</th></tr>
     </thead>
     <tbody>{rows}</tbody>
   </table>
