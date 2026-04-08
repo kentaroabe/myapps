@@ -589,6 +589,22 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
                     phase_parts.append(f'{label}:${v:.4f}')
             cell_phases = '<br>'.join(phase_parts) if phase_parts else '-'
 
+            # 所要時間
+            elapsed_ms = cost_data.get('_elapsed')
+            def _fmt_elapsed(ms):
+                if ms is None:
+                    return '-'
+                total_sec = round(ms / 1000)
+                h = total_sec // 3600
+                m = (total_sec % 3600) // 60
+                s = total_sec % 60
+                if h > 0:
+                    return f'{h}h {m}m {s}s'
+                if m > 0:
+                    return f'{m}m {s}s'
+                return f'{s}s'
+            cell_elapsed = _fmt_elapsed(elapsed_ms)
+
             rows += f'''<tr>
               <td style="white-space:nowrap">{created}</td>
               <td style="white-space:nowrap">{expires}</td>
@@ -598,12 +614,13 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
               <td style="text-align:right;white-space:nowrap">{cell_gemini}</td>
               <td style="text-align:right;white-space:nowrap;font-weight:700">{cell_total}</td>
               <td style="font-size:11px;white-space:nowrap;color:#64748b;line-height:1.6">{cell_phases}</td>
+              <td style="text-align:right;white-space:nowrap;font-weight:600;color:#0891b2">{cell_elapsed}</td>
               <td><a href="{url}" target="_blank" style="word-break:break-all">{url}</a></td>
               <td style="min-width:160px">{cell_files}</td>
               <td><button onclick="del('{e["id"]}')">🗑</button></td>
             </tr>'''
         if not rows:
-            rows = ('<tr><td colspan="11" style="text-align:center;color:#94a3b8;'
+            rows = ('<tr><td colspan="12" style="text-align:center;color:#94a3b8;'
                     'padding:28px;">保存された結果はありません</td></tr>')
         html = f'''<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8"><title>管理ページ - 結果一覧</title>
@@ -635,7 +652,7 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
     <thead>
       <tr><th>保存日</th><th>有効期限</th>
           <th>IPアドレス</th><th>GPT</th><th>Claude</th><th>Gemini</th><th>合計</th>
-          <th>フェーズ別</th><th>URL</th><th>添付ファイル</th><th>削除</th></tr>
+          <th>フェーズ別</th><th>所要時間</th><th>URL</th><th>添付ファイル</th><th>削除</th></tr>
     </thead>
     <tbody>{rows}</tbody>
   </table>

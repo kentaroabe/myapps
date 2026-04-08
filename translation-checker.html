@@ -594,6 +594,11 @@ table.md-tbl col.col-note   { width: 15%; }
       <div class="summary-value" id="sum-score">-</div>
       <div class="summary-sub">検出密度ベース</div>
     </div>
+    <div class="summary-card" id="sum-elapsed-card" style="display:none">
+      <div class="summary-label">所要時間</div>
+      <div class="summary-value" id="sum-elapsed" style="font-size:18px">-</div>
+      <div class="summary-sub">開始〜完了</div>
+    </div>
   </div>
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab('p0',this)">Phase 0：事前分析</button>
@@ -776,6 +781,8 @@ const S = {
   enPageImages: [],
   ocrValidation: null,
   ocrDiagnostics: [],
+  startTime: null,
+  elapsedMs: null,
 };
 
 // フルモデル → ミニモデルのマッピング
@@ -2580,6 +2587,17 @@ function countFindings(text) {
   }
   return count;
 }
+function formatElapsed(ms) {
+  if (ms == null) return '-';
+  const totalSec = Math.round(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
 function updateSummary() {
   S.stats.total = (S.stats.p1 || 0) + (S.stats.p2 || 0);
   const density = S.stats.total;
@@ -2590,6 +2608,11 @@ function updateSummary() {
   set('sum-p1', S.stats.p1);
   set('sum-p2', S.stats.p2);
   set('sum-score', S.stats.score);
+  if (S.elapsedMs != null) {
+    set('sum-elapsed', formatElapsed(S.elapsedMs));
+    const card = document.getElementById('sum-elapsed-card');
+    if (card) card.style.display = '';
+  }
 }
 
 
@@ -2883,6 +2906,8 @@ async function startChecking() {
   const gptKey    = document.getElementById('openaiKey').value.trim();
   const claudeKey = document.getElementById('anthropicKey').value.trim();
   const geminiKey = document.getElementById('geminiKey').value.trim();
+  S.startTime = Date.now();
+  S.elapsedMs = null;
   const nouns     = document.getElementById('properNouns').value;
   const dir       = getDir();
 
@@ -3144,6 +3169,7 @@ async function startChecking() {
     setContent('p3-result', err.message, true);
   }
 
+  S.elapsedMs = S.startTime != null ? (Date.now() - S.startTime) : null;
   updateSummary();
   S.running = false;
   finalizeOverallProgress();
@@ -3168,6 +3194,9 @@ function resetAll() {
   S.cost = { gpt: {}, claude: {}, gemini: {}, _phases: { ocr: 0, p0: 0, p1: 0, p2: 0, p3: 0 } };
   S.jpPageImages = []; S.enPageImages = []; S.ocrValidation = null;
   S.ocrDiagnostics = [];
+  S.startTime = null; S.elapsedMs = null;
+  const elCard = document.getElementById('sum-elapsed-card');
+  if (elCard) elCard.style.display = 'none';
 
   ['jp','en'].forEach(lang => {
     document.getElementById(lang+'Zone').classList.remove('filled');
@@ -3277,12 +3306,13 @@ function generateResultHtml() {
 </head>
 <body>
 <h1>翻訳チェック結果</h1>
-<div class="meta">生成日時: ${now}　翻訳方向: ${dirLabel}　文書種類: ${docType}</div>
+<div class="meta">生成日時: ${now}　翻訳方向: ${dirLabel}　文書種類: ${docType}${S.elapsedMs != null ? '　所要時間: ' + formatElapsed(S.elapsedMs) : ''}</div>
 <div class="sum-grid">
   <div class="sum-item"><div class="sum-val" style="color:#4f46e5">${S.stats.score}</div><div class="sum-lbl">品質スコア</div></div>
   <div class="sum-item"><div class="sum-val">${S.stats.total}</div><div class="sum-lbl">総指摘件数</div></div>
   <div class="sum-item"><div class="sum-val">${S.stats.p1}</div><div class="sum-lbl">Phase 1 検出</div></div>
   <div class="sum-item"><div class="sum-val">${S.stats.p2}</div><div class="sum-lbl">Phase 2 検出</div></div>
+  ${S.elapsedMs != null ? `<div class="sum-item"><div class="sum-val">${formatElapsed(S.elapsedMs)}</div><div class="sum-lbl">所要時間</div></div>` : ''}
 </div>
 ${parts.join('\n')}
 <div class="footer">Translation Checker &nbsp;|&nbsp; 生成: ${now} &nbsp;|&nbsp; 有効期限: 30日間</div>
@@ -3357,6 +3387,7 @@ async function postResult() {
   }
   apiCost._total = totalCost;
   apiCost._phases = S.cost._phases || {};
+  if (S.elapsedMs != null) apiCost._elapsed = S.elapsedMs;
   console.log('[postResult] S.cost:', JSON.stringify(S.cost));
   console.log('[postResult] apiCost:', JSON.stringify(apiCost));
 
