@@ -430,24 +430,21 @@ table.md-tbl col.col-note   { width: 15%; }
     <div>
       <label id="srcLabel">日本語（原文）</label>
       <div class="upload-zone" id="jpZone" ondragover="onDragOver(event,'jpZone')" ondragleave="onDragLeave(event,'jpZone')" ondrop="onDrop(event,'jp')">
-        <input type="file" multiple accept=".pdf,.xlsx,.xls,image/jpeg,image/png,image/gif,image/webp" id="jpFile" onchange="onFileSelect(event,'jp')">
+        <input type="file" multiple accept=".pdf,image/jpeg,image/png,image/gif,image/webp" id="jpFile" onchange="onFileSelect(event,'jp')">
         <div class="upload-icon" id="srcIcon">🇯🇵</div>
-        <div class="upload-title" id="srcTitle">PDF・Excel・画像をドロップ</div>
-        <div class="upload-hint" id="srcHint">PDF / Excel(.xlsx) / 画像 対応。複数選択可。</div>
+        <div class="upload-title" id="srcTitle">PDF・画像をドロップ</div>
+        <div class="upload-hint" id="srcHint">PDF / 画像（JPEG・PNG・GIF・WebP）対応。複数選択可。</div>
       </div>
       <ul class="file-queue" id="jpFileList" aria-label="原文ファイル一覧"></ul>
-      <div id="jpExcelConfig" style="display:none;margin-top:8px;padding:7px 12px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;font-size:12px;color:#0284c7;">
-        📊 全セルを行順に読み取り、書類全体を照合します
-      </div>
       <div class="char-count hidden" id="jpCount"></div>
     </div>
     <div>
       <label id="tgtLabel">英語（翻訳文）</label>
       <div class="upload-zone" id="enZone" ondragover="onDragOver(event,'enZone')" ondragleave="onDragLeave(event,'enZone')" ondrop="onDrop(event,'en')">
-        <input type="file" multiple accept=".pdf,.xlsx,.xls,image/jpeg,image/png,image/gif,image/webp" id="enFile" onchange="onFileSelect(event,'en')">
-        <div class="upload-icon" id="tgtIcon">📊</div>
-        <div class="upload-title" id="tgtTitle">Excel をドロップ（推奨）</div>
-        <div class="upload-hint" id="tgtHint">Excel(.xlsx) 推奨。PDF・画像も可。複数選択可。</div>
+        <input type="file" multiple accept=".pdf,image/jpeg,image/png,image/gif,image/webp" id="enFile" onchange="onFileSelect(event,'en')">
+        <div class="upload-icon" id="tgtIcon">🌐</div>
+        <div class="upload-title" id="tgtTitle">PDF・画像をドロップ</div>
+        <div class="upload-hint" id="tgtHint">PDF / 画像（JPEG・PNG・GIF・WebP）対応。複数選択可。</div>
       </div>
       <ul class="file-queue" id="enFileList" aria-label="翻訳ファイル一覧"></ul>
       <div class="char-count hidden" id="enCount"></div>
@@ -650,7 +647,6 @@ table.md-tbl col.col-note   { width: 15%; }
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script>
 const CLOUD_PROXY_URL  = 'https://translation-checker.abe-f3a.workers.dev';
 const RESULT_SERVER_URL = 'https://myapps-hl7r.onrender.com';
@@ -924,23 +920,17 @@ function updateDirectionUI() {
   document.getElementById('srcLabel').textContent  = jp ? '日本語（原文）' : '英語（原文）';
   document.getElementById('tgtLabel').textContent  = jp ? '英語（翻訳文）' : '日本語（翻訳文）';
   document.getElementById('srcIcon').textContent   = jp ? '🇯🇵' : '🇬🇧';
-  document.getElementById('srcTitle').textContent  = 'PDF・Excel・画像をドロップ';
-  document.getElementById('srcHint').textContent   = 'PDF / Excel(.xlsx) / 画像 対応。複数選択可。';
-  document.getElementById('tgtIcon').textContent   = '📊';
-  document.getElementById('tgtTitle').textContent  = 'Excel をドロップ（推奨）';
-  document.getElementById('tgtHint').textContent   = 'Excel(.xlsx) 推奨。PDF・画像も可。複数選択可。';
+  document.getElementById('srcTitle').textContent  = 'PDF・画像をドロップ';
+  document.getElementById('srcHint').textContent   = 'PDF / 画像（JPEG・PNG・GIF・WebP）対応。複数選択可。';
+  document.getElementById('tgtIcon').textContent   = '🌐';
+  document.getElementById('tgtTitle').textContent  = 'PDF・画像をドロップ';
+  document.getElementById('tgtHint').textContent   = 'PDF / 画像（JPEG・PNG・GIF・WebP）対応。複数選択可。';
 }
 
 // ═══════════════════ File Upload ═══════════════════
-function isExcelFile(f) {
-  return /\.xlsx?$/i.test(f.name) ||
-    f.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-    f.type === 'application/vnd.ms-excel';
-}
 function isAllowedFile(f) {
   if (!f || (!f.type && !f.name)) return false;
   if (f.type === 'application/pdf') return true;
-  if (isExcelFile(f)) return true;
   return /^image\/(jpeg|png|gif|webp)$/i.test(f.type);
 }
 function onDragOver(e, z)  { e.preventDefault(); document.getElementById(z).classList.add('drag-over'); }
@@ -981,7 +971,7 @@ function moveFile(lang, index, delta) {
 }
 // ── File Queue ─────────────────────────────────────────────────────────────
 function makeLiHtml(f, i) {
-  const shortType = f.type === 'application/pdf' ? '📄 PDF' : isExcelFile(f) ? '📊 Excel' : '🖼 画像';
+  const shortType = f.type === 'application/pdf' ? '📄 PDF' : '🖼 画像';
   return `<span class="fq-grip" title="ドラッグで並べ替え">⋮⋮</span>
     <span class="fq-name">${esc(f.name)}</span>
     <span class="fq-type">${shortType}</span>
@@ -1006,12 +996,6 @@ function renderFileQueue(lang) {
     li.querySelector('.fq-grip').addEventListener('pointerdown', ev => fqDragStart(ev, lang, i));
     ul.appendChild(li);
   });
-  // Excel列セレクターの表示切替
-  const cfg = document.getElementById(lang + 'ExcelConfig');
-  if (cfg) {
-    const hasExcel = arr.some(isExcelFile);
-    cfg.style.display = hasExcel ? 'flex' : 'none';
-  }
 }
 
 // ── Pointer-based drag & drop ───────────────────────────────────────────────
@@ -1205,26 +1189,6 @@ async function imageFileToJpegBase64(file) {
   }
 }
 
-// Excel ファイルから全シート・全セルを独立して抽出（1セル = 1行）
-async function extractExcel(file) {
-  if (!window.XLSX) throw new Error('SheetJSライブラリが読み込まれていません');
-  const buffer = await file.arrayBuffer();
-  const wb = window.XLSX.read(buffer, { type: 'array' });
-  const lines = [];
-  wb.SheetNames.forEach((name, si) => {
-    const ws = wb.Sheets[name];
-    const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    if (wb.SheetNames.length > 1) lines.push(`=== シート ${si + 1}: ${name} ===`);
-    for (const row of rows) {
-      for (const cell of row) {
-        const v = String(cell || '').trim();
-        if (v) lines.push(v);
-      }
-    }
-  });
-  if (!lines.length) throw new Error(`${file.name} にデータが見つかりません`);
-  return lines.join('\n');
-}
 
 async function extractFromFiles(files, countElId) {
   let combined = '';
@@ -1236,14 +1200,7 @@ async function extractFromFiles(files, countElId) {
   for (let i = 0; i < total; i++) {
     const f = files[i];
     const ctx = { fileIdx: i + 1, fileTotal: total, fileName: f.name, sideLabel };
-    if (isExcelFile(f)) {
-      const msg = `📊 Excel読み込み中 (${sideLabel}): ${f.name}`;
-      if (countEl) { countEl.textContent = msg; countEl.classList.remove('hidden'); }
-      setOverallTitle(msg);
-      if (stepsEl) stepsEl.textContent = `${i + 1} / ${total} ファイル`;
-      if (total > 1) combined += `\n--- ファイル ${i + 1}/${total}: ${f.name} ---\n`;
-      combined += await extractExcel(f);
-    } else if (f.type === 'application/pdf') {
+    if (f.type === 'application/pdf') {
       if (total > 1) combined += `\n--- ファイル ${i + 1}/${total}: ${f.name} ---\n`;
       const r = await extractOnePdf(f, countElId, pageStart, ctx);
       combined += r.text;
@@ -2682,7 +2639,7 @@ async function startChecking() {
       setProgress('ocr-v', 'err', 'OCR検証エラー: ' + err.message);
     }
   } else {
-    setProgress('ocr-v', 'skip', 'AI-OCR未使用（pdfjs抽出 or Excel）');
+    setProgress('ocr-v', 'skip', 'AI-OCR未使用（pdfjs直接抽出）');
   }
 
   const src = S.jpText, tgt = S.enText;
