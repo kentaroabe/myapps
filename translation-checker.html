@@ -476,6 +476,20 @@ table.md-tbl col.col-note   { width: 15%; }
   </div>
 
   <div class="phase-section">
+    <div class="phase-section-title">📷 OCR整合性検証（抜け漏れ自動補完）</div>
+    <div class="prog-grid">
+      <div class="prog-item">
+        <div class="prog-icon idle" id="s-ocr-v">⏸</div>
+        <div>
+          <div class="prog-name">原文OCR結果 ↔ 翻訳文 クロスチェック</div>
+          <div class="prog-role" style="color:#7c3aed;">数値・文字量で抜け漏れ検出 → 自動再OCR</div>
+          <div class="prog-sub" id="d-ocr-v">待機中</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase-section">
     <div class="phase-section-title">Phase 0 ── 事前分析（用語・数値・構造を抽出）</div>
     <div class="prog-grid">
       <div class="prog-item">
@@ -762,11 +776,15 @@ const S = {
   publishedUrl: null, publishedExpires: null,
   running: false,
   cost: { gpt: {}, claude: {}, gemini: {} },
+  jpPageImages: [],   // AI-OCRしたページ画像 [{page, base64}]（再OCR用）
+  enPageImages: [],
+  ocrValidation: null,
 };
 
 // フルモデル → ミニモデルのマッピング
 // OCR専用モデル（精度優先。翻訳チェックのモデル選択とは独立）
-const OCR_MODEL_GPT    = 'gpt-4o';           // Vision精度が最も高い
+const OCR_MODEL_GPT    = 'gpt-4.1';          // Vision精度優先（gpt-4oより新しく高精度）
+const OCR_MODEL_CLAUDE = 'claude-opus-4';    // 最高精度OCR（コスト優先しない）
 const OCR_MODEL_GEMINI = 'gemini-2.5-pro';   // 高精度・比較的低コスト
 
 const MINI_MODEL_MAP = {
@@ -1152,6 +1170,9 @@ async function extractOnePdf(file, countElId, pageStart, ctx) {
       setOverallTitle(msg);
       if (stepsEl) stepsEl.textContent = `${p} / ${n} ページ`;
       const base64 = await pdfPageToBase64(pdf, p);
+      // 再OCR用にページ画像を保存（上限30ページ）
+      const _imgStore = sideLabel === '原文' ? S.jpPageImages : S.enPageImages;
+      if (_imgStore.length < 30) _imgStore.push({ page: pg, base64 });
       const pageText = await callOcrBest(base64);
       text += `\n=== ページ ${pg} ===\n${pageText}\n`;
     }
@@ -1236,6 +1257,9 @@ async function extractFromFiles(files, countElId) {
       setOverallTitle(msg);
       if (stepsEl) stepsEl.textContent = `${i + 1} / ${total} 画像`;
       const base64 = await imageFileToJpegBase64(f);
+      // 再OCR用にページ画像を保存（上限30ページ）
+      const _imgStore2 = countElId === 'jpCount' ? S.jpPageImages : S.enPageImages;
+      if (_imgStore2.length < 30) _imgStore2.push({ page: pageStart, base64 });
       const t = await callOcrBest(base64);
       combined += `\n=== ページ ${pageStart} ===\n${t}\n`;
       pageStart += 1;
@@ -1248,7 +1272,7 @@ async function extractFromFiles(files, countElId) {
   return combined;
 }
 
-async function pdfPageToBase64(pdf, pageNum, scale = 2.0) {
+async function pdfPageToBase64(pdf, pageNum, scale = 3.0) {
   const page = await pdf.getPage(pageNum);
   const viewport = page.getViewport({ scale });
   const canvas = document.createElement('canvas');
@@ -1258,18 +1282,25 @@ async function pdfPageToBase64(pdf, pageNum, scale = 2.0) {
   return canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
 }
 
-async function callOcrBest(base64) {
+function buildOcrPrompt(extraHints = '') {
+  const hints = extraHints ? `\n・特に見落とさないこと: ${extraHints}` : '';
+  return [
+    'このページに書かれているすべてのテキストを徹底的・完全に書き起こしてください。',
+    '【絶対に省略・中断しないこと】ページ全体を上から下まで、すべての文字を1行も漏らさず出力すること。',
+    '・表・リスト・フォーム内のすべてのセルを含めること（ヘッダー行も含む）',
+    '・ページ端・欄外・ヘッダー・フッター・注釈のテキストも必ず含めること',
+    '・複数段組になっているテキストは各段をすべて書き起こすこと',
+    '・数字・日付・金額・番号・記号・単位を正確に書き起こすこと',
+    `・出力が長くなっても絶対に途中で切らず最後まで出力すること${hints}`,
+    '余計なコメントや説明は不要です。テキストのみを出力してください。'
+  ].join('\n');
+}
+
+async function callOcrBest(base64, extraHints = '') {
   const gptKey    = document.getElementById('openaiKey').value.trim();
   const claudeKey = document.getElementById('anthropicKey').value.trim();
   const geminiKey = document.getElementById('geminiKey').value.trim();
-  const prompt = [
-    'このページに書かれているすべてのテキストを正確に書き起こしてください。',
-    '・ページの上端から下端まで、すべての行を1行も漏らさず抽出すること',
-    '・表形式のデータは各セルの内容を独立した行として書き起こすこと',
-    '・ページ最下部・欄外のテキストも必ず含めること',
-    '・段落・改行・番号の順序を保持してください',
-    '余計なコメントや説明は不要です。テキストのみを出力してください。'
-  ].join('\n');
+  const prompt = buildOcrPrompt(extraHints);
   if (gptKey)    return await callOcrGPT(base64, prompt, gptKey);
   if (claudeKey) return await callOcrClaude(base64, prompt, claudeKey);
   if (geminiKey) return await callOcrGemini(base64, prompt, geminiKey);
@@ -1282,7 +1313,7 @@ async function callOcrGPT(base64, prompt, key) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
     body: JSON.stringify({
-      model, temperature: 0, max_completion_tokens: 4096,
+      model, temperature: 0, max_completion_tokens: 16384,
       messages: [{ role: 'user', content: [
         { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + base64, detail: 'high' } },
         { type: 'text', text: prompt }
@@ -1305,7 +1336,7 @@ async function callOcrGPT(base64, prompt, key) {
 }
 
 async function callOcrClaude(base64, prompt, key) {
-  const model = document.getElementById('anthropicModel').value;
+  const model = OCR_MODEL_CLAUDE;  // 精度優先で固定（claude-opus-4）
   const endpoint = CLOUD_PROXY_URL
     ? CLOUD_PROXY_URL.replace(/\/$/, '') + '/v1/messages'
     : 'https://api.anthropic.com/v1/messages';
@@ -1314,7 +1345,7 @@ async function callOcrClaude(base64, prompt, key) {
   const res = await fetch(endpoint, {
     method: 'POST', headers,
     body: JSON.stringify({
-      model, max_tokens: 4096,
+      model, max_tokens: 16384,
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
         { type: 'text', text: prompt }
@@ -1345,7 +1376,7 @@ async function callOcrGemini(base64, prompt, key) {
         { inline_data: { mime_type: 'image/jpeg', data: base64 } },
         { text: prompt }
       ]}],
-      generationConfig: { temperature: 0, maxOutputTokens: 4096 }
+      generationConfig: { temperature: 0, maxOutputTokens: 16384 }
     })
   });
   if (!res.ok) {
@@ -1360,6 +1391,103 @@ async function callOcrGemini(base64, prompt, key) {
     S.cost._phases.ocr += calcCost(model, data.usageMetadata.promptTokenCount || 0, data.usageMetadata.candidatesTokenCount || 0) || 0;
   }
   return data.candidates[0].content.parts[0].text;
+}
+
+// ═══════════════════ OCR 整合性検証 & 再OCR ═══════════════════
+
+/**
+ * 翻訳文（tgt）に含まれる数値・コードが原文OCR（src）に存在するか確認。
+ * 数値は言語に関係なく同一のため、言語をまたぐ比較でも機能する。
+ */
+function runOcrValidation(srcText, tgtText) {
+  // 数値パターン（日付・金額・ID・電話番号等）を抽出
+  const numPattern = /\d[\d,./\-：:年月日]{1,}/g;
+  const srcNumSet = new Set(srcText.match(numPattern) || []);
+  // 原文の数字列（区切り文字除去）でも検索できるようにする
+  const srcBareNums = new Set(
+    [...srcNumSet].map(n => n.replace(/[^0-9]/g, '')).filter(n => n.length >= 2)
+  );
+
+  const tgtNums = tgtText.match(numPattern) || [];
+  const missingNums = [...new Set(tgtNums.filter(n => {
+    if (!srcNumSet.has(n)) {
+      const bare = n.replace(/[^0-9]/g, '');
+      if (bare.length < 2) return false;
+      return !srcBareNums.has(bare) && !srcText.includes(bare);
+    }
+    return false;
+  }))].slice(0, 15);
+
+  // 文字量比較（空白・改行除去後）
+  const srcChars = srcText.replace(/=== ページ \d+ ===\n?/g, '').replace(/\s+/g, '').length;
+  const tgtChars = tgtText.replace(/=== ページ \d+ ===\n?|=== シート[^\n]+===\n?/g, '').replace(/\s+/g, '').length;
+  const ratio = srcChars / Math.max(tgtChars, 1);
+
+  // jp→en: 日本語は英語より文字数が少ない傾向（比率0.5〜1.0が正常）
+  // en→jp: 逆（比率0.8〜1.5が正常）
+  const dir = getDir();
+  const minRatio = dir === 'jp-en' ? 0.30 : 0.50;  // これ以下なら極端に少ない
+  const hasLengthIssue = ratio < minRatio && tgtChars > 200;
+  const hasMissingNums = missingNums.length >= 3;
+  const hasMissing = hasMissingNums || hasLengthIssue;
+
+  const reasons = [];
+  if (hasMissingNums) reasons.push(`翻訳文にある数値が原文OCRで未検出: ${missingNums.slice(0, 5).join(', ')} など（${missingNums.length}件）`);
+  if (hasLengthIssue) reasons.push(`文字量の乖離（原文OCR: ${srcChars}文字 / 翻訳文: ${tgtChars}文字、比率: ${(ratio * 100).toFixed(0)}%）`);
+
+  return {
+    hasMissing,
+    hasMissingNums,
+    hasLengthIssue,
+    missingNums,
+    reasons,
+    srcChars,
+    tgtChars,
+    ratio,
+    text: hasMissing ? reasons.join('\n') : 'OCR整合性チェック: 問題なし（数値一致・文字量正常）'
+  };
+}
+
+/**
+ * 特定ページのテキストをsrcTextの中で置換する
+ */
+function replacePageText(fullText, pageNum, newText) {
+  const startMarker = `=== ページ ${pageNum} ===`;
+  const startIdx = fullText.indexOf(startMarker);
+  if (startIdx === -1) return fullText;
+  const afterMarker = startIdx + startMarker.length;
+  const nextMatch = fullText.slice(afterMarker).match(/\n=== ページ \d+ ===/);
+  const endIdx = nextMatch ? afterMarker + nextMatch.index : fullText.length;
+  return fullText.slice(0, afterMarker) + '\n' + newText.trim() + '\n' + fullText.slice(endIdx);
+}
+
+/**
+ * 保存済みのページ画像に対して再OCRを実行。
+ * より詳細なプロンプトで抜け漏れを補完する。
+ */
+async function reOcrAllPages(pageImages, missingHints) {
+  const hintText = missingHints.length > 0
+    ? `\n・特に以下の数値・データを見落とさないこと: ${missingHints.slice(0, 5).join(', ')}`
+    : '';
+  const repassPrompt = buildOcrPrompt(hintText ? hintText.replace(/^\n・/, '') : '');
+
+  const gptKey    = document.getElementById('openaiKey').value.trim();
+  const claudeKey = document.getElementById('anthropicKey').value.trim();
+  const geminiKey = document.getElementById('geminiKey').value.trim();
+
+  const results = [];
+  for (const img of pageImages) {
+    let newText = null;
+    try {
+      if (gptKey)         newText = await callOcrGPT(img.base64, repassPrompt, gptKey);
+      else if (claudeKey) newText = await callOcrClaude(img.base64, repassPrompt, claudeKey);
+      else if (geminiKey) newText = await callOcrGemini(img.base64, repassPrompt, geminiKey);
+    } catch (e) {
+      console.warn(`[再OCR] ページ ${img.page} 失敗:`, e.message);
+    }
+    results.push({ page: img.page, text: newText });
+  }
+  return results;
 }
 
 // ═══════════════════ API Calls ═══════════════════
@@ -2441,6 +2569,7 @@ async function startChecking() {
   document.getElementById('resultsCard').classList.remove('hidden');
 
   // 原文・翻訳のテキスト抽出（PDF / 画像）
+  S.jpPageImages = []; S.enPageImages = []; S.ocrValidation = null;
   try {
     const [jpText, enText] = await Promise.all([
       extractFromFiles(S.jpFiles, 'jpCount'),
@@ -2456,6 +2585,53 @@ async function startChecking() {
     alert('ファイルの抽出エラー: ' + err.message);
     S.running = false;
     document.getElementById('startBtn').disabled = false; checkStart(); return;
+  }
+
+  // ── OCR整合性検証 & 自動再OCR ──
+  if (S.jpPageImages.length > 0) {
+    setProgress('ocr-v', 'running', 'OCR抜け漏れを検証中...');
+    try {
+      const validation = runOcrValidation(S.jpText, S.enText);
+      S.ocrValidation = validation;
+      if (validation.hasMissing) {
+        setProgress('ocr-v', 'running',
+          `抜け漏れ疑い検出 → 再OCR中... (${S.jpPageImages.length}ページ / ${validation.reasons[0] || ''})`);
+        const reOcrResults = await reOcrAllPages(S.jpPageImages, validation.missingNums);
+        let improved = 0;
+        let newJpText = S.jpText;
+        for (const r of reOcrResults) {
+          if (!r.text) continue;
+          // 再OCR結果が元より5%以上長ければ採用（退行を防ぐ）
+          const startMarker = `=== ページ ${r.page} ===`;
+          const startIdx = newJpText.indexOf(startMarker);
+          if (startIdx === -1) continue;
+          const afterMarker = startIdx + startMarker.length;
+          const nextMatch = newJpText.slice(afterMarker).match(/\n=== ページ \d+ ===/);
+          const endIdx = nextMatch ? afterMarker + nextMatch.index : newJpText.length;
+          const oldLen = newJpText.slice(afterMarker, endIdx).replace(/\s+/g, '').length;
+          const newLen = r.text.replace(/\s+/g, '').length;
+          if (newLen > oldLen * 1.05) {
+            newJpText = replacePageText(newJpText, r.page, r.text);
+            improved++;
+          }
+        }
+        if (improved > 0) {
+          S.jpText = newJpText;
+          document.getElementById('jpCount').textContent =
+            `テキスト抽出: ${S.jpText.length.toLocaleString()} 文字（再OCRで${improved}ページ補完）`;
+        }
+        setProgress('ocr-v', 'done',
+          improved > 0
+            ? `再OCR完了: ${improved}ページ補完（原因: ${validation.reasons.join(' / ')}）`
+            : `再OCR実施済み（補完なし・元OCRが最良）`);
+      } else {
+        setProgress('ocr-v', 'done', validation.text);
+      }
+    } catch (err) {
+      setProgress('ocr-v', 'err', 'OCR検証エラー: ' + err.message);
+    }
+  } else {
+    setProgress('ocr-v', 'skip', 'AI-OCR未使用（pdfjs抽出 or Excel）');
   }
 
   const src = S.jpText, tgt = S.enText;
@@ -2651,6 +2827,7 @@ function resetAll() {
   S.progress = { total: 0, done: 0, startAt: 0 };
   S.publishedUrl = null; S.publishedExpires = null;
   S.cost = { gpt: {}, claude: {}, gemini: {}, _phases: { ocr: 0, p0: 0, p1: 0, p2: 0, p3: 0 } };
+  S.jpPageImages = []; S.enPageImages = []; S.ocrValidation = null;
 
   ['jp','en'].forEach(lang => {
     document.getElementById(lang+'Zone').classList.remove('filled');
@@ -2662,7 +2839,7 @@ function resetAll() {
   document.getElementById('progressCard').classList.add('hidden');
   document.getElementById('resultsCard').classList.add('hidden');
 
-  ['p0','p1-gpt','p1-claude','p1-gemini','p2a','p2b','p3'].forEach(id => setProgress(id,'idle','待機中'));
+  ['ocr-v','p0','p1-gpt','p1-claude','p1-gemini','p2a','p2b','p3'].forEach(id => setProgress(id,'idle','待機中'));
 
   ['p0-result','p1-gpt','p1-claude','p1-gemini','p2-bt','p2-cmp','p3-result'].forEach(id => {
     const el = document.getElementById(id);
