@@ -2373,8 +2373,9 @@ function renderMd(text) {
   return out.join('');
 }
 function escCell(s) {
-  // エスケープ後に <span style="color:...">...</span> だけ復元して色付けを許可する
+  // エスケープ後に <br> と <span style="color:..."> だけ復元（改行・色付けを許可）
   return esc(s)
+    .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
     .replace(/&lt;span style="color:([a-zA-Z#0-9]+)"&gt;([\s\S]*?)&lt;\/span&gt;/g,
              (_, color, inner) => `<span style="color:${color}">${inner}</span>`);
 }
@@ -2390,31 +2391,73 @@ function buildColgroup(colCount) {
 function renderTable(lines) {
   const rows = lines.filter(l => !l.match(/^\s*\|[\s:-]+\|\s*$/));
   if (!rows.length) return '';
-  const colCount = rows[0].split('|').filter((_,j,a) => j>0 && j<a.length-1).length;
+
+  // セルを2次元配列に展開
+  const grid = rows.map(row =>
+    row.split('|').filter((_,j,a) => j>0 && j<a.length-1).map(c => c.trim())
+  );
+  const colCount = grid[0].length;
+
+  // ── rowspan 計算 ──
+  // 連続する行で同じ "ラベル<br>" プレフィックスを持つセルをrowspanで統合する
+  // （例: "体育<br>..." が複数行に繰り返される場合、最初の行だけに表示）
+  const rowspanMap = grid.map(r => r.map(() => 1));
+  const skipMap    = grid.map(r => r.map(() => false));
+
+  for (let ci = 0; ci < colCount; ci++) {
+    let r = 1; // ヘッダー行はスキップ
+    while (r < grid.length) {
+      const cell  = grid[r][ci] || '';
+      const brPos = cell.indexOf('<br>');
+      if (brPos > 0) {
+        const label = cell.substring(0, brPos);
+        let span = 1;
+        while (r + span < grid.length) {
+          const next   = grid[r + span][ci] || '';
+          const nextBr = next.indexOf('<br>');
+          if (nextBr > 0 && next.substring(0, nextBr) === label) span++;
+          else break;
+        }
+        if (span > 1) {
+          rowspanMap[r][ci] = span;
+          for (let s = 1; s < span; s++) {
+            skipMap[r + s][ci] = true;
+            // 後続行からラベルプレフィックスを除去（内容部分のみ残す）
+            const nc  = grid[r + s][ci];
+            const nbr = nc.indexOf('<br>');
+            grid[r + s][ci] = nc.substring(nbr + 4);
+          }
+        }
+        r += span;
+      } else {
+        r++;
+      }
+    }
+  }
 
   // 「現在の翻訳文」「正しい翻訳文」列を検出
-  const headerCells = rows[0].split('|').filter((_,j,a) => j>0 && j<a.length-1).map(c => c.trim());
+  const headerCells = grid[0];
   const curIdx = headerCells.findIndex(h => h.includes('現在の翻訳文'));
   const fixIdx = headerCells.findIndex(h => h.includes('正しい翻訳文'));
   const hasDiff = curIdx >= 0 && fixIdx >= 0;
 
   let html = `<div class="tbl-wrap"><table class="md-tbl">${buildColgroup(colCount)}`;
-  rows.forEach((row, ri) => {
-    const cells = row.split('|').filter((_,j,a) => j>0 && j<a.length-1);
+  grid.forEach((cells, ri) => {
     const tag = ri === 0 ? 'th' : 'td';
 
     if (ri > 0 && hasDiff) {
       const curText = cells[curIdx]?.trim() || '';
       const fixText = cells[fixIdx]?.trim() || '';
-      // 差分が意味ある場合のみ計算（空セルや同一は除外）
       const aTokens = curText ? curText.split(/(\s+)/).filter(Boolean) : [];
       const bTokens = fixText ? fixText.split(/(\s+)/).filter(Boolean) : [];
       const diffResult = (aTokens.length > 0 || bTokens.length > 0) && aTokens.length <= 600 && bTokens.length <= 600
         ? lcs(aTokens, bTokens) : null;
 
       html += '<tr>' + cells.map((c, ci) => {
+        if (skipMap[ri][ci]) return '';
+        const rs = rowspanMap[ri][ci] > 1 ? ` rowspan="${rowspanMap[ri][ci]}"` : '';
         if (!diffResult || (ci !== curIdx && ci !== fixIdx)) {
-          return `<${tag}>${escCell(c.trim())}</${tag}>`;
+          return `<${tag}${rs}>${escCell(c.trim())}</${tag}>`;
         }
         let diffHtml = '';
         for (const { type, val } of diffResult) {
@@ -2427,10 +2470,14 @@ function renderTable(lines) {
             else if (type === 'add') diffHtml += `<span style="background:#dcfce7;color:#15803d;border-radius:2px">${e}</span>`;
           }
         }
-        return `<${tag}>${diffHtml || escCell(c.trim())}</${tag}>`;
+        return `<${tag}${rs}>${diffHtml || escCell(c.trim())}</${tag}>`;
       }).join('') + '</tr>';
     } else {
-      html += '<tr>' + cells.map(c => `<${tag}>${escCell(c.trim())}</${tag}>`).join('') + '</tr>';
+      html += '<tr>' + cells.map((c, ci) => {
+        if (skipMap[ri][ci]) return '';
+        const rs = rowspanMap[ri][ci] > 1 ? ` rowspan="${rowspanMap[ri][ci]}"` : '';
+        return `<${tag}${rs}>${escCell(c.trim())}</${tag}>`;
+      }).join('') + '</tr>';
     }
   });
   return html + '</table></div>';
