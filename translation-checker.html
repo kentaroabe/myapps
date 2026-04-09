@@ -1935,6 +1935,8 @@ async function reOcrAllPages(pageImages, validation, referencePages = []) {
 }
 
 // ═══════════════════ API Calls ═══════════════════
+const _sleep = ms => new Promise(r => setTimeout(r, ms));
+
 async function callGPT(system, user, opts = {}) {
   const key       = document.getElementById('openaiKey').value.trim();
   const baseModel = document.getElementById('openaiModel').value;
@@ -1949,30 +1951,44 @@ async function callGPT(system, user, opts = {}) {
   } else {
     userContent = user;
   }
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-    body: JSON.stringify({ model, temperature: 0, max_completion_tokens: opts.maxTokens || 8192,
-      messages: [{ role: 'system', content: system }, { role: 'user', content: userContent }] })
-  });
-  if (!res.ok) {
-    const e = await res.json().catch(()=>({}));
-    const m = e?.error?.message || res.statusText;
-    if (res.status === 429) throw new Error('OpenAI 429: クレジット残高不足またはレート制限。');
-    if (res.status === 401) throw new Error('OpenAI 401: APIキーが無効です。');
-    throw new Error('OpenAI ' + res.status + ': ' + m);
-  }
-  const gptData = await res.json();
-  if (gptData.usage) {
-    if (!S.cost.gpt[model]) S.cost.gpt[model] = { input: 0, output: 0 };
-    S.cost.gpt[model].input  += gptData.usage.prompt_tokens || 0;
-    S.cost.gpt[model].output += gptData.usage.completion_tokens || 0;
-    if (opts.phase && S.cost._phases) {
-      S.cost._phases[opts.phase] = (S.cost._phases[opts.phase] || 0) +
-        (calcCost(model, gptData.usage.prompt_tokens || 0, gptData.usage.completion_tokens || 0) || 0);
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body: JSON.stringify({ model, temperature: 0, max_completion_tokens: opts.maxTokens || 8192,
+        messages: [{ role: 'system', content: system }, { role: 'user', content: userContent }] })
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(()=>({}));
+      const m = e?.error?.message || res.statusText;
+      const code = e?.error?.code || '';
+      if (res.status === 429) {
+        if (code === 'insufficient_quota') {
+          throw new Error('OpenAI クレジット残高不足: 利用残高がゼロです。platform.openai.com/settings/organization/billing でチャージしてください。');
+        }
+        if (attempt < MAX_RETRIES) {
+          const waitMs = Math.min(2000 * Math.pow(2, attempt), 30000);
+          await _sleep(waitMs);
+          continue;
+        }
+        throw new Error('OpenAI レート制限 (429): リクエストが多すぎます。しばらく待ってから再試行してください。');
+      }
+      if (res.status === 401) throw new Error('OpenAI 401: APIキーが無効です。');
+      throw new Error('OpenAI ' + res.status + ': ' + m);
     }
+    const gptData = await res.json();
+    if (gptData.usage) {
+      if (!S.cost.gpt[model]) S.cost.gpt[model] = { input: 0, output: 0 };
+      S.cost.gpt[model].input  += gptData.usage.prompt_tokens || 0;
+      S.cost.gpt[model].output += gptData.usage.completion_tokens || 0;
+      if (opts.phase && S.cost._phases) {
+        S.cost._phases[opts.phase] = (S.cost._phases[opts.phase] || 0) +
+          (calcCost(model, gptData.usage.prompt_tokens || 0, gptData.usage.completion_tokens || 0) || 0);
+      }
+    }
+    return gptData.choices[0].message.content;
   }
-  return gptData.choices[0].message.content;
 }
 
 async function callClaude(system, user, opts = {}) {
@@ -1994,34 +2010,48 @@ async function callClaude(system, user, opts = {}) {
   } else {
     userContent = user;
   }
-  let res;
-  try {
-    res = await fetch(endpoint, { method: 'POST', headers,
-      body: JSON.stringify({ model, max_tokens: opts.maxTokens || 8192, system,
-        messages: [{ role: 'user', content: userContent }] }) });
-  } catch (e) {
-    throw new Error(CLOUD_PROXY_URL
-      ? 'Cloudflare Workerへの接続失敗。'
-      : 'Claude APIへの接続失敗: ' + e.message);
-  }
-  if (!res.ok) {
-    const e = await res.json().catch(()=>({}));
-    const m = e?.error?.message || res.statusText;
-    if (res.status === 401) throw new Error('Anthropic 401: APIキーが無効です。');
-    if (res.status === 429) throw new Error('Anthropic 429: レート制限またはクレジット不足。');
-    throw new Error('Anthropic ' + res.status + ': ' + m);
-  }
-  const claudeData = await res.json();
-  if (claudeData.usage) {
-    if (!S.cost.claude[model]) S.cost.claude[model] = { input: 0, output: 0 };
-    S.cost.claude[model].input  += claudeData.usage.input_tokens || 0;
-    S.cost.claude[model].output += claudeData.usage.output_tokens || 0;
-    if (opts.phase && S.cost._phases) {
-      S.cost._phases[opts.phase] = (S.cost._phases[opts.phase] || 0) +
-        (calcCost(model, claudeData.usage.input_tokens || 0, claudeData.usage.output_tokens || 0) || 0);
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    let res;
+    try {
+      res = await fetch(endpoint, { method: 'POST', headers,
+        body: JSON.stringify({ model, max_tokens: opts.maxTokens || 8192, system,
+          messages: [{ role: 'user', content: userContent }] }) });
+    } catch (e) {
+      throw new Error(CLOUD_PROXY_URL
+        ? 'Cloudflare Workerへの接続失敗。'
+        : 'Claude APIへの接続失敗: ' + e.message);
     }
+    if (!res.ok) {
+      const e = await res.json().catch(()=>({}));
+      const m = e?.error?.message || res.statusText;
+      const type = e?.error?.type || '';
+      if (res.status === 401) throw new Error('Anthropic 401: APIキーが無効です。');
+      if (res.status === 429) {
+        if (type === 'overloaded_error' || m.toLowerCase().includes('credit') || m.toLowerCase().includes('balance')) {
+          throw new Error('Anthropic クレジット残高不足: console.anthropic.com/settings/billing でチャージしてください。');
+        }
+        if (attempt < MAX_RETRIES) {
+          const waitMs = Math.min(2000 * Math.pow(2, attempt), 30000);
+          await _sleep(waitMs);
+          continue;
+        }
+        throw new Error('Anthropic レート制限 (429): しばらく待ってから再試行してください。');
+      }
+      throw new Error('Anthropic ' + res.status + ': ' + m);
+    }
+    const claudeData = await res.json();
+    if (claudeData.usage) {
+      if (!S.cost.claude[model]) S.cost.claude[model] = { input: 0, output: 0 };
+      S.cost.claude[model].input  += claudeData.usage.input_tokens || 0;
+      S.cost.claude[model].output += claudeData.usage.output_tokens || 0;
+      if (opts.phase && S.cost._phases) {
+        S.cost._phases[opts.phase] = (S.cost._phases[opts.phase] || 0) +
+          (calcCost(model, claudeData.usage.input_tokens || 0, claudeData.usage.output_tokens || 0) || 0);
+      }
+    }
+    return claudeData.content[0].text;
   }
-  return claudeData.content[0].text;
 }
 
 async function callGemini(system, user, opts = {}) {
@@ -2036,32 +2066,42 @@ async function callGemini(system, user, opts = {}) {
   }
   userParts.push({ text: user });
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-  const res = await fetch(url, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ parts: userParts }],
-      generationConfig: { temperature: 0, maxOutputTokens: opts.maxTokens || 8192 }
-    })
-  });
-  if (!res.ok) {
-    const e = await res.json().catch(()=>({}));
-    const m = e?.error?.message || res.statusText;
-    if (res.status === 400 && m.includes('API key')) throw new Error('Gemini 400: APIキーが無効です。');
-    if (res.status === 429) throw new Error('Gemini 429: レート制限。');
-    throw new Error('Gemini ' + res.status + ': ' + m);
-  }
-  const geminiData = await res.json();
-  if (geminiData.usageMetadata) {
-    if (!S.cost.gemini[model]) S.cost.gemini[model] = { input: 0, output: 0 };
-    S.cost.gemini[model].input  += geminiData.usageMetadata.promptTokenCount || 0;
-    S.cost.gemini[model].output += geminiData.usageMetadata.candidatesTokenCount || 0;
-    if (opts.phase && S.cost._phases) {
-      S.cost._phases[opts.phase] = (S.cost._phases[opts.phase] || 0) +
-        (calcCost(model, geminiData.usageMetadata.promptTokenCount || 0, geminiData.usageMetadata.candidatesTokenCount || 0) || 0);
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ parts: userParts }],
+        generationConfig: { temperature: 0, maxOutputTokens: opts.maxTokens || 8192 }
+      })
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(()=>({}));
+      const m = e?.error?.message || res.statusText;
+      if (res.status === 400 && m.includes('API key')) throw new Error('Gemini 400: APIキーが無効です。');
+      if (res.status === 429) {
+        if (attempt < MAX_RETRIES) {
+          const waitMs = Math.min(2000 * Math.pow(2, attempt), 30000);
+          await _sleep(waitMs);
+          continue;
+        }
+        throw new Error('Gemini レート制限 (429): しばらく待ってから再試行してください。');
+      }
+      throw new Error('Gemini ' + res.status + ': ' + m);
     }
+    const geminiData = await res.json();
+    if (geminiData.usageMetadata) {
+      if (!S.cost.gemini[model]) S.cost.gemini[model] = { input: 0, output: 0 };
+      S.cost.gemini[model].input  += geminiData.usageMetadata.promptTokenCount || 0;
+      S.cost.gemini[model].output += geminiData.usageMetadata.candidatesTokenCount || 0;
+      if (opts.phase && S.cost._phases) {
+        S.cost._phases[opts.phase] = (S.cost._phases[opts.phase] || 0) +
+          (calcCost(model, geminiData.usageMetadata.promptTokenCount || 0, geminiData.usageMetadata.candidatesTokenCount || 0) || 0);
+      }
+    }
+    return geminiData.candidates[0].content.parts[0].text;
   }
-  return geminiData.candidates[0].content.parts[0].text;
 }
 
 async function callBest(system, user, opts = {}) {

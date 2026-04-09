@@ -622,6 +622,26 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
         if not rows:
             rows = ('<tr><td colspan="12" style="text-align:center;color:#94a3b8;'
                     'padding:28px;">保存された結果はありません</td></tr>')
+        # 累計コスト計算（管理画面表示用）
+        total_all_gpt = 0.0; total_all_claude = 0.0; total_all_gemini = 0.0
+        for e2 in results:
+            try:
+                cd = json.loads(e2.get('api_cost') or '{}')
+            except Exception:
+                cd = {}
+            for provider, acc in [('gpt', total_all_gpt), ('claude', total_all_claude), ('gemini', total_all_gemini)]:
+                c = cd.get(provider)
+                if not c: continue
+                cv = c.get('cost')
+                if cv is None:
+                    cv = _calc_cost(c.get('model',''), c.get('input',0), c.get('output',0))
+                if isinstance(cv, (int,float)):
+                    if provider == 'gpt':    total_all_gpt    += cv
+                    elif provider == 'claude': total_all_claude += cv
+                    else:                      total_all_gemini += cv
+        total_all = total_all_gpt + total_all_claude + total_all_gemini
+        avg_per_check = (total_all / len(results)) if results else 0
+
         html = f'''<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8"><title>管理ページ - 結果一覧</title>
 <style>
@@ -643,9 +663,72 @@ code{{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px}}
   button{{padding:4px 10px;border:1px solid #fca5a5;background:#fff;
           color:#dc2626;border-radius:5px;cursor:pointer;font-size:12px}}
   button:hover{{background:#fef2f2}}
+  .billing-card{{background:#fff;border-radius:12px;padding:20px 24px;
+                 box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:20px;
+                 border-left:4px solid #f59e0b}}
+  .billing-card h2{{font-size:15px;margin:0 0 12px;color:#92400e;display:flex;align-items:center;gap:8px}}
+  .billing-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}}
+  .billing-stat{{background:#fef3c7;border-radius:8px;padding:10px 14px}}
+  .billing-stat .label{{font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;margin-bottom:3px}}
+  .billing-stat .value{{font-size:18px;font-weight:800;color:#1e293b}}
+  .billing-links{{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}}
+  .billing-link{{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;
+                 border-radius:999px;font-size:12px;font-weight:700;text-decoration:none;
+                 border:1px solid;transition:opacity .15s}}
+  .billing-link:hover{{opacity:.75;text-decoration:none}}
+  .bl-openai{{background:#d1fae5;color:#065f46;border-color:#6ee7b7}}
+  .bl-anthropic{{background:#fce7f3;color:#831843;border-color:#f9a8d4}}
+  .bl-google{{background:#dbeafe;color:#1e40af;border-color:#93c5fd}}
+  .billing-notice{{font-size:12px;color:#64748b;line-height:1.7;margin-top:10px;
+                   border-top:1px solid #f1f5f9;padding-top:10px}}
+  .billing-notice strong{{color:#dc2626}}
 </style></head>
 <body>
 <h1>📋 保存済み翻訳チェック結果一覧</h1>
+
+<div class="billing-card">
+  <h2>⚠️ APIクレジット残高・チャージ案内</h2>
+  <div class="billing-grid">
+    <div class="billing-stat">
+      <div class="label">📊 このアプリの累計コスト（全 {len(results)} 件）</div>
+      <div class="value">${total_all:.4f}</div>
+    </div>
+    <div class="billing-stat">
+      <div class="label">📈 1回あたりの平均コスト</div>
+      <div class="value">${avg_per_check:.4f}</div>
+    </div>
+    <div class="billing-stat">
+      <div class="label">🟢 OpenAI（GPT）累計</div>
+      <div class="value">${total_all_gpt:.4f}</div>
+    </div>
+    <div class="billing-stat">
+      <div class="label">🟣 Anthropic（Claude）累計</div>
+      <div class="value">${total_all_claude:.4f}</div>
+    </div>
+  </div>
+  <div class="billing-links">
+    <a class="billing-link bl-openai"
+       href="https://platform.openai.com/settings/organization/billing" target="_blank">
+      🟢 OpenAI 残高確認・チャージ
+    </a>
+    <a class="billing-link bl-anthropic"
+       href="https://console.anthropic.com/settings/billing" target="_blank">
+      🟣 Anthropic 残高確認・チャージ
+    </a>
+    <a class="billing-link bl-google"
+       href="https://console.cloud.google.com/billing" target="_blank">
+      🔵 Google Cloud 残高確認・チャージ
+    </a>
+  </div>
+  <div class="billing-notice">
+    <strong>429エラー（クレジット残高不足）が出たときは？</strong><br>
+    「OpenAI 429」エラーはAPIキーに紐づくクレジット残高がゼロになったか、短時間のリクエスト過多（レート制限）が原因です。<br>
+    • <strong>残高不足の場合</strong>：上記リンクから各プロバイダーのBillingページを開き、クレジットを追加してください。<br>
+    • <strong>レート制限の場合</strong>：アプリ側で自動リトライ（最大3回、指数バックオフ）が動作します。それでも失敗する場合は数分待ってから再実行してください。<br>
+    • <strong>チャージの目安</strong>：1回の翻訳チェックの平均コストは上記「平均コスト」を参照。安全のため平均の <strong>20〜30回分</strong>（目安 $5〜$10）以上を常にキープすることを推奨します。
+  </div>
+</div>
+
 <div class="card">
   <div class="meta">全 {len(results)} 件（有効期限切れは自動削除）</div>
   <table>
