@@ -146,6 +146,12 @@ body {
 .hb-issues { background: #fee2e2; color: #991b1b; }
 .hb-elapsed { background: #e0e7ff; color: #3730a3; }
 .hb-expired { background: #f1f5f9; color: #94a3b8; }
+.hb-running { background: #dbeafe; color: #1d4ed8; animation: hist-pulse 1.5s ease-in-out infinite; }
+.hb-interrupted { background: #fef3c7; color: #92400e; }
+.hb-done-nopub { background: #d1fae5; color: #065f46; }
+@keyframes hist-pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+.hist-item.is-running { border-color: #93c5fd; background: #eff6ff; }
+.hist-item.is-interrupted { border-color: #fcd34d; background: #fffbeb; }
 .hist-url-row { display: flex; align-items: center; gap: 6px; }
 .hist-url {
   font-size: 11px; color: var(--primary); text-decoration: none;
@@ -1810,8 +1816,6 @@ async function extractFromFiles(files, countElId, opts = {}) {
       throw new Error('未対応の形式: ' + f.name);
     }
   }
-  setOverallTitle('全体進捗（開始）');
-  if (stepsEl) stepsEl.textContent = `0 / 0 ステップ`;
   return combined;
 }
 
@@ -2095,6 +2099,21 @@ function _pSemaphore(n) {
   });
 }
 
+/** Gemini 429 時の Retry-After をヘッダまたは JSON から取得（ミリ秒、上限あり） */
+function _geminiRetryAfterMs(res, errBody) {
+  const h = res.headers.get('retry-after') || res.headers.get('x-ratelimit-reset-requests');
+  if (h) {
+    const sec = parseFloat(h.trim());
+    if (!isNaN(sec) && sec >= 0) return Math.min(sec * 1000, 120000);
+  }
+  const ra = errBody?.error?.message && String(errBody.error.message).match(/try again in ([\d.]+)s/i);
+  if (ra) {
+    const sec = parseFloat(ra[1]);
+    if (!isNaN(sec)) return Math.min(sec * 1000, 120000);
+  }
+  return null;
+}
+
 /** OpenAI 429 時の Retry-After（秒）をヘッダまたは JSON から取得（ミリ秒、上限あり） */
 function _openaiRetryAfterMs(res, errBody) {
   const h = res.headers.get('retry-after');
@@ -2271,8 +2290,9 @@ async function callGemini(system, user, opts = {}) {
   }
   userParts.push({ text: user });
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-  const MAX_RETRIES = 3;
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  const MAX_RATE_RETRIES = 6;
+  let rateAttempt = 0;
+  for (let attempt = 0; attempt < 8; attempt++) {
     const res = await fetch(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2286,10 +2306,13 @@ async function callGemini(system, user, opts = {}) {
       const m = e?.error?.message || res.statusText;
       if (res.status === 400 && m.includes('API key')) throw new Error('Gemini 400: APIキーが無効です。');
       if (res.status === 429) {
-        if (attempt < MAX_RETRIES) {
-          const waitMs = Math.min(2000 * Math.pow(2, attempt), 30000);
+        if (rateAttempt < MAX_RATE_RETRIES) {
+          const fromApi = _geminiRetryAfterMs(res, e);
+          const fallback = Math.min(5000 * Math.pow(2, rateAttempt), 90000);
+          const waitMs = fromApi != null ? fromApi : fallback;
           const waitSec = Math.round(waitMs / 1000);
-          setOverallTitle(`Gemini レート制限: ${waitSec}秒待機後にリトライ（${attempt + 1}/${MAX_RETRIES}回目）`);
+          setOverallTitle(`Gemini レート制限: ${waitSec}秒待機後にリトライ（${rateAttempt + 1}/${MAX_RATE_RETRIES}回目）`);
+          rateAttempt++;
           await _sleep(waitMs);
           continue;
         }
@@ -3662,6 +3685,7 @@ async function startChecking() {
   S.elapsedMs = null;
   clearActivity();
   startLiveTimer();
+  initOverallProgress(3);
   addActivity('翻訳チェックを開始しました');
   const nouns     = document.getElementById('properNouns').value;
   const dir       = getDir();
@@ -3679,14 +3703,21 @@ async function startChecking() {
   document.getElementById('resultsCard').classList.remove('hidden');
   sessionStart(); // 同時実行ユーザー数をサーバーに登録
 
+  const jpNames = (S.jpFiles || []).map(f => f.name);
+  const enNames = (S.enFiles || []).map(f => f.name);
+  saveRunningEntry([...jpNames, ...enNames]);
+
   // まず翻訳文を抽出し、原本OCRの整合性判定に使う
   S.jpPageImages = []; S.enPageImages = []; S.ocrValidation = null;
   try {
+    setOverallTitle('全体進捗（翻訳文を抽出中…）');
     const enText = await extractFromFiles(S.enFiles, 'enCount', { role: 'target' });
     S.enText = enText;
     document.getElementById('enCount').textContent = `テキスト抽出: ${enText.length.toLocaleString()} 文字`;
     document.getElementById('enCount').classList.remove('hidden');
+    stepOverallProgress();
 
+    setOverallTitle('全体進捗（原文を抽出中…）');
     const jpText = await extractFromFiles(S.jpFiles, 'jpCount', {
       role: 'source',
       referencePages: splitByPage(enText)
@@ -3694,6 +3725,7 @@ async function startChecking() {
     S.jpText = jpText;
     document.getElementById('jpCount').textContent = `テキスト抽出: ${jpText.length.toLocaleString()} 文字`;
     document.getElementById('jpCount').classList.remove('hidden');
+    stepOverallProgress();
 
     ['jp','en'].forEach(lang => {
       document.getElementById(lang+'Count').classList.remove('hidden');
@@ -3702,6 +3734,7 @@ async function startChecking() {
     alert('ファイルの抽出エラー: ' + err.message);
     S.running = false;
     sessionEnd();
+    updateCurrentRunEntry({ status: 'error', elapsed: S.startTime ? formatElapsed(Date.now() - S.startTime) : null });
     document.getElementById('startBtn').disabled = false; checkStart(); return;
   }
 
@@ -3752,6 +3785,7 @@ async function startChecking() {
   } else {
     setProgress('ocr-v', 'skip', 'AI-OCR未使用（pdfjs直接抽出）');
   }
+  stepOverallProgress();
 
   const src = S.jpText, tgt = S.enText;
   const tableAnalysis = analyzeTableLikelihood(src, tgt);
@@ -3776,10 +3810,11 @@ async function startChecking() {
     : [];
   const chunks = buildPageChunks(src, tgt, getChunkSize(), verificationImages);
   const activeP1AIs = [gptKey, claudeKey, geminiKey].filter(Boolean).length;
-  const totalSteps = isEcoMode()
+  const aiSteps = isEcoMode()
     ? 1 + (activeP1AIs * chunks.length) + 1
     : 1 + (activeP1AIs * chunks.length) + chunks.length + chunks.length + 1;
-  initOverallProgress(totalSteps);
+  S.progress.total = S.progress.done + aiSteps;
+  renderOverallProgress();
 
   // ── Phase 0: Preparation ──
   const allSrcImages = verificationImages.map(img => img.base64);
@@ -3971,6 +4006,12 @@ async function startChecking() {
   sessionEnd(); // 同時実行ユーザー数をサーバーから解除
   finalizeOverallProgress();
   setOverallTitle('全体進捗（完了）');
+  updateCurrentRunEntry({
+    status: 'done',
+    score: S.stats.score,
+    total: S.stats.total,
+    elapsed: S.elapsedMs != null ? formatElapsed(S.elapsedMs) : null,
+  });
   document.getElementById('startBtn').disabled = false;
   checkStart();
 
@@ -4215,18 +4256,10 @@ async function autoSave() {
     S.publishedExpires = (data.expires_at || '').slice(0, 10);
     saveFiles(data.id).catch(() => {}); // バックグラウンドでファイル保存
 
-    // 自分の履歴に記録
-    const jpNames = (S.jpFiles || []).map(f => f.name);
-    const enNames = (S.enFiles || []).map(f => f.name);
-    const allFiles = [...jpNames, ...enNames];
-    saveHistoryEntry({
+    // 実行中エントリにURL情報を追記
+    updateCurrentRunEntry({
       url:     data.url,
       expires: S.publishedExpires || '',
-      date:    new Date().toISOString(),
-      score:   S.stats.score,
-      total:   S.stats.total,
-      elapsed: S.elapsedMs != null ? formatElapsed(S.elapsedMs) : null,
-      files:   allFiles,
     });
 
     if (btn) { btn.disabled = false; btn.textContent = '🔗 URLをコピー'; }
@@ -4276,6 +4309,47 @@ function saveHistoryEntry(entry) {
   updateHistBadge();
 }
 
+function saveRunningEntry(files) {
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  S._runId = id;
+  saveHistoryEntry({
+    id,
+    status: 'running',
+    date: new Date().toISOString(),
+    files,
+    score: null,
+    total: null,
+    elapsed: null,
+    url: null,
+    expires: null,
+  });
+}
+
+function updateCurrentRunEntry(data) {
+  if (!S._runId) return;
+  const list = loadHistory();
+  const entry = list.find(e => e.id === S._runId);
+  if (entry) {
+    Object.assign(entry, data);
+    localStorage.setItem(HIST_KEY, JSON.stringify(list));
+    updateHistBadge();
+  }
+}
+
+function markRunningAsInterrupted() {
+  const list = loadHistory();
+  let changed = false;
+  for (const entry of list) {
+    if (entry.status === 'running') {
+      entry.status = 'interrupted';
+      changed = true;
+    }
+  }
+  if (changed) {
+    localStorage.setItem(HIST_KEY, JSON.stringify(list));
+  }
+}
+
 function updateHistBadge() {
   const list = loadHistory();
   const badge = document.getElementById('histBadge');
@@ -4308,12 +4382,20 @@ function renderHistoryList() {
     body.innerHTML = '<div class="hist-empty">まだ履歴がありません。<br>チェックを実行すると自動的に記録されます。</div>';
     return;
   }
+  const statusLabels = {
+    running:     { text: '⟳ 実行中…', cls: 'hb-running' },
+    interrupted: { text: '⚠ 中断（ブラウザが閉じられました）', cls: 'hb-interrupted' },
+    error:       { text: '✕ エラーで中断', cls: 'hb-interrupted' },
+  };
   const items = list.map((entry, idx) => {
     const d = new Date(entry.date);
     const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     const filesStr = entry.files && entry.files.length
       ? entry.files.slice(0, 4).join(' ／ ') + (entry.files.length > 4 ? ` 他${entry.files.length - 4}件` : '')
       : '（ファイル名不明）';
+
+    const st = statusLabels[entry.status];
+    const statusBadge = st ? `<span class="hist-badge ${st.cls}">${st.text}</span>` : '';
     const scoreBadge = entry.score && entry.score !== '-'
       ? `<span class="hist-badge hb-score">品質: ${entry.score}</span>` : '';
     const issuesBadge = entry.total != null
@@ -4322,16 +4404,25 @@ function renderHistoryList() {
       ? `<span class="hist-badge hb-elapsed">${entry.elapsed}</span>` : '';
     const expiredBadge = entry.expires
       ? `<span class="hist-badge hb-expired">有効期限: ${entry.expires}</span>` : '';
-    return `<div class="hist-item">
+
+    const itemCls = entry.status === 'running' ? 'hist-item is-running'
+      : entry.status === 'interrupted' || entry.status === 'error' ? 'hist-item is-interrupted'
+      : 'hist-item';
+
+    const urlRow = entry.url
+      ? `<div class="hist-url-row">
+          <a class="hist-url" href="${entry.url}" target="_blank" rel="noopener">${entry.url}</a>
+          <button class="hist-copy-btn" onclick="histCopyUrl(${idx})">コピー</button>
+        </div>`
+      : '';
+
+    return `<div class="${itemCls}">
       <div class="hist-item-num">${list.length - idx}</div>
       <div class="hist-item-body">
         <div class="hist-item-date">${dateStr}</div>
         <div class="hist-item-files">${filesStr}</div>
-        <div class="hist-item-meta">${scoreBadge}${issuesBadge}${elapsedBadge}${expiredBadge}</div>
-        <div class="hist-url-row">
-          <a class="hist-url" href="${entry.url}" target="_blank" rel="noopener">${entry.url}</a>
-          <button class="hist-copy-btn" onclick="histCopyUrl(${idx})">コピー</button>
-        </div>
+        <div class="hist-item-meta">${statusBadge}${scoreBadge}${issuesBadge}${elapsedBadge}${expiredBadge}</div>
+        ${urlRow}
       </div>
       <button class="hist-del-btn" onclick="deleteHistoryEntry(${idx})" title="この履歴を削除">🗑</button>
     </div>`;
@@ -4364,6 +4455,7 @@ function clearAllHistory() {
 }
 
 // ═══════════════════ Init ═══════════════════
+markRunningAsInterrupted();
 loadSettings();
 updateDirectionUI();
 updateTableModeHelp();
