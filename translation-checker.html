@@ -2100,22 +2100,23 @@ async function callGPT(system, user, opts = {}) {
   const baseModel = document.getElementById('openaiModel').value;
   const model     = opts.mini ? (MINI_MODEL_MAP[baseModel] || baseModel) : baseModel;
   if (!key) throw new Error('OpenAI APIキーが未設定です');
-  const images = opts.images || [];
-  let userContent;
-  if (images.length > 0) {
+  let images = [...(opts.images || [])];
+  const buildContent = () => {
+    if (images.length === 0) return user;
     const parts = images.map(b64 => ({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + b64, detail: 'high' } }));
     parts.push({ type: 'text', text: user });
-    userContent = parts;
-  } else {
-    userContent = user;
-  }
-  const MAX_RETRIES = 6;
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    return parts;
+  };
+  const MAX_RATE_RETRIES = 6;
+  const MAX_IMG_REDUCTIONS = 6;
+  let imgReductions = 0;
+  let rateAttempt = 0;
+  while (true) {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
       body: JSON.stringify({ model, temperature: 0, max_completion_tokens: opts.maxTokens || 8192,
-        messages: [{ role: 'system', content: system }, { role: 'user', content: userContent }] })
+        messages: [{ role: 'system', content: system }, { role: 'user', content: buildContent() }] })
     });
     if (!res.ok) {
       const e = await res.json().catch(()=>({}));
@@ -2125,16 +2126,28 @@ async function callGPT(system, user, opts = {}) {
         if (code === 'insufficient_quota') {
           throw new Error('OpenAI クレジット残高不足: 利用残高がゼロです。platform.openai.com/settings/organization/billing でチャージしてください。');
         }
-        if (attempt < MAX_RETRIES) {
+        if (rateAttempt < MAX_RATE_RETRIES) {
           const fromApi = _openaiRetryAfterMs(res, e);
-          const fallback = Math.min(3000 * Math.pow(2, attempt), 90000);
+          const fallback = Math.min(3000 * Math.pow(2, rateAttempt), 90000);
           const waitMs = fromApi != null ? fromApi : fallback;
           const waitSec = Math.round(waitMs / 1000);
-          setOverallTitle(`OpenAI レート制限: ${waitSec}秒待機後にリトライ（${attempt + 1}/${MAX_RETRIES}回目）`);
+          setOverallTitle(`OpenAI レート制限: ${waitSec}秒待機後にリトライ（${rateAttempt + 1}/${MAX_RATE_RETRIES}回目）`);
+          rateAttempt++;
           await _sleep(waitMs);
           continue;
         }
         throw new Error('OpenAI レート制限 (429): トークン/分またはリクエスト/分の上限に達しました。画像ページが多いと1回の処理でも発生します。数分待って再実行するか、platform.openai.com/settings/organization/limits でティアと上限を確認してください。');
+      }
+      // コンテキスト長超過 → 画像を半減してリトライ
+      if (code === 'context_length_exceeded' || (res.status === 400 && (m.toLowerCase().includes('context') || m.toLowerCase().includes('too long')))) {
+        if (images.length > 0 && imgReductions < MAX_IMG_REDUCTIONS) {
+          imgReductions++;
+          images = images.slice(0, Math.max(0, Math.floor(images.length / 2)));
+          const label = images.length > 0 ? `画像を${images.length}枚に削減` : '画像なし';
+          setOverallTitle(`OpenAI: コンテキスト超過のため${label}でリトライ（${imgReductions}回目）`);
+          continue;
+        }
+        throw new Error('OpenAI 400: プロンプトが長すぎます。ページ数が多すぎます。文書を分割して実行してください。');
       }
       if (res.status === 401) throw new Error('OpenAI 401: APIキーが無効です。');
       throw new Error('OpenAI ' + res.status + ': ' + m);
@@ -2163,22 +2176,23 @@ async function callClaude(system, user, opts = {}) {
     : 'https://api.anthropic.com/v1/messages';
   const headers = { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' };
   if (!CLOUD_PROXY_URL) headers['anthropic-dangerous-request-allow-browser'] = 'true';
-  const images = opts.images || [];
-  let userContent;
-  if (images.length > 0) {
+  let images = [...(opts.images || [])];
+  const buildContent = () => {
+    if (images.length === 0) return user;
     const parts = images.map(b64 => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } }));
     parts.push({ type: 'text', text: user });
-    userContent = parts;
-  } else {
-    userContent = user;
-  }
-  const MAX_RETRIES = 3;
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    return parts;
+  };
+  const MAX_RATE_RETRIES = 3;
+  const MAX_IMG_REDUCTIONS = 6; // 最大6回半減（64枚→1枚まで対応）
+  let imgReductions = 0;
+  let rateAttempt = 0;
+  while (true) {
     let res;
     try {
       res = await fetch(endpoint, { method: 'POST', headers,
         body: JSON.stringify({ model, max_tokens: opts.maxTokens || 8192, system,
-          messages: [{ role: 'user', content: userContent }] }) });
+          messages: [{ role: 'user', content: buildContent() }] }) });
     } catch (e) {
       throw new Error(CLOUD_PROXY_URL
         ? 'Cloudflare Workerへの接続失敗。'
@@ -2193,14 +2207,26 @@ async function callClaude(system, user, opts = {}) {
         if (type === 'overloaded_error' || m.toLowerCase().includes('credit') || m.toLowerCase().includes('balance')) {
           throw new Error('Anthropic クレジット残高不足: console.anthropic.com/settings/billing でチャージしてください。');
         }
-        if (attempt < MAX_RETRIES) {
-          const waitMs = Math.min(2000 * Math.pow(2, attempt), 30000);
+        if (rateAttempt < MAX_RATE_RETRIES) {
+          const waitMs = Math.min(2000 * Math.pow(2, rateAttempt), 30000);
           const waitSec = Math.round(waitMs / 1000);
-          setOverallTitle(`Anthropic レート制限: ${waitSec}秒待機後にリトライ（${attempt + 1}/${MAX_RETRIES}回目）`);
+          setOverallTitle(`Anthropic レート制限: ${waitSec}秒待機後にリトライ（${rateAttempt + 1}/${MAX_RATE_RETRIES}回目）`);
+          rateAttempt++;
           await _sleep(waitMs);
           continue;
         }
         throw new Error('Anthropic レート制限 (429): しばらく待ってから再試行してください。');
+      }
+      // プロンプト長超過 → 画像を半減してリトライ
+      if (res.status === 400 && m.toLowerCase().includes('prompt is too long')) {
+        if (images.length > 0 && imgReductions < MAX_IMG_REDUCTIONS) {
+          imgReductions++;
+          images = images.slice(0, Math.max(0, Math.floor(images.length / 2)));
+          const label = images.length > 0 ? `画像を${images.length}枚に削減` : '画像なし';
+          setOverallTitle(`Anthropic: プロンプト超過のため${label}でリトライ（${imgReductions}回目）`);
+          continue;
+        }
+        throw new Error('Anthropic 400: プロンプトが長すぎます。ページ数が多すぎます。文書を分割して実行してください。');
       }
       throw new Error('Anthropic ' + res.status + ': ' + m);
     }
