@@ -3388,7 +3388,7 @@ function renderTable(lines) {
         }
         let diffHtml = '';
         for (const { type, val } of diffResult) {
-          const e = esc(val);
+          const e = escCell(val);
           if (ci === curIdx) {
             if (type === 'eq')  diffHtml += e;
             else if (type === 'del') diffHtml += `<span style="background:#fee2e2;color:#dc2626;text-decoration:line-through;border-radius:2px">${e}</span>`;
