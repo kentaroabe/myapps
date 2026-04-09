@@ -1184,17 +1184,50 @@ async function extractOnePdf(file, countElId, pageStart, ctx) {
   for (let p = 1; p <= n; p++) {
     const page    = await pdf.getPage(p);
     const content = await page.getTextContent();
-    const lines   = [];
-    let lastY = null, line = '';
-    content.items.forEach(item => {
-      if (lastY !== null && Math.abs(item.transform[5] - lastY) > 4) {
-        if (line.trim()) lines.push(line.trim());
-        line = '';
+    const viewport = page.getViewport({ scale: 1.0 });
+    const pageW = viewport.width;
+
+    const items = content.items
+      .filter(it => it.str && it.str.trim())
+      .map(it => ({
+        str: it.str,
+        x: it.transform[4],
+        y: Math.round(it.transform[5] * 10) / 10,
+        w: it.width || 0,
+        fontSize: Math.abs(it.transform[0]) || 12,
+      }));
+
+    const rows = [];
+    let curY = null, curRow = [];
+    const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
+    for (const it of sorted) {
+      if (curY !== null && Math.abs(it.y - curY) > 3) {
+        if (curRow.length) rows.push(curRow);
+        curRow = [];
       }
-      line += item.str;
-      lastY = item.transform[5];
-    });
-    if (line.trim()) lines.push(line.trim());
+      curRow.push(it);
+      curY = it.y;
+    }
+    if (curRow.length) rows.push(curRow);
+
+    const avgFontSize = items.length
+      ? items.reduce((s, it) => s + it.fontSize, 0) / items.length : 12;
+    const gapThreshold = avgFontSize * 1.8;
+
+    const lines = rows.map(row => {
+      row.sort((a, b) => a.x - b.x);
+      let line = '';
+      for (let i = 0; i < row.length; i++) {
+        if (i > 0) {
+          const prevEnd = row[i - 1].x + row[i - 1].w;
+          const gap = row[i].x - prevEnd;
+          line += gap > gapThreshold ? '\t' : (gap > avgFontSize * 0.3 ? ' ' : '');
+        }
+        line += row[i].str;
+      }
+      return line.trim();
+    }).filter(Boolean);
+
     const pg = pageStart + p - 1;
     text += `\n=== ページ ${pg} ===\n${lines.join('\n')}\n`;
   }
@@ -1361,8 +1394,8 @@ async function callSourceOcrSmart(base64, opts = {}) {
   const promptHints = [
     opts.extraHints || '',
     imageKind === 'photo'
-      ? 'スマートフォン撮影画像です。傾き・影・遠近歪みがあっても、見えている文字を1行も落とさず復元してください。'
-      : 'スキャン文書です。表・欄外・注記・チェック欄も漏らさず拾ってください。'
+      ? 'スマートフォン撮影画像です。傾き・影・遠近歪みがあっても、見えている文字を1行も落とさず復元してください。表組みがある場合はMarkdownテーブル形式で構造を保持し、ラベルと値の対応を正確に再現してください。'
+      : 'スキャン文書です。表組み・罫線で区切られた領域が多い文書です。表はMarkdownテーブル形式（| セル | セル |）で出力し、ラベル列と値列の対応関係を正確に保持してください。結合セルにも注意し、表・欄外・注記・チェック欄も漏らさず拾ってください。'
   ].filter(Boolean).join(' / ');
   const prompt = buildOcrPrompt(promptHints);
 
@@ -1477,7 +1510,15 @@ function buildOcrPrompt(extraHints = '') {
   return [
     'このページに書かれているすべてのテキストを徹底的・完全に書き起こしてください。',
     '【絶対に省略・中断しないこと】ページ全体を上から下まで、すべての文字を1行も漏らさず出力すること。',
-    '・表・リスト・フォーム内のすべてのセルを含めること（ヘッダー行も含む）',
+    '',
+    '■ 表・テーブルの処理（最重要）:',
+    '・表がある場合は必ず Markdown テーブル形式（| セル | セル |）で出力すること',
+    '・結合セルは該当する行すべてに同じ内容を繰り返すか、空欄を入れて構造を維持すること',
+    '・ラベル列（左側）と値列（右側）の対応関係を正確に保持すること',
+    '・入れ子テーブルや複数の表がある場合は、それぞれ独立した Markdown テーブルとして出力し、間に空行を入れること',
+    '・表の行と列の位置関係が原本と同じ順序になるようにすること',
+    '',
+    '■ その他:',
     '・ページ端・欄外・ヘッダー・フッター・注釈のテキストも必ず含めること',
     '・複数段組になっているテキストは各段をすべて書き起こすこと',
     '・画像が傾いていても、斜めでも、影があっても、読める文字は推定して最後まで出力すること',
@@ -1932,7 +1973,14 @@ function getDocQualityBlock() {
 - 本リクエストには原本のページ画像が添付されています
 - 【最重要】数値・固有名詞・住所・日付の確認は必ず添付画像を直接参照して行うこと
 - OCRテキストは補助的な参考情報として使用し、画像と矛盾する場合は画像を正とすること
-- 画像で判読困難な箇所は「原本判読困難」と明記し、翻訳ミスと断定しないこと`;
+- 画像で判読困難な箇所は「原本判読困難」と明記し、翻訳ミスと断定しないこと
+
+## 表組み・複雑レイアウトへの対応（重要）
+
+- 原本には保険証書・契約書など複雑な表組み（入れ子テーブル、結合セル、ラベル＋値の構造）を含む場合があります
+- OCRテキストは表の列構造が崩れている可能性があります。テキスト上の行順ではなく、添付画像の実際のレイアウトで位置関係を確認してください
+- 翻訳の正誤判定は「同じセル位置にある内容が正しく翻訳されているか」で行い、単純に「N行目 vs N行目」の比較はしないでください
+- 表のラベル（項目名）と値（内容）の対応が原文と翻訳文で一致しているかを重点的にチェックしてください`;
 }
 
 // ═══════════════════ Phase 0: Prep Prompts ═══════════════════
