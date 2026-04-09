@@ -1034,6 +1034,9 @@ const MINI_MODEL_MAP = {
   'gpt-5.4':             'gpt-5.4-mini',
   'gpt-5.4-mini':        'gpt-5.4-nano',
   'gpt-5.4-nano':        'gpt-5.4-nano',
+  'gpt-4.1':             'gpt-4.1-mini',
+  'gpt-4.1-mini':        'gpt-4.1-nano',
+  'gpt-4.1-nano':        'gpt-4.1-nano',
   'gpt-4o':              'gpt-4o-mini',
   'gpt-4o-mini':         'gpt-4o-mini',
   'claude-opus-4':       'claude-haiku-4-5',
@@ -2100,6 +2103,8 @@ async function callGPT(system, user, opts = {}) {
           const fromApi = _openaiRetryAfterMs(res, e);
           const fallback = Math.min(3000 * Math.pow(2, attempt), 90000);
           const waitMs = fromApi != null ? fromApi : fallback;
+          const waitSec = Math.round(waitMs / 1000);
+          setOverallTitle(`OpenAI レート制限: ${waitSec}秒待機後にリトライ（${attempt + 1}/${MAX_RETRIES}回目）`);
           await _sleep(waitMs);
           continue;
         }
@@ -2164,6 +2169,8 @@ async function callClaude(system, user, opts = {}) {
         }
         if (attempt < MAX_RETRIES) {
           const waitMs = Math.min(2000 * Math.pow(2, attempt), 30000);
+          const waitSec = Math.round(waitMs / 1000);
+          setOverallTitle(`Anthropic レート制限: ${waitSec}秒待機後にリトライ（${attempt + 1}/${MAX_RETRIES}回目）`);
           await _sleep(waitMs);
           continue;
         }
@@ -2214,6 +2221,8 @@ async function callGemini(system, user, opts = {}) {
       if (res.status === 429) {
         if (attempt < MAX_RETRIES) {
           const waitMs = Math.min(2000 * Math.pow(2, attempt), 30000);
+          const waitSec = Math.round(waitMs / 1000);
+          setOverallTitle(`Gemini レート制限: ${waitSec}秒待機後にリトライ（${attempt + 1}/${MAX_RETRIES}回目）`);
           await _sleep(waitMs);
           continue;
         }
@@ -2247,11 +2256,32 @@ async function callBest(system, user, opts = {}) {
   ];
   // PROVIDER_ROTATION_OFFSET(0-2)でローテーション：複数ユーザーの負荷を分散
   const order = [...all.slice(PROVIDER_ROTATION_OFFSET), ...all.slice(0, PROVIDER_ROTATION_OFFSET)];
+  const _isRateLimit = e => e.message.includes('レート制限') || e.message.includes('429');
+  const rateLimitedIds = new Set();
+  // Pass 1: excludeリスト外のプロバイダーを優先。レート制限なら次へフォールバック
   for (const ai of order) {
-    if (ai.key && !exclude.includes(ai.id)) return { ai: ai.id, result: await ai.fn() };
+    if (!ai.key || exclude.includes(ai.id)) continue;
+    try {
+      return { ai: ai.id, result: await ai.fn() };
+    } catch (e) {
+      if (_isRateLimit(e)) { rateLimitedIds.add(ai.id); continue; }
+      throw e;
+    }
   }
+  // Pass 2: excludeリスト含め残りのプロバイダーを試す（まだレート制限でないもの優先）
   for (const ai of order) {
-    if (ai.key) return { ai: ai.id, result: await ai.fn() };
+    if (!ai.key || rateLimitedIds.has(ai.id)) continue;
+    try {
+      return { ai: ai.id, result: await ai.fn() };
+    } catch (e) {
+      if (_isRateLimit(e)) { rateLimitedIds.add(ai.id); continue; }
+      throw e;
+    }
+  }
+  if (rateLimitedIds.size > 0) {
+    const names = { gpt: 'OpenAI', claude: 'Anthropic', gemini: 'Gemini' };
+    const list = [...rateLimitedIds].map(id => names[id] || id).join('・');
+    throw new Error(`全AIプロバイダー（${list}）がレート制限に達しました。数分待ってから再実行してください。`);
   }
   throw new Error('利用可能なAPIキーがありません');
 }
