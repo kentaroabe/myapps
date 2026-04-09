@@ -1531,16 +1531,13 @@ async function extractOnePdf(file, countElId, pageStart, ctx) {
   const contentChars = text.replace(/=== ページ \d+ ===\n?/g, '').replace(/\s+/g, '').length;
   if (contentChars / n < 50) {
     text = '';
-    for (let p = 1; p <= n; p++) {
+    const sem = _pSemaphore(3); // 最大3ページ同時OCR
+    const pageSlots = new Array(n).fill('');
+    let doneCount = 0;
+    await Promise.all(Array.from({ length: n }, (_, idx) => sem(async () => {
+      const p = idx + 1;
       const pg = pageStart + p - 1;
-      const msg = ctx.fileTotal > 1
-        ? `🔍 AI-OCR中 (${sideLabel}): ファイル${ctx.fileIdx}/${ctx.fileTotal} ${ctx.fileName} — ${p}/${n}ページ`
-        : `🔍 AI-OCR中 (${sideLabel}): ${p} / ${n} ページ`;
-      if (countEl) { countEl.textContent = msg; countEl.classList.remove('hidden'); }
-      setOverallTitle(msg);
-      if (stepsEl) stepsEl.textContent = `${p} / ${n} ページ`;
       const base64 = await pdfPageToBase64(pdf, p, ctx.role === 'source' ? 3.6 : 3.0);
-      // 再OCR用にページ画像を保存（上限30ページ）
       const _imgStore = sideLabel === '原文' ? S.jpPageImages : S.enPageImages;
       upsertPageImage(_imgStore, pg, base64, 'pdf_scan');
       const pageText = ctx.role === 'source'
@@ -1550,8 +1547,16 @@ async function extractOnePdf(file, countElId, pageStart, ctx) {
             referenceText: ctx.referencePages?.[pg - 1] || ''
           })).text
         : await callOcrBest(base64);
-      text += `\n=== ページ ${pg} ===\n${pageText}\n`;
-    }
+      pageSlots[idx] = `\n=== ページ ${pg} ===\n${pageText}\n`;
+      doneCount++;
+      const msg = ctx.fileTotal > 1
+        ? `🔍 AI-OCR中 (${sideLabel}): ファイル${ctx.fileIdx}/${ctx.fileTotal} ${ctx.fileName} — ${doneCount}/${n}ページ完了`
+        : `🔍 AI-OCR中 (${sideLabel}): ${doneCount} / ${n} ページ完了`;
+      if (countEl) { countEl.textContent = msg; countEl.classList.remove('hidden'); }
+      setOverallTitle(msg);
+      if (stepsEl) stepsEl.textContent = `${doneCount} / ${n} ページ`;
+    })));
+    text = pageSlots.join('');
   }
   return { text, pages: n };
 }
@@ -2079,6 +2084,16 @@ async function reOcrAllPages(pageImages, validation, referencePages = []) {
 
 // ═══════════════════ API Calls ═══════════════════
 const _sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/** 同時実行数を n に制限する簡易セマフォ */
+function _pSemaphore(n) {
+  let active = 0;
+  const queue = [];
+  return fn => new Promise((res, rej) => {
+    const run = () => { active++; fn().then(res).catch(rej).finally(() => { active--; if (queue.length) queue.shift()(); }); };
+    if (active < n) run(); else queue.push(run);
+  });
+}
 
 /** OpenAI 429 時の Retry-After（秒）をヘッダまたは JSON から取得（ミリ秒、上限あり） */
 function _openaiRetryAfterMs(res, errBody) {
@@ -3789,21 +3804,21 @@ async function startChecking() {
   const p1Tasks = [];
   let p1Total = 0;
   const chunked = async (runner, onStep) => {
-    const out = [];
+    const resultSlots = new Array(chunks.length).fill('');
     let findings = 0;
-    for (let i = 0; i < chunks.length; i++) {
-      const c = chunks[i];
-      onStep(i + 1, chunks.length, c);
+    onStep(1, chunks.length, chunks[0]);
+    await Promise.all(chunks.map(async (c, i) => {
       try {
         const res = await runner(c, i + 1, chunks.length);
         findings += countFindings(res);
-        out.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${res}`);
+        resultSlots[i] = `## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${res}`;
       } catch (err) {
-        out.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n⚠️ ${err.message}`);
+        resultSlots[i] = `## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n⚠️ ${err.message}`;
       }
       stepOverallProgress();
-    }
-    return { text: out.join('\n\n---\n\n'), findings };
+      onStep(i + 1, chunks.length, c);
+    }));
+    return { text: resultSlots.join('\n\n---\n\n'), findings };
   };
 
   if (gptKey) {
@@ -3867,18 +3882,25 @@ async function startChecking() {
     setContent('p2-cmp', 'エコノミーモードのため逆翻訳比較はスキップされました。');
   } else {
     try {
-      setProgress('p2a', 'running', `逆翻訳を生成中...（1/${chunks.length}）`);
+      setProgress('p2a', 'running', `逆翻訳を生成中...（全${chunks.length}チャンク並列）`);
       setLoading('p2-bt');
-      for (let i = 0; i < chunks.length; i++) {
-        const c = chunks[i];
-        setProgress('p2a', 'running', `逆翻訳を生成中...（${i + 1}/${chunks.length}）`);
-        const btRes = await callBest(sysBackTranslate(), promptBackTranslate(c.tgt), { maxTokens: 16384, mini: true, phase: 'p2' });
-        btChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${btRes.result}`);
-        btAIs.push(btRes.ai);
+      const btSlots = new Array(chunks.length).fill(null);
+      const aiSlots = new Array(chunks.length).fill(null);
+      await Promise.all(chunks.map(async (c, i) => {
+        try {
+          const btRes = await callBest(sysBackTranslate(), promptBackTranslate(c.tgt), { maxTokens: 16384, mini: true, phase: 'p2' });
+          btSlots[i] = `## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${btRes.result}`;
+          aiSlots[i] = btRes.ai;
+        } catch (err) {
+          btSlots[i] = `## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n⚠️ ${err.message}`;
+          aiSlots[i] = null;
+        }
         stepOverallProgress();
-      }
+        setProgress('p2a', 'running', `逆翻訳を生成中...`);
+      }));
+      btSlots.forEach((s, i) => { btChunks.push(s); btAIs.push(aiSlots[i]); });
       S.p2bt = btChunks.join('\n\n---\n\n');
-      const primaryAI = btAIs[0] || 'gpt';
+      const primaryAI = btAIs.find(Boolean) || 'gpt';
       setProgress('p2a', 'done', '完了 (' + { gpt:'GPT', claude:'Claude', gemini:'Gemini' }[primaryAI] + '中心)');
       setRawContent('p2-bt', S.p2bt);
     } catch (err) {
@@ -3888,25 +3910,27 @@ async function startChecking() {
     }
 
     if (S.p2bt) {
-      const cmpChunks = [];
+      const cmpSlots = new Array(chunks.length).fill('');
       try {
-        setProgress('p2b', 'running', `セグメント対照比較中...（1/${chunks.length}）`);
+        setProgress('p2b', 'running', `セグメント対照比較中...（全${chunks.length}チャンク並列）`);
         setLoading('p2-cmp');
-        for (let i = 0; i < chunks.length; i++) {
-          const c = chunks[i];
-          setProgress('p2b', 'running', `セグメント対照比較中...（${i + 1}/${chunks.length}）`);
-          const btBody = btChunks[i]?.replace(/^##[^\n]+\n/, '') || '';
-          const cmpRes = await callBest(sysBackCompare(), promptBackCompare(c.src, btBody, nouns),
-            { exclude: btAIs[i] ? [btAIs[i]] : [], maxTokens: 8192, mini: true, phase: 'p2', images: c.images });
-          p2Findings += countFindings(cmpRes.result);
-          cmpChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${cmpRes.result}`);
+        await Promise.all(chunks.map(async (c, i) => {
+          try {
+            const btBody = btChunks[i]?.replace(/^##[^\n]+\n/, '') || '';
+            const cmpRes = await callBest(sysBackCompare(), promptBackCompare(c.src, btBody, nouns),
+              { exclude: btAIs[i] ? [btAIs[i]] : [], maxTokens: 8192, mini: true, phase: 'p2', images: c.images });
+            p2Findings += countFindings(cmpRes.result);
+            cmpSlots[i] = `## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${cmpRes.result}`;
+          } catch (err) {
+            cmpSlots[i] = `## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n⚠️ ${err.message}`;
+          }
           stepOverallProgress();
-        }
-        S.p2cmp = cmpChunks.join('\n\n---\n\n');
+        }));
+        S.p2cmp = cmpSlots.join('\n\n---\n\n');
         setProgress('p2b', 'done', `完了（${p2Findings}件検出）`);
         setContent('p2-cmp', S.p2cmp);
       } catch (err) {
-        if (chunks.length > cmpChunks.length) stepOverallProgress(chunks.length - cmpChunks.length);
+        stepOverallProgress(chunks.length);
         setProgress('p2b', 'err', 'エラー: ' + err.message);
         setContent('p2-cmp', err.message, true);
       }
