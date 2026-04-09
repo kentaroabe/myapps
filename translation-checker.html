@@ -49,6 +49,90 @@ body {
 .pb-backt     { background: #fef3c7; color: #92400e; }
 .pb-final     { background: #d1fae5; color: #065f46; }
 
+/* ── 履歴モーダル ── */
+.hist-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 12px; padding: 7px 18px;
+  background: rgba(79,70,229,.08); border: 1px solid rgba(79,70,229,.25);
+  border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--primary);
+  cursor: pointer; transition: background .15s, border-color .15s;
+}
+.hist-btn:hover { background: rgba(79,70,229,.14); border-color: var(--primary); }
+.hist-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9000;
+  background: rgba(15,23,42,.45); backdrop-filter: blur(3px);
+  align-items: flex-start; justify-content: center; padding: 40px 16px;
+}
+.hist-overlay.open { display: flex; }
+.hist-modal {
+  width: 100%; max-width: 760px; max-height: calc(100vh - 80px);
+  background: #fff; border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(15,23,42,.18);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.hist-modal-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 18px 24px; border-bottom: 1px solid var(--border);
+  font-size: 16px; font-weight: 800;
+}
+.hist-modal-head .hist-close {
+  margin-left: auto; background: none; border: none; font-size: 20px;
+  cursor: pointer; color: var(--muted); line-height: 1;
+}
+.hist-modal-body { overflow-y: auto; padding: 16px 24px; flex: 1; }
+.hist-empty { text-align: center; color: var(--muted); padding: 48px 0; font-size: 14px; }
+.hist-list { display: flex; flex-direction: column; gap: 10px; }
+.hist-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px; border: 1px solid var(--border);
+  border-radius: 14px; background: #fafbff;
+  transition: box-shadow .15s;
+}
+.hist-item:hover { box-shadow: var(--shadow-sm); }
+.hist-item-num {
+  font-size: 11px; font-weight: 800; color: var(--muted);
+  min-width: 22px; padding-top: 2px; text-align: right;
+}
+.hist-item-body { flex: 1; min-width: 0; }
+.hist-item-date { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.hist-item-files { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; word-break: break-all; }
+.hist-item-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.hist-badge {
+  font-size: 11px; font-weight: 700; padding: 3px 9px;
+  border-radius: 999px; border: 1px solid rgba(15,23,42,.07);
+}
+.hb-score { background: #d1fae5; color: #065f46; }
+.hb-issues { background: #fee2e2; color: #991b1b; }
+.hb-elapsed { background: #e0e7ff; color: #3730a3; }
+.hb-expired { background: #f1f5f9; color: #94a3b8; }
+.hist-url-row { display: flex; align-items: center; gap: 8px; }
+.hist-url {
+  font-size: 12px; color: var(--primary); text-decoration: none;
+  word-break: break-all; flex: 1;
+}
+.hist-url:hover { text-decoration: underline; }
+.hist-copy-btn {
+  flex-shrink: 0; padding: 3px 10px; font-size: 11px; font-weight: 700;
+  background: none; border: 1px solid var(--border); border-radius: 999px;
+  cursor: pointer; color: var(--muted); white-space: nowrap;
+}
+.hist-copy-btn:hover { border-color: var(--primary); color: var(--primary); }
+.hist-del-btn {
+  flex-shrink: 0; background: none; border: none; font-size: 16px;
+  cursor: pointer; color: #cbd5e1; padding: 2px 4px; line-height: 1;
+  transition: color .15s;
+}
+.hist-del-btn:hover { color: var(--error); }
+.hist-footer {
+  padding: 12px 24px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end;
+}
+.hist-clear-btn {
+  font-size: 12px; color: var(--error); background: none; border: none;
+  cursor: pointer; font-weight: 700;
+}
+.hist-clear-btn:hover { text-decoration: underline; }
+
 .card {
   background: linear-gradient(180deg, #fff, #fcfdff 80%);
   border: 1px solid var(--border);
@@ -262,10 +346,6 @@ table.md-tbl col.col-note   { width: 15%; }
 </style>
 </head>
 <body>
-<div style="background:#fffbeb;border-bottom:2px solid #f59e0b;padding:10px 20px;font-size:13px;color:#92400e;display:flex;align-items:center;gap:8px;">
-  <span style="font-size:16px;">⚠️</span>
-  <span><strong>2026/04/08 10:20</strong> に Gemini の API key を変更しました。</span>
-</div>
 <div class="container">
 
 <div class="header">
@@ -276,6 +356,23 @@ table.md-tbl col.col-note   { width: 15%; }
     <span class="phase-badge pb-specialist">Phase 1｜3AI専門検証</span>
     <span class="phase-badge pb-backt">Phase 2｜逆翻訳検証</span>
     <span class="phase-badge pb-final">Phase 3｜統合レポート</span>
+  </div>
+  <button class="hist-btn" onclick="openHistoryModal()">🕐 自分の実行履歴 <span id="histBadge" style="display:none;background:var(--primary);color:#fff;border-radius:999px;padding:1px 7px;font-size:10px;"></span></button>
+</div>
+
+<!-- 履歴モーダル -->
+<div class="hist-overlay" id="histOverlay" onclick="if(event.target===this)closeHistoryModal()">
+  <div class="hist-modal">
+    <div class="hist-modal-head">
+      🕐 自分の実行履歴
+      <button class="hist-close" onclick="closeHistoryModal()">✕</button>
+    </div>
+    <div class="hist-modal-body" id="histModalBody">
+      <div class="hist-empty">まだ履歴がありません</div>
+    </div>
+    <div class="hist-footer">
+      <button class="hist-clear-btn" onclick="clearAllHistory()">すべての履歴を削除</button>
+    </div>
   </div>
 </div>
 
@@ -3735,6 +3832,21 @@ async function autoSave() {
     S.publishedUrl = data.url;
     S.publishedExpires = (data.expires_at || '').slice(0, 10);
     saveFiles(data.id).catch(() => {}); // バックグラウンドでファイル保存
+
+    // 自分の履歴に記録
+    const jpNames = (S.jpFiles || []).map(f => f.name);
+    const enNames = (S.enFiles || []).map(f => f.name);
+    const allFiles = [...jpNames, ...enNames];
+    saveHistoryEntry({
+      url:     data.url,
+      expires: S.publishedExpires || '',
+      date:    new Date().toISOString(),
+      score:   S.stats.score,
+      total:   S.stats.total,
+      elapsed: S.elapsedMs != null ? formatElapsed(S.elapsedMs) : null,
+      files:   allFiles,
+    });
+
     if (btn) { btn.disabled = false; btn.textContent = '🔗 URLをコピー'; }
   } catch (err) {
     console.warn('自動保存に失敗:', err.message);
@@ -3766,6 +3878,105 @@ async function saveAndPublish() {
   }
 }
 
+// ═══════════════════ 履歴機能（localStorage） ═══════════════════
+const HIST_KEY = 'tc_history_v1';
+const HIST_MAX = 60;
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch { return []; }
+}
+
+function saveHistoryEntry(entry) {
+  const list = loadHistory();
+  list.unshift(entry);
+  if (list.length > HIST_MAX) list.length = HIST_MAX;
+  localStorage.setItem(HIST_KEY, JSON.stringify(list));
+  updateHistBadge();
+}
+
+function updateHistBadge() {
+  const list = loadHistory();
+  const badge = document.getElementById('histBadge');
+  if (!badge) return;
+  if (list.length > 0) {
+    badge.style.display = 'inline';
+    badge.textContent = list.length;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function openHistoryModal() {
+  renderHistoryList();
+  document.getElementById('histOverlay').classList.add('open');
+}
+
+function closeHistoryModal() {
+  document.getElementById('histOverlay').classList.remove('open');
+}
+
+function renderHistoryList() {
+  const body = document.getElementById('histModalBody');
+  const list = loadHistory();
+  if (!list.length) {
+    body.innerHTML = '<div class="hist-empty">まだ履歴がありません。<br>チェックを実行すると自動的に記録されます。</div>';
+    return;
+  }
+  const items = list.map((entry, idx) => {
+    const d = new Date(entry.date);
+    const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const filesStr = entry.files && entry.files.length
+      ? entry.files.slice(0, 4).join(' ／ ') + (entry.files.length > 4 ? ` 他${entry.files.length - 4}件` : '')
+      : '（ファイル名不明）';
+    const scoreBadge = entry.score && entry.score !== '-'
+      ? `<span class="hist-badge hb-score">品質: ${entry.score}</span>` : '';
+    const issuesBadge = entry.total != null
+      ? `<span class="hist-badge hb-issues">指摘: ${entry.total}件</span>` : '';
+    const elapsedBadge = entry.elapsed
+      ? `<span class="hist-badge hb-elapsed">${entry.elapsed}</span>` : '';
+    const expiredBadge = entry.expires
+      ? `<span class="hist-badge hb-expired">有効期限: ${entry.expires}</span>` : '';
+    return `<div class="hist-item">
+      <div class="hist-item-num">${list.length - idx}</div>
+      <div class="hist-item-body">
+        <div class="hist-item-date">${dateStr}</div>
+        <div class="hist-item-files">${filesStr}</div>
+        <div class="hist-item-meta">${scoreBadge}${issuesBadge}${elapsedBadge}${expiredBadge}</div>
+        <div class="hist-url-row">
+          <a class="hist-url" href="${entry.url}" target="_blank" rel="noopener">${entry.url}</a>
+          <button class="hist-copy-btn" onclick="histCopyUrl(${idx})">コピー</button>
+        </div>
+      </div>
+      <button class="hist-del-btn" onclick="deleteHistoryEntry(${idx})" title="この履歴を削除">🗑</button>
+    </div>`;
+  });
+  body.innerHTML = `<div class="hist-list">${items.join('')}</div>`;
+}
+
+function histCopyUrl(idx) {
+  const list = loadHistory();
+  if (!list[idx]) return;
+  navigator.clipboard.writeText(list[idx].url).then(() => {
+    const btns = document.querySelectorAll('.hist-copy-btn');
+    if (btns[idx]) { btns[idx].textContent = '✓ コピー済'; setTimeout(() => { btns[idx].textContent = 'コピー'; }, 1800); }
+  }).catch(() => {});
+}
+
+function deleteHistoryEntry(idx) {
+  const list = loadHistory();
+  list.splice(idx, 1);
+  localStorage.setItem(HIST_KEY, JSON.stringify(list));
+  updateHistBadge();
+  renderHistoryList();
+}
+
+function clearAllHistory() {
+  if (!confirm('すべての履歴を削除しますか？')) return;
+  localStorage.removeItem(HIST_KEY);
+  updateHistBadge();
+  renderHistoryList();
+}
+
 // ═══════════════════ Init ═══════════════════
 loadSettings();
 updateDirectionUI();
@@ -3776,6 +3987,7 @@ updateTableModeHelp();
 });
 updateSummary();
 renderOverallProgress();
+updateHistBadge();
 </script>
 </body>
 </html>
