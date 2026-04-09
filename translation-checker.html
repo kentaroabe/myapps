@@ -50,14 +50,33 @@ body {
 .pb-final     { background: #d1fae5; color: #065f46; }
 
 /* ── 履歴サイドバー ── */
-.hist-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  margin-top: 12px; padding: 7px 18px;
-  background: rgba(79,70,229,.08); border: 1px solid rgba(79,70,229,.25);
-  border-radius: 999px; font-size: 13px; font-weight: 700; color: var(--primary);
-  cursor: pointer; transition: background .15s, border-color .15s;
+.hamburger-btn {
+  position: fixed; top: 14px; left: 14px; z-index: 8999;
+  width: 44px; height: 44px;
+  background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+  border: 1px solid rgba(79,70,229,.22);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(15,23,42,.12);
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  transition: background .15s, box-shadow .15s, transform .1s;
+  padding: 0;
 }
-.hist-btn:hover { background: rgba(79,70,229,.14); border-color: var(--primary); }
+.hamburger-btn:hover { background: rgba(79,70,229,.08); box-shadow: 0 4px 16px rgba(79,70,229,.18); }
+.hamburger-btn:active { transform: scale(.94); }
+.hamburger-btn .hb-line {
+  display: block; width: 20px; height: 2px;
+  background: var(--primary); border-radius: 2px;
+  transition: transform .2s, opacity .2s;
+}
+.hamburger-badge {
+  position: absolute; top: 6px; right: 6px;
+  background: var(--primary); color: #fff;
+  border-radius: 999px; font-size: 9px; font-weight: 800;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  display: none; align-items: center; justify-content: center;
+  line-height: 1; pointer-events: none;
+}
 
 /* オーバーレイ背景 */
 .hist-overlay {
@@ -415,8 +434,15 @@ table.md-tbl col.col-note   { width: 15%; }
     <span class="phase-badge pb-backt">Phase 2｜逆翻訳検証</span>
     <span class="phase-badge pb-final">Phase 3｜統合レポート</span>
   </div>
-  <button class="hist-btn" onclick="openHistoryModal()">🕐 自分の実行履歴 <span id="histBadge" style="display:none;background:var(--primary);color:#fff;border-radius:999px;padding:1px 7px;font-size:10px;"></span></button>
 </div>
+
+<!-- ハンバーガーボタン（固定・左上） -->
+<button class="hamburger-btn" onclick="openHistoryModal()" title="実行履歴" aria-label="実行履歴を開く">
+  <span class="hb-line"></span>
+  <span class="hb-line"></span>
+  <span class="hb-line"></span>
+  <span class="hamburger-badge" id="histBadge"></span>
+</button>
 
 <!-- 履歴サイドバー -->
 <div class="hist-overlay" id="histOverlay" onclick="closeHistoryModal()"></div>
@@ -4205,7 +4231,7 @@ function updateHistBadge() {
   const badge = document.getElementById('histBadge');
   if (!badge) return;
   if (list.length > 0) {
-    badge.style.display = 'inline';
+    badge.style.display = 'flex';
     badge.textContent = list.length;
   } else {
     badge.style.display = 'none';
