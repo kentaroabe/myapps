@@ -263,6 +263,19 @@ textarea { min-height: 96px; resize: vertical; font-family: inherit; line-height
 .overall-meta { margin-top: 7px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
 .live-timer { font-variant-numeric: tabular-nums; font-weight: 700; color: #6366f1; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* ── 同時実行ユーザー数バナー ── */
+#concurrentBanner {
+  display: none; align-items: center; gap: 10px;
+  margin-bottom: 10px; padding: 9px 14px;
+  background: #fef3c7; border: 1px solid #fcd34d; border-radius: 10px;
+  font-size: 12px; color: #92400e; font-weight: 600;
+}
+#concurrentBanner.many {
+  background: #fee2e2; border-color: #fca5a5; color: #991b1b;
+}
+#concurrentBanner .cb-icon { font-size: 15px; }
+#concurrentBanner .cb-detail { font-weight: 400; font-size: 11px; color: #b45309; margin-left: 4px; }
+#concurrentBanner.many .cb-detail { color: #b91c1c; }
 .spin { display: inline-block; animation: spin .8s linear infinite; }
 .activity-log { margin-top: 8px; padding: 8px 10px; background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; font-size: 11px; max-height: 80px; overflow-y: auto; display: none; }
 .activity-log.visible { display: block; }
@@ -621,6 +634,11 @@ table.md-tbl col.col-note   { width: 15%; }
 <!-- Progress -->
 <div class="card hidden" id="progressCard">
   <div class="card-header">⏳ 処理状況</div>
+  <div id="concurrentBanner">
+    <span class="cb-icon">👥</span>
+    <span id="concurrentText">現在 <strong id="concurrentCount">1</strong> 人が処理中</span>
+    <span class="cb-detail" id="concurrentDetail"></span>
+  </div>
   <div class="overall-progress">
     <div class="overall-head">
       <div class="overall-title" id="overallTitle">全体進捗</div>
@@ -829,6 +847,10 @@ table.md-tbl col.col-note   { width: 15%; }
 const CLOUD_PROXY_URL  = 'https://translation-checker.abe-f3a.workers.dev';
 const RESULT_SERVER_URL = 'https://myapps-hl7r.onrender.com';
 function getResultServerUrl() { return RESULT_SERVER_URL; }
+
+// タブ開設時刻の下1桁(0-2)でプロバイダーの試行順を分散。
+// 複数人が同時に使っても GPT / Claude / Gemini に均等に振り分けられる。
+const PROVIDER_ROTATION_OFFSET = Date.now() % 3;
 
 // ═══════════════════ Style Guide ═══════════════════
 const STYLE_GUIDE = `
@@ -1955,6 +1977,21 @@ async function reOcrAllPages(pageImages, validation, referencePages = []) {
 // ═══════════════════ API Calls ═══════════════════
 const _sleep = ms => new Promise(r => setTimeout(r, ms));
 
+/** OpenAI 429 時の Retry-After（秒）をヘッダまたは JSON から取得（ミリ秒、上限あり） */
+function _openaiRetryAfterMs(res, errBody) {
+  const h = res.headers.get('retry-after');
+  if (h) {
+    const sec = parseFloat(h.trim());
+    if (!isNaN(sec) && sec >= 0) return Math.min(sec * 1000, 120000);
+  }
+  const ra = errBody?.error?.message && String(errBody.error.message).match(/try again in ([\d.]+)s/i);
+  if (ra) {
+    const sec = parseFloat(ra[1]);
+    if (!isNaN(sec)) return Math.min(sec * 1000, 120000);
+  }
+  return null;
+}
+
 async function callGPT(system, user, opts = {}) {
   const key       = document.getElementById('openaiKey').value.trim();
   const baseModel = document.getElementById('openaiModel').value;
@@ -1969,7 +2006,7 @@ async function callGPT(system, user, opts = {}) {
   } else {
     userContent = user;
   }
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 6;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -1986,11 +2023,13 @@ async function callGPT(system, user, opts = {}) {
           throw new Error('OpenAI クレジット残高不足: 利用残高がゼロです。platform.openai.com/settings/organization/billing でチャージしてください。');
         }
         if (attempt < MAX_RETRIES) {
-          const waitMs = Math.min(2000 * Math.pow(2, attempt), 30000);
+          const fromApi = _openaiRetryAfterMs(res, e);
+          const fallback = Math.min(3000 * Math.pow(2, attempt), 90000);
+          const waitMs = fromApi != null ? fromApi : fallback;
           await _sleep(waitMs);
           continue;
         }
-        throw new Error('OpenAI レート制限 (429): リクエストが多すぎます。しばらく待ってから再試行してください。');
+        throw new Error('OpenAI レート制限 (429): トークン/分またはリクエスト/分の上限に達しました。画像ページが多いと1回の処理でも発生します。数分待って再実行するか、platform.openai.com/settings/organization/limits でティアと上限を確認してください。');
       }
       if (res.status === 401) throw new Error('OpenAI 401: APIキーが無効です。');
       throw new Error('OpenAI ' + res.status + ': ' + m);
@@ -2127,11 +2166,13 @@ async function callBest(system, user, opts = {}) {
   const claudeKey = document.getElementById('anthropicKey').value.trim();
   const geminiKey = document.getElementById('geminiKey').value.trim();
   const exclude   = opts.exclude || [];
-  const order = [
+  const all = [
     { id: 'gpt',    key: gptKey,    fn: () => callGPT(system, user, opts)    },
     { id: 'claude', key: claudeKey, fn: () => callClaude(system, user, opts) },
     { id: 'gemini', key: geminiKey, fn: () => callGemini(system, user, opts) },
   ];
+  // PROVIDER_ROTATION_OFFSET(0-2)でローテーション：複数ユーザーの負荷を分散
+  const order = [...all.slice(PROVIDER_ROTATION_OFFSET), ...all.slice(0, PROVIDER_ROTATION_OFFSET)];
   for (const ai of order) {
     if (ai.key && !exclude.includes(ai.id)) return { ai: ai.id, result: await ai.fn() };
   }
@@ -3352,6 +3393,71 @@ async function copyFinalReport() {
   }
 }
 
+// ═══════════════════ 同時実行ユーザー数の表示 ═══════════════════
+let _sessionId      = null;
+let _sessionTimer   = null;
+
+async function sessionStart() {
+  try {
+    const r = await fetch(getResultServerUrl() + '/api/session/start', { method: 'POST' });
+    if (!r.ok) return;
+    const d = await r.json();
+    _sessionId = d.session_id;
+    updateConcurrentBanner(d.active);
+    // 30秒ごとにハートビートを送り、セッションを延命する
+    _sessionTimer = setInterval(async () => {
+      try {
+        const hb = await fetch(getResultServerUrl() + '/api/session/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: _sessionId })
+        });
+        if (hb.ok) updateConcurrentBanner((await hb.json()).active);
+      } catch { /* 無視 */ }
+    }, 30000);
+  } catch { /* サーバーが落ちていても処理は続行 */ }
+}
+
+async function sessionEnd() {
+  if (_sessionTimer) { clearInterval(_sessionTimer); _sessionTimer = null; }
+  if (!_sessionId) return;
+  try {
+    await fetch(getResultServerUrl() + '/api/session/end', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: _sessionId })
+    });
+  } catch { /* 無視 */ }
+  _sessionId = null;
+  hideConcurrentBanner();
+}
+
+function updateConcurrentBanner(active) {
+  const banner  = document.getElementById('concurrentBanner');
+  const countEl = document.getElementById('concurrentCount');
+  const detail  = document.getElementById('concurrentDetail');
+  if (!banner) return;
+  countEl.textContent = active;
+  if (active <= 1) {
+    banner.style.display = 'none';
+    return;
+  }
+  banner.style.display = 'flex';
+  banner.classList.toggle('many', active >= 4);
+  if (active === 2) {
+    detail.textContent = '（あなたを含む2人。処理速度への影響は軽微です）';
+  } else if (active === 3) {
+    detail.textContent = '（あなたを含む3人。まれに処理が遅くなる場合があります）';
+  } else {
+    detail.textContent = `（あなたを含む ${active} 人。APIレート制限により処理が遅くなる可能性があります）`;
+  }
+}
+
+function hideConcurrentBanner() {
+  const banner = document.getElementById('concurrentBanner');
+  if (banner) banner.style.display = 'none';
+}
+
 // ═══════════════════ Main Workflow ═══════════════════
 async function startChecking() {
   if (S.running) return;
@@ -3379,6 +3485,7 @@ async function startChecking() {
   document.getElementById('startBtn').disabled = true;
   document.getElementById('progressCard').classList.remove('hidden');
   document.getElementById('resultsCard').classList.remove('hidden');
+  sessionStart(); // 同時実行ユーザー数をサーバーに登録
 
   // まず翻訳文を抽出し、原本OCRの整合性判定に使う
   S.jpPageImages = []; S.enPageImages = []; S.ocrValidation = null;
@@ -3402,6 +3509,7 @@ async function startChecking() {
   } catch (err) {
     alert('ファイルの抽出エラー: ' + err.message);
     S.running = false;
+    sessionEnd();
     document.getElementById('startBtn').disabled = false; checkStart(); return;
   }
 
@@ -3646,6 +3754,7 @@ async function startChecking() {
   S.elapsedMs = S.startTime != null ? (Date.now() - S.startTime) : null;
   updateSummary();
   S.running = false;
+  sessionEnd(); // 同時実行ユーザー数をサーバーから解除
   finalizeOverallProgress();
   setOverallTitle('全体進捗（完了）');
   document.getElementById('startBtn').disabled = false;
@@ -4050,6 +4159,17 @@ updateTableModeHelp();
 updateSummary();
 renderOverallProgress();
 updateHistBadge();
+
+// タブを閉じたときにセッションを即時解除（sendBeacon で非同期送信）
+window.addEventListener('beforeunload', () => {
+  if (_sessionId) {
+    const url  = getResultServerUrl() + '/api/session/end';
+    const body = JSON.stringify({ session_id: _sessionId });
+    navigator.sendBeacon
+      ? navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))
+      : fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(()=>{});
+  }
+});
 </script>
 </body>
 </html>
