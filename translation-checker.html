@@ -3562,10 +3562,31 @@ function hideConcurrentBanner() {
   if (banner) banner.style.display = 'none';
 }
 
+// ═══════════════════ Browser Notifications ═══════════════════
+function requestNotifPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') Notification.requestPermission();
+}
+
+function showCompletionNotif() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const score   = S.stats?.score ?? '-';
+  const total   = S.stats?.total ?? 0;
+  const body    = total > 0
+    ? `総合スコア: ${score}点 ／ 指摘 ${total}件`
+    : `総合スコア: ${score}点`;
+  try {
+    const n = new Notification('翻訳チェック完了！', { body, icon: 'https://em-content.zobj.net/source/google/413/check-mark-button_2705.png', silent: false });
+    n.onclick = () => { window.focus(); n.close(); };
+    setTimeout(() => n.close(), 8000);
+  } catch (_) {}
+}
+
 // ═══════════════════ Main Workflow ═══════════════════
 async function startChecking() {
   if (S.running) return;
   if (!S.jpFiles.length || !S.enFiles.length) { alert('原文と翻訳の両方に、1件以上のファイル（PDFまたは画像）を追加してください'); return; }
+  requestNotifPermission();
 
   const gptKey    = document.getElementById('openaiKey').value.trim();
   const claudeKey = document.getElementById('anthropicKey').value.trim();
@@ -3879,6 +3900,7 @@ async function startChecking() {
 
   // 完了後に自動保存
   autoSave();
+  showCompletionNotif();
 }
 
 // ═══════════════════ Reset ═══════════════════
