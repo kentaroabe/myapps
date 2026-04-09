@@ -49,7 +49,7 @@ body {
 .pb-backt     { background: #fef3c7; color: #92400e; }
 .pb-final     { background: #d1fae5; color: #065f46; }
 
-/* ── 履歴モーダル ── */
+/* ── 履歴サイドバー ── */
 .hist-btn {
   display: inline-flex; align-items: center; gap: 6px;
   margin-top: 12px; padding: 7px 18px;
@@ -58,75 +58,94 @@ body {
   cursor: pointer; transition: background .15s, border-color .15s;
 }
 .hist-btn:hover { background: rgba(79,70,229,.14); border-color: var(--primary); }
+
+/* オーバーレイ背景 */
 .hist-overlay {
   display: none; position: fixed; inset: 0; z-index: 9000;
-  background: rgba(15,23,42,.45); backdrop-filter: blur(3px);
-  align-items: flex-start; justify-content: center; padding: 40px 16px;
+  background: rgba(15,23,42,.35); backdrop-filter: blur(2px);
 }
-.hist-overlay.open { display: flex; }
-.hist-modal {
-  width: 100%; max-width: 760px; max-height: calc(100vh - 80px);
-  background: #fff; border-radius: 20px;
-  box-shadow: 0 24px 64px rgba(15,23,42,.18);
-  display: flex; flex-direction: column; overflow: hidden;
+.hist-overlay.open { display: block; }
+
+/* サイドバー本体 */
+.hist-sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 9001;
+  width: 320px; max-width: 88vw;
+  background: #fff;
+  box-shadow: 4px 0 32px rgba(15,23,42,.16);
+  display: flex; flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform .28s cubic-bezier(.4,0,.2,1);
+  will-change: transform;
 }
-.hist-modal-head {
+.hist-sidebar.open { transform: translateX(0); }
+
+.hist-sidebar-head {
   display: flex; align-items: center; gap: 10px;
-  padding: 18px 24px; border-bottom: 1px solid var(--border);
-  font-size: 16px; font-weight: 800;
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px; font-weight: 800; color: var(--text);
+  flex-shrink: 0;
 }
-.hist-modal-head .hist-close {
+.hist-sidebar-head .hist-close {
   margin-left: auto; background: none; border: none; font-size: 20px;
   cursor: pointer; color: var(--muted); line-height: 1;
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
 }
-.hist-modal-body { overflow-y: auto; padding: 16px 24px; flex: 1; }
-.hist-empty { text-align: center; color: var(--muted); padding: 48px 0; font-size: 14px; }
-.hist-list { display: flex; flex-direction: column; gap: 10px; }
+.hist-sidebar-head .hist-close:hover { background: #f1f5f9; color: var(--text); }
+
+.hist-sidebar-body { overflow-y: auto; padding: 12px 14px; flex: 1; }
+.hist-sidebar-footer {
+  padding: 12px 18px; border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; flex-shrink: 0;
+}
+
+.hist-empty { text-align: center; color: var(--muted); padding: 40px 0 32px; font-size: 13px; line-height: 1.7; }
+.hist-list { display: flex; flex-direction: column; gap: 8px; }
 .hist-item {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 14px 16px; border: 1px solid var(--border);
-  border-radius: 14px; background: #fafbff;
-  transition: box-shadow .15s;
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 12px; border: 1px solid var(--border);
+  border-radius: 12px; background: #fafbff;
+  transition: box-shadow .15s, background .15s;
+  cursor: default;
 }
-.hist-item:hover { box-shadow: var(--shadow-sm); }
+.hist-item:hover { box-shadow: var(--shadow-sm); background: #f5f7ff; }
 .hist-item-num {
-  font-size: 11px; font-weight: 800; color: var(--muted);
-  min-width: 22px; padding-top: 2px; text-align: right;
+  font-size: 10px; font-weight: 800; color: var(--muted);
+  min-width: 18px; padding-top: 2px; text-align: right; flex-shrink: 0;
 }
 .hist-item-body { flex: 1; min-width: 0; }
-.hist-item-date { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-.hist-item-files { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; word-break: break-all; }
-.hist-item-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.hist-item-date { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+.hist-item-files { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 5px; word-break: break-all; line-height: 1.4; }
+.hist-item-meta { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 7px; }
 .hist-badge {
-  font-size: 11px; font-weight: 700; padding: 3px 9px;
+  font-size: 10px; font-weight: 700; padding: 2px 8px;
   border-radius: 999px; border: 1px solid rgba(15,23,42,.07);
 }
 .hb-score { background: #d1fae5; color: #065f46; }
 .hb-issues { background: #fee2e2; color: #991b1b; }
 .hb-elapsed { background: #e0e7ff; color: #3730a3; }
 .hb-expired { background: #f1f5f9; color: #94a3b8; }
-.hist-url-row { display: flex; align-items: center; gap: 8px; }
+.hist-url-row { display: flex; align-items: center; gap: 6px; }
 .hist-url {
-  font-size: 12px; color: var(--primary); text-decoration: none;
-  word-break: break-all; flex: 1;
+  font-size: 11px; color: var(--primary); text-decoration: none;
+  word-break: break-all; flex: 1; line-height: 1.4;
 }
 .hist-url:hover { text-decoration: underline; }
 .hist-copy-btn {
-  flex-shrink: 0; padding: 3px 10px; font-size: 11px; font-weight: 700;
+  flex-shrink: 0; padding: 2px 8px; font-size: 10px; font-weight: 700;
   background: none; border: 1px solid var(--border); border-radius: 999px;
   cursor: pointer; color: var(--muted); white-space: nowrap;
+  transition: border-color .15s, color .15s;
 }
 .hist-copy-btn:hover { border-color: var(--primary); color: var(--primary); }
 .hist-del-btn {
-  flex-shrink: 0; background: none; border: none; font-size: 16px;
-  cursor: pointer; color: #cbd5e1; padding: 2px 4px; line-height: 1;
+  flex-shrink: 0; background: none; border: none; font-size: 15px;
+  cursor: pointer; color: #cbd5e1; padding: 2px 2px; line-height: 1;
   transition: color .15s;
 }
 .hist-del-btn:hover { color: var(--error); }
-.hist-footer {
-  padding: 12px 24px; border-top: 1px solid var(--border);
-  display: flex; justify-content: flex-end;
-}
 .hist-clear-btn {
   font-size: 12px; color: var(--error); background: none; border: none;
   cursor: pointer; font-weight: 700;
@@ -360,19 +379,18 @@ table.md-tbl col.col-note   { width: 15%; }
   <button class="hist-btn" onclick="openHistoryModal()">🕐 自分の実行履歴 <span id="histBadge" style="display:none;background:var(--primary);color:#fff;border-radius:999px;padding:1px 7px;font-size:10px;"></span></button>
 </div>
 
-<!-- 履歴モーダル -->
-<div class="hist-overlay" id="histOverlay" onclick="if(event.target===this)closeHistoryModal()">
-  <div class="hist-modal">
-    <div class="hist-modal-head">
-      🕐 自分の実行履歴
-      <button class="hist-close" onclick="closeHistoryModal()">✕</button>
-    </div>
-    <div class="hist-modal-body" id="histModalBody">
-      <div class="hist-empty">まだ履歴がありません</div>
-    </div>
-    <div class="hist-footer">
-      <button class="hist-clear-btn" onclick="clearAllHistory()">すべての履歴を削除</button>
-    </div>
+<!-- 履歴サイドバー -->
+<div class="hist-overlay" id="histOverlay" onclick="closeHistoryModal()"></div>
+<div class="hist-sidebar" id="histSidebar">
+  <div class="hist-sidebar-head">
+    🕐 自分の実行履歴
+    <button class="hist-close" onclick="closeHistoryModal()" title="閉じる">✕</button>
+  </div>
+  <div class="hist-sidebar-body" id="histModalBody">
+    <div class="hist-empty">まだ履歴がありません</div>
+  </div>
+  <div class="hist-sidebar-footer">
+    <button class="hist-clear-btn" onclick="clearAllHistory()">すべての履歴を削除</button>
   </div>
 </div>
 
@@ -3949,10 +3967,14 @@ function updateHistBadge() {
 function openHistoryModal() {
   renderHistoryList();
   document.getElementById('histOverlay').classList.add('open');
+  document.getElementById('histSidebar').classList.add('open');
+  document.body.style.overflow = 'hidden';
 }
 
 function closeHistoryModal() {
   document.getElementById('histOverlay').classList.remove('open');
+  document.getElementById('histSidebar').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 function renderHistoryList() {
