@@ -312,7 +312,17 @@ textarea { min-height: 96px; resize: vertical; font-family: inherit; line-height
 .thinking-dots::after { content: ''; animation: dots 1.5s steps(4,end) infinite; }
 @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
 
-.tab-bar { display: flex; gap: 2px; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto; }
+.tab-bar {
+  display: flex; gap: 2px; border-bottom: 2px solid var(--border); margin-bottom: 18px; overflow-x: auto;
+  position: sticky; top: 0; z-index: 500;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  margin-left: -24px; margin-right: -24px;
+  padding-left: 24px; padding-right: 24px;
+  padding-top: 6px;
+  box-shadow: 0 3px 12px rgba(15,23,42,.07);
+}
 .tab-btn { position: relative; padding: 7px 16px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all .15s; }
 .tab-btn:hover { color: var(--primary); }
 .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
@@ -3015,12 +3025,14 @@ ${getDocQualityBlock()}
 ## 反幻覚検証（必ず実施すること）
 
 各指摘について以下を確認し、疑わしい指摘は除外またはダウングレードすること：
-- 添付の原本ページ画像を直接参照し、「原文」欄に引用された内容が画像上で確認できるか
-- 「翻訳文」欄に引用された文が、実際に翻訳文テキストに存在するか
+- 「翻訳文テキスト（Excelから正確に抽出）」を参照し、「翻訳文」欄に引用された内容がこのテキストに実在するか確認する（最優先）
+- 添付の原本ページ画像がある場合は直接参照し、「原文」欄に引用された内容が画像上で確認できるか確認する
+- 添付画像がない場合は、OCR原文テキストと翻訳文テキストの直接比較で意味の誤りを判定する
 - 指摘された「誤り」が本当に誤りか、翻訳上の妥当な判断の範囲ではないか
 - 文脈を無視した表面的な指摘ではないか
-- OCRテキストのみを根拠とし画像で確認できない指摘は、信頼度を下げるか除外すること
-- Phase 2で「OCR起因」と判定された乖離は翻訳ミスに含めないこと`;
+- OCRテキストのみを根拠とし翻訳文テキストでも画像でも確認できない指摘は、信頼度を下げるか除外すること
+- Phase 2で「OCR起因」と判定された乖離は翻訳ミスに含めないこと
+- 翻訳文テキストで確認できる誤り（意味の誤訳・数値誤り・固有名詞誤りなど）は、画像がなくとも除外してはならない`;
 }
 
 function promptFinalSynthesis(p0, p1, p2cmp, src, tgt, nouns, dir, ocrValidation) {
@@ -3094,18 +3106,27 @@ ${tgt.substring(0, 15000)}${tgt.length > 15000 ? '\n（以下省略）' : ''}
 ${ET}
 
 信頼度の付け方：
-- 🔴 高：添付画像で直接確認できる誤り、かつ複数の検証で検出（複数AI指摘、またはPhase 1+逆翻訳の両方で検出）
-- 🟡 中：添付画像で確認できる誤り（単一AI指摘）、または複数AIが一致するがOCRテキストのみを根拠とする指摘
-- ⚪ 低：OCRテキストのみを根拠とし画像で確認困難な指摘、または反幻覚検証で疑義あり
+- 🔴 高：以下のいずれか
+  ① 添付画像で直接確認できる誤り、かつ複数の検証で検出（複数AI指摘、またはPhase 1+逆翻訳の両方で検出）
+  ② 翻訳文テキスト（Excelから正確に抽出）と原文テキストを直接比較して確認できる明白な意味の誤訳・数値誤り・固有名詞誤りで、複数AIが一致して指摘
+- 🟡 中：以下のいずれか
+  ① 添付画像で確認できる誤り（単一AI指摘）
+  ② 複数AIが一致するがOCRテキストのみを根拠とする指摘
+  ③ 翻訳文テキストと原文テキストの直接比較で確認できる誤り（単一AI指摘）
+  ④ Phase 1で「問題あり」として指摘され、翻訳文テキスト上で内容が確認できる意味の誤訳
+- ⚪ 低：OCRテキストのみを根拠とし翻訳文テキストからも確認困難な指摘、または反幻覚検証で疑義あり
+
+重要：「翻訳文テキスト（Excelから正確に抽出）」は高精度テキストであり、翻訳文の引用はこのテキストで確認すること。このテキストで確認できる指摘は「画像未添付」を理由に除外・ダウングレードしてはならない。
 
 ルール：
 - 同じ箇所の指摘は1行にまとめる
-- 反幻覚検証で添付画像・翻訳文テキストのどちらにも該当内容が確認できない指摘は除外する
+- 反幻覚検証で「翻訳文テキスト」にも「添付画像」にも該当内容が確認できない指摘のみ除外する（翻訳文テキストで確認できる指摘は除外しないこと）
 - OCR要確認ページだけを根拠にした指摘は、翻訳ミス表には入れずセクション0へ回す
 - Phase 2で「OCR起因」と判定された乖離は翻訳ミス表に含めずセクション0へ回す
 - 逆翻訳検証で確認された指摘は備考欄に「逆翻訳で確認」と記載
 - 複数AIが同じ箇所を指摘した場合は備考欄に「複数AI一致」と記載
 - 添付画像で直接確認できた指摘は備考欄に「画像で確認済」と記載
+- Phase 1で「問題なし」と判定された項目は翻訳ミス表に含めないこと
 
 ### セクション3: 誤りの種類別集計
 
