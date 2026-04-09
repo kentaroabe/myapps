@@ -364,6 +364,32 @@ table.md-tbl col.col-note   { width: 15%; }
   border: 1px solid #cbd5e1; background: #f8fafc; color: #334155;
 }
 .table-mode-help.warn { border-color: #f59e0b; background: #fffbeb; color: #92400e; }
+
+/* ── エコノミーモード ── */
+.eco-bar {
+  margin-top: 14px;
+}
+.eco-label {
+  display: flex; align-items: flex-start; gap: 12px; cursor: pointer;
+  padding: 12px 14px; border-radius: var(--radius-md);
+  border: 2px solid var(--border); background: rgba(255,255,255,.8);
+  transition: border-color .15s, background .15s;
+}
+.eco-label:hover { border-color: #f59e0b; background: #fffbeb; }
+.eco-label.active { border-color: #f59e0b; background: #fffbeb; }
+.eco-label input[type=checkbox] {
+  width: 18px; height: 18px; cursor: pointer; flex-shrink: 0;
+  margin-top: 2px; accent-color: #f59e0b;
+}
+.eco-title { font-weight: 700; font-size: 13px; color: #92400e; }
+.eco-desc  { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.55; }
+.eco-tags  { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+.eco-tag   {
+  font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;
+}
+.eco-tag.skip { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 14px; }
 .summary-card { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: #f8fafc; }
 .summary-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
@@ -625,6 +651,20 @@ table.md-tbl col.col-note   { width: 15%; }
   </div>
   <label>固有名詞の翻訳方法</label>
   <textarea id="properNouns" placeholder="例：&#10;・「山田商事株式会社」→「Yamada Shoji Co., Ltd.」&#10;・「甲」→ Contractor A、「乙」→ Contractor B&#10;・「第X条」→「Article X」"></textarea>
+  <div class="eco-bar">
+    <label class="eco-label" id="ecoLabel" for="ecoMode">
+      <input type="checkbox" id="ecoMode" onchange="saveSettings(); updateEcoBar()">
+      <div>
+        <div class="eco-title">⚡ エコノミーモード（省コスト）</div>
+        <div class="eco-desc">OCRに軽量モデルを使用し、逆翻訳検証（Phase 2）をスキップします。<br>文字数が少ない書類・OCRが簡単な書類・コスト優先の場合向け。通常モードより約40〜70%コスト削減。</div>
+        <div class="eco-tags">
+          <span class="eco-tag">OCR: 軽量モデル</span>
+          <span class="eco-tag skip">逆翻訳: スキップ</span>
+          <span class="eco-tag">Phase 3: ミニモデル</span>
+        </div>
+      </div>
+    </label>
+  </div>
   <div class="btn-row">
     <button class="btn btn-primary" id="startBtn" onclick="startChecking()" disabled>▶ 翻訳チェック開始</button>
     <button class="btn btn-secondary" onclick="resetAll()">↺ リセット</button>
@@ -982,9 +1022,13 @@ const S = {
 
 // フルモデル → ミニモデルのマッピング
 // OCR専用モデル（精度優先。翻訳チェックのモデル選択とは独立）
-const OCR_MODEL_GPT    = 'gpt-4.1';          // Vision精度優先（gpt-4oより新しく高精度）
-const OCR_MODEL_CLAUDE = 'claude-opus-4';    // 最高精度OCR（コスト優先しない）
-const OCR_MODEL_GEMINI = 'gemini-2.5-pro';   // 高精度・比較的低コスト
+const OCR_MODEL_GPT    = 'gpt-4.1';               // Vision精度優先（gpt-4oより新しく高精度）
+const OCR_MODEL_CLAUDE = 'claude-opus-4';          // 最高精度OCR（コスト優先しない）
+const OCR_MODEL_GEMINI = 'gemini-2.5-pro';         // 高精度・比較的低コスト
+// エコノミーモード用 OCRモデル（低コスト優先）
+const OCR_MODEL_GPT_ECO    = 'gpt-4.1-mini';          // 低コスト（通常比約80%削減）
+const OCR_MODEL_CLAUDE_ECO = 'claude-haiku-4-5';       // 低コスト（通常比約95%削減）
+const OCR_MODEL_GEMINI_ECO = 'gemini-2.5-flash-lite';  // 最低コスト
 
 const MINI_MODEL_MAP = {
   'gpt-5.4':             'gpt-5.4-mini',
@@ -1040,11 +1084,17 @@ function loadSettings() {
     if (VALID_MODELS[id] && !VALID_MODELS[id].includes(v)) return;
     document.getElementById(id).value = v;
   });
+  const eco = localStorage.getItem('tc_ecoMode');
+  if (eco !== null) {
+    const el = document.getElementById('ecoMode');
+    if (el) { el.checked = eco === '1'; updateEcoBar(); }
+  }
 }
 function saveSettings() {
   SETTINGS_KEYS.forEach(id => {
     localStorage.setItem('tc_' + id, document.getElementById(id).value);
   });
+  localStorage.setItem('tc_ecoMode', isEcoMode() ? '1' : '0');
 }
 function clearSavedKeys() {
   if (!confirm('localStorageに保存されているAPIキーを削除します。よろしいですか？')) return;
@@ -1084,6 +1134,11 @@ function getDocType() { return document.getElementById('docType').value; }
 function getChunkSize() { return Number(document.getElementById('chunkSize')?.value || 8); }
 function isStrictMode() { return !!document.getElementById('strictMode')?.checked; }
 function mustRedUnknown() { return !!document.getElementById('redUnknown')?.checked; }
+function isEcoMode() { return !!document.getElementById('ecoMode')?.checked; }
+function updateEcoBar() {
+  const lbl = document.getElementById('ecoLabel');
+  if (lbl) lbl.classList.toggle('active', isEcoMode());
+}
 function getTableMode() { return document.getElementById('tableMode')?.value || 'suggest'; }
 function updateTableModeHelp(mode = getTableMode(), analysis = null) {
   const el = document.getElementById('tableModeHelp');
@@ -1602,6 +1657,25 @@ async function callSourceOcrSmart(base64, opts = {}) {
   const page = opts.page || null;
   const imageKind = opts.imageKind || 'pdf_scan';
   const referenceText = opts.referenceText || '';
+
+  // エコノミーモード: バリアント生成・マルチプロバイダー比較をスキップ（1プロバイダー・原本のみ）
+  if (isEcoMode()) {
+    const promptHints = [
+      opts.extraHints || '',
+      imageKind === 'photo'
+        ? 'スマートフォン撮影画像です。傾き・影・遠近歪みがあっても、見えている文字を1行も落とさず復元してください。'
+        : 'スキャン文書です。表組みがある場合はMarkdownテーブル形式で出力してください。'
+    ].filter(Boolean).join(' / ');
+    const prompt = buildOcrPrompt(promptHints);
+    const text = await providers[0].run(base64, prompt);
+    pushOcrDiagnostic({
+      page, imageKind, referenceChars: 0,
+      best: `${providers[0].label}/original(eco)`, candidates: []
+    });
+    if (!text) throw new Error(`OCR結果が空です${page ? `（ページ ${page}）` : ''}`);
+    return { text, best: { provider: providers[0].id, label: providers[0].label, text }, candidates: [] };
+  }
+
   const variants = await createOcrVariants(base64, { aggressive: imageKind === 'photo' });
   const promptHints = [
     opts.extraHints || '',
@@ -1756,7 +1830,7 @@ async function callOcrBest(base64, extraHints = '') {
 }
 
 async function callOcrGPT(base64, prompt, key) {
-  const model = OCR_MODEL_GPT;  // 精度優先で固定
+  const model = isEcoMode() ? OCR_MODEL_GPT_ECO : OCR_MODEL_GPT;
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
@@ -1784,7 +1858,7 @@ async function callOcrGPT(base64, prompt, key) {
 }
 
 async function callOcrClaude(base64, prompt, key) {
-  const model = OCR_MODEL_CLAUDE;  // 精度優先で固定（claude-opus-4）
+  const model = isEcoMode() ? OCR_MODEL_CLAUDE_ECO : OCR_MODEL_CLAUDE;
   const endpoint = CLOUD_PROXY_URL
     ? CLOUD_PROXY_URL.replace(/\/$/, '') + '/v1/messages'
     : 'https://api.anthropic.com/v1/messages';
@@ -1815,7 +1889,7 @@ async function callOcrClaude(base64, prompt, key) {
 }
 
 async function callOcrGemini(base64, prompt, key) {
-  const model = OCR_MODEL_GEMINI;  // 精度優先で固定
+  const model = isEcoMode() ? OCR_MODEL_GEMINI_ECO : OCR_MODEL_GEMINI;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3519,7 +3593,7 @@ async function startChecking() {
     try {
       const validation = runOcrValidation(S.jpText, S.enText);
       S.ocrValidation = validation;
-      if (validation.hasMissing) {
+      if (validation.hasMissing && !isEcoMode()) {
         setProgress('ocr-v', 'running',
           `抜け漏れ疑い検出 → 再OCR中... (${validation.suspectPages.length}ページ / ${validation.reasons[0] || ''})`);
         const reOcrResults = await reOcrAllPages(S.jpPageImages, validation, splitByPage(S.enText));
@@ -3548,6 +3622,9 @@ async function startChecking() {
           improved > 0
             ? `再OCR完了: ${improved}ページ補完（原因: ${validation.reasons.join(' / ')}）`
             : `再OCR実施済み（補完なし・元OCRが最良）`);
+      } else if (validation.hasMissing && isEcoMode()) {
+        setProgress('ocr-v', 'done',
+          `エコノミーモード: 抜け漏れ疑い検出（再OCRスキップ）— ${validation.reasons.join(' / ')}`);
       } else {
         setProgress('ocr-v', 'done', validation.text);
       }
@@ -3581,7 +3658,9 @@ async function startChecking() {
     : [];
   const chunks = buildPageChunks(src, tgt, getChunkSize(), verificationImages);
   const activeP1AIs = [gptKey, claudeKey, geminiKey].filter(Boolean).length;
-  const totalSteps = 1 + (activeP1AIs * chunks.length) + chunks.length + chunks.length + 1;
+  const totalSteps = isEcoMode()
+    ? 1 + (activeP1AIs * chunks.length) + 1
+    : 1 + (activeP1AIs * chunks.length) + chunks.length + chunks.length + 1;
   initOverallProgress(totalSteps);
 
   // ── Phase 0: Preparation ──
@@ -3677,64 +3756,72 @@ async function startChecking() {
   let p2Findings = 0;
   const btChunks = [];
   const btAIs = [];
-  try {
-    setProgress('p2a', 'running', `逆翻訳を生成中...（1/${chunks.length}）`);
-    setLoading('p2-bt');
-    for (let i = 0; i < chunks.length; i++) {
-      const c = chunks[i];
-      setProgress('p2a', 'running', `逆翻訳を生成中...（${i + 1}/${chunks.length}）`);
-      const btRes = await callBest(sysBackTranslate(), promptBackTranslate(c.tgt), { maxTokens: 16384, mini: true, phase: 'p2' });
-      btChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${btRes.result}`);
-      btAIs.push(btRes.ai);
-      stepOverallProgress();
-    }
-    S.p2bt = btChunks.join('\n\n---\n\n');
-    const primaryAI = btAIs[0] || 'gpt';
-    setProgress('p2a', 'done', '完了 (' + { gpt:'GPT', claude:'Claude', gemini:'Gemini' }[primaryAI] + '中心)');
-    setRawContent('p2-bt', S.p2bt);
-  } catch (err) {
-    if (chunks.length > btChunks.length) stepOverallProgress(chunks.length - btChunks.length);
-    setProgress('p2a', 'err', 'エラー: ' + err.message);
-    setContent('p2-bt', err.message, true);
-  }
-
-  if (S.p2bt) {
-    const cmpChunks = [];
+  if (isEcoMode()) {
+    // エコノミーモード: 逆翻訳を完全スキップ
+    setProgress('p2a', 'skip', 'エコノミーモード: 逆翻訳生成スキップ');
+    setProgress('p2b', 'skip', 'エコノミーモード: 逆翻訳比較スキップ');
+    setContent('p2-bt',  'エコノミーモードのため逆翻訳はスキップされました。');
+    setContent('p2-cmp', 'エコノミーモードのため逆翻訳比較はスキップされました。');
+  } else {
     try {
-      setProgress('p2b', 'running', `セグメント対照比較中...（1/${chunks.length}）`);
-      setLoading('p2-cmp');
+      setProgress('p2a', 'running', `逆翻訳を生成中...（1/${chunks.length}）`);
+      setLoading('p2-bt');
       for (let i = 0; i < chunks.length; i++) {
         const c = chunks[i];
-        setProgress('p2b', 'running', `セグメント対照比較中...（${i + 1}/${chunks.length}）`);
-        const btBody = btChunks[i]?.replace(/^##[^\n]+\n/, '') || '';
-        const cmpRes = await callBest(sysBackCompare(), promptBackCompare(c.src, btBody, nouns),
-          { exclude: btAIs[i] ? [btAIs[i]] : [], maxTokens: 8192, mini: true, phase: 'p2', images: c.images });
-        p2Findings += countFindings(cmpRes.result);
-        cmpChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${cmpRes.result}`);
+        setProgress('p2a', 'running', `逆翻訳を生成中...（${i + 1}/${chunks.length}）`);
+        const btRes = await callBest(sysBackTranslate(), promptBackTranslate(c.tgt), { maxTokens: 16384, mini: true, phase: 'p2' });
+        btChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${btRes.result}`);
+        btAIs.push(btRes.ai);
         stepOverallProgress();
       }
-      S.p2cmp = cmpChunks.join('\n\n---\n\n');
-      setProgress('p2b', 'done', `完了（${p2Findings}件検出）`);
-      setContent('p2-cmp', S.p2cmp);
+      S.p2bt = btChunks.join('\n\n---\n\n');
+      const primaryAI = btAIs[0] || 'gpt';
+      setProgress('p2a', 'done', '完了 (' + { gpt:'GPT', claude:'Claude', gemini:'Gemini' }[primaryAI] + '中心)');
+      setRawContent('p2-bt', S.p2bt);
     } catch (err) {
-      if (chunks.length > cmpChunks.length) stepOverallProgress(chunks.length - cmpChunks.length);
-      setProgress('p2b', 'err', 'エラー: ' + err.message);
-      setContent('p2-cmp', err.message, true);
+      if (chunks.length > btChunks.length) stepOverallProgress(chunks.length - btChunks.length);
+      setProgress('p2a', 'err', 'エラー: ' + err.message);
+      setContent('p2-bt', err.message, true);
     }
-  } else {
-    stepOverallProgress(chunks.length);
-    setProgress('p2b', 'skip', '逆翻訳未生成のためスキップ');
+
+    if (S.p2bt) {
+      const cmpChunks = [];
+      try {
+        setProgress('p2b', 'running', `セグメント対照比較中...（1/${chunks.length}）`);
+        setLoading('p2-cmp');
+        for (let i = 0; i < chunks.length; i++) {
+          const c = chunks[i];
+          setProgress('p2b', 'running', `セグメント対照比較中...（${i + 1}/${chunks.length}）`);
+          const btBody = btChunks[i]?.replace(/^##[^\n]+\n/, '') || '';
+          const cmpRes = await callBest(sysBackCompare(), promptBackCompare(c.src, btBody, nouns),
+            { exclude: btAIs[i] ? [btAIs[i]] : [], maxTokens: 8192, mini: true, phase: 'p2', images: c.images });
+          p2Findings += countFindings(cmpRes.result);
+          cmpChunks.push(`## パート ${i + 1}/${chunks.length}（ページ ${c.start}-${c.end}）\n${cmpRes.result}`);
+          stepOverallProgress();
+        }
+        S.p2cmp = cmpChunks.join('\n\n---\n\n');
+        setProgress('p2b', 'done', `完了（${p2Findings}件検出）`);
+        setContent('p2-cmp', S.p2cmp);
+      } catch (err) {
+        if (chunks.length > cmpChunks.length) stepOverallProgress(chunks.length - cmpChunks.length);
+        setProgress('p2b', 'err', 'エラー: ' + err.message);
+        setContent('p2-cmp', err.message, true);
+      }
+    } else {
+      stepOverallProgress(chunks.length);
+      setProgress('p2b', 'skip', '逆翻訳未生成のためスキップ');
+    }
   }
   S.stats.p2 = p2Findings;
   updateSummary();
 
   // ── Phase 3: Final Synthesis with Anti-Hallucination ──
-  setProgress('p3', 'running', '反幻覚検証 + 統合中...');
+  setProgress('p3', 'running', isEcoMode() ? 'エコノミーモード: 統合中（ミニモデル）...' : '反幻覚検証 + 統合中...');
   setLoading('p3-result');
   try {
     const r3 = await callBest(sysFinalSynthesis(),
       promptFinalSynthesis(S.p0, S.p1, S.p2cmp, src, tgt, nouns, dir, S.ocrValidation),
-      { maxTokens: 16384, phase: 'p3', images: allSrcImages });
+      { maxTokens: 16384, phase: 'p3', mini: isEcoMode(), images: allSrcImages });
     S.p3 = r3.result;
     setProgress('p3', 'done', '完了');
     stepOverallProgress();
